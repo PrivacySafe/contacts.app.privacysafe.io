@@ -1,0 +1,9 @@
+node_modules
+.eslintrc.js
+.vscode
+app
+tmp/
+@types
+**/*.d.ts
+src/**/*.js
+src-deno/**/*.js

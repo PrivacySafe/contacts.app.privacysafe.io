@@ -1,0 +1,62 @@
+{
+  "name": "Contacts",
+  "appDomain": "contacts.app.privacysafe.io",
+  "version": "0.4.4",
+  "components": {
+    "/index.html": {
+      "startedBy": "user",
+      "runtime": "web-gui",
+      "capsRequested": {
+        "apps": "opener",
+        "logout": "all",
+        "log": "all",
+        "mailerid": true,
+        "shell": {
+          "fileDialog": "all"
+        },
+        "storage": {
+          "appFS": [
+            {
+              "domain": "contacts.app.privacysafe.io",
+              "storage": "synced-n-local"
+            }
+          ],
+          "userFS": "all",
+          "sysFS": "all"
+        },
+        "appRPC": {
+          "serviceComponents": ["AppContactsInternal"]
+        },
+        "otherAppsRPC": {
+          "callable": [{
+            "app": "launcher.app.privacysafe.io",
+            "component": "AppConfigs"
+          }]
+        },
+        "connectivity": "check"
+      },
+      "windowOpts": {
+        "width": 760,
+        "height": 720,
+        "minWidth": 760,
+        "minHeight": 680,
+        "maxWidth": 760
+      }
+    },
+    "/contactDenoServices.js": {
+      "startedBy": {
+        "thisAppComponents": "*",
+        "otherApps": "*"
+      },
+      "services": ["AppContacts", "AppContactsInternal"],
+      "runtime": "deno",
+      "capsRequested": {
+        "log": "all",
+        "mailerid": true,
+        "storage": {
+          "appFS": "default"
+        }
+      }
+    }
+  }
+}

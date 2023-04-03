@@ -1,0 +1,16 @@
+{
+  "apps": {
+    "contacts.app.privacysafe.io": {
+      "dir": ".",
+      "url": "http://localhost:3030"
+    },
+    "launcher.app.privacysafe.io": {
+      "dir": "../launcher.app.privacysafe.io"
+    }
+  },
+  "users": [
+    {},
+    {}
+  ],
+  "userCreds": "../../test-users/test-user-creds.json"
+}

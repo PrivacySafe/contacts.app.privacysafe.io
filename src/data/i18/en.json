@@ -1,0 +1,17 @@
+{
+  "app.title": "Contacts",
+  "app.status": "Status",
+  "app.status.connected.online": "online",
+  "app.status.connected.offline": "offline",
+  "app.exit": "Exit",
+  "app.btn.cancel": "Cancel",
+  "app.btn.save": "Save",
+  "app.btn.add": "Add New",
+  "confirmation.warning": "Warning",
+  "confirmation.delete.text": "You try to Delete {name} Contact.",
+  "contact.placeholder.text": "Select User to see Details",
+  "contact.content.mail": "3NMail",
+  "contact.content.name": "Name",
+  "contact.content.phone": "Phone",
+  "contact.content.notice": "Notice"
+}
