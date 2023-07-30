@@ -10,9 +10,7 @@ export const I18n: Plugin = {
     const { lang, messages } = options
     const allLanguages = Object.keys(messages) || []
 
-    app.config.globalProperties.$locale = lang
-
-    app.config.globalProperties.$tr = (key: string, placeholders?: Record<string, string>) => {
+    const $tr = (key: string, placeholders?: Record<string, string>) => {
       let message = messages[app.config.globalProperties.$locale][key]
       if (placeholders) {
         for (const item of Object.entries(placeholders)) {
@@ -26,12 +24,20 @@ export const I18n: Plugin = {
       return message
     }
 
-    app.config.globalProperties.$changeLocale = (lang: string) => {
+    const $changeLocale = (lang: string) => {
       if (!allLanguages.includes(lang)) {
         throw new Error(`The language ${lang} is undefined.`)
       }
       app.config.globalProperties.$locale = lang
     }
+
+    app.config.globalProperties.$locale = lang
+
+    app.config.globalProperties.$tr = $tr
+
+    app.config.globalProperties.$changeLocale = $changeLocale
+
+    app.provide('i18n', { $locale: lang, $tr, $changeLocale })
   },
 }
 

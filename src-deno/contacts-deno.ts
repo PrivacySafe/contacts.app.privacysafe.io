@@ -43,6 +43,7 @@ function objectFromQueryExecResult<T>(sqlResult: QueryExecResult): Array<T> {
 
 class ContactsService {
   private readonly sqlite: SQLiteOn3NStorage
+  private readonly observers = new Set<web3n.Observer<PersonView[]>>()
 
   constructor(
     sqlite: SQLiteOn3NStorage
@@ -97,6 +98,12 @@ class ContactsService {
       const countModifiedRow = this.sqlite.db.getRowsModified()
       if (countModifiedRow > 0) {
         await this.sqlite.saveToFile()
+        const contactList = this.getContactList()
+        for (const obs of this.observers) {
+          if (obs.next) {
+            obs.next(contactList)
+          }
+        }
       }
     } catch (e) {
       console.error('\nUpsert contact error: ', e)
@@ -124,8 +131,22 @@ class ContactsService {
     }))
   }
 
+  watchContactList(obs: web3n.Observer<PersonView[]>): () => void {
+    this.observers.add(obs)
+    return () => this.observers.delete(obs)
+  }
+
   deleteContact(id: string) {
     this.sqlite.db.exec(deleteContactByIdQuery, { $id: id })
+  }
+
+  completeAllWatchers(): void {
+    for (const obs of this.observers) {
+      if (obs.complete) {
+        obs.complete()
+      }
+    }
+    this.observers.clear()
   }
 }
 
@@ -135,9 +156,11 @@ ContactsService.initialization()
     const srvWrap = new MultiConnectionIPCWrap('AppContacts')
 
     srvWrapInternal.exposeReqReplyMethods(srv, ['upsertContact', 'getContact', 'getContactList', 'deleteContact' ])
+    srvWrapInternal.exposeObservableMethods(srv, ['watchContactList'])
     srvWrapInternal.startIPC()
 
-    srvWrap.exposeReqReplyMethods(srv, [ 'getContact', 'getContactList' ])
+    srvWrap.exposeReqReplyMethods(srv, [ 'getContact', 'getContactList', 'upsertContact' ])
+    srvWrap.exposeObservableMethods(srv, ['watchContactList'])
     srvWrap.startIPC()
   })
   .catch(err => {

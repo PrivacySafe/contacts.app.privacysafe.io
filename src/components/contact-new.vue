@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-  import { computed, ref } from 'vue'
+  import { computed, inject, ref } from 'vue'
   import { useRouter } from 'vue-router'
   import { useAppStore } from '@/store/app.store'
   import { useContactsStore } from '@/store/contacts.store'
@@ -8,6 +8,8 @@
   import { Icon } from '@iconify/vue'
   import ContactContent from "@/components/contact-content.vue";
 
+  const { $tr } = inject<I18nPlugin>('i18n')!
+ 
   const router = useRouter()
   const appStore = useAppStore()
   const contactsStore = useContactsStore()
@@ -37,8 +39,8 @@
     }
   })
 
-  const checkRequired = (mail?: string): boolean|string => !!mail || 'This field is required'
-  const checkEmail = (mail?: string): boolean|string => mailReg.test(mail!) || 'Not valid mail'
+  const checkRequired = (mail?: string): boolean|string => !!mail || $tr('validation.text.required')
+  const checkEmail = (mail?: string): boolean|string => mailReg.test(mail!) || $tr('validation.text.mail')
   const rules = { mail: [checkRequired, checkEmail] }
 
   const cancel = () => {

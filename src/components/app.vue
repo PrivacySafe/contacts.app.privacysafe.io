@@ -37,16 +37,23 @@
     await getConnectivityStatus()
     connectivityTimerId.value = setInterval(getConnectivityStatus, 60000)
 
-    const configSrvConnection = await w3n.otherAppsRPC!('launcher.app.privacysafe.io', 'AppConfigs')
+    const configSrvConnection = await w3n.rpc!.otherAppsRPC!('launcher.app.privacysafe.io', 'AppConfigs')
     const configSrv = makeServiceCaller<AppConfigs>(configSrvConnection, [], ['watchConfig']) as AppConfigs
     configSrv.watchConfig({
       next: ({ lang, currentTheme, colors }) => {
-        console.log('\nAPP SETTINGS: ', lang, currentTheme, colors)
         appStore.setLang(lang)
         appStore.setColorTheme({ theme: currentTheme, colors })
       },
       error: e => console.error(e),
       complete: () => configSrvConnection.close(),
+    })
+
+    const contactsSrvConnection = await w3n.rpc!.thisApp!('AppContactsInternal')
+    const contactsSrv = makeServiceCaller(contactsSrvConnection, [], ['watchContactList']) as AppContactsService
+    contactsSrv.watchContactList({
+      next: () => contactsStore.getContactList(),
+      error: e => console.error(e),
+      complete: () => contactsSrvConnection.close(),
     })
   })
 

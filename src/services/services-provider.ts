@@ -28,7 +28,7 @@ export let appContactsSrvProxy: AppContacts
 export async function initializationServices() {
 
   try {
-    const srvConn = await w3n.appRPC!('AppContactsInternal')
+    const srvConn = await w3n.rpc!.thisApp!('AppContactsInternal')
     appContactsSrvProxy = makeServiceCaller<AppContacts>(
       srvConn, [ 'upsertContact', 'getContact',  'getContactList', 'deleteContact' ]
     ) as AppContacts

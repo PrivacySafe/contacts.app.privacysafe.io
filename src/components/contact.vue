@@ -1,6 +1,6 @@
 <script lang="ts" setup>
   import { debounce, omit } from 'lodash'
-  import { computed, onBeforeMount, ref, watch } from 'vue'
+  import { computed, inject, onBeforeMount, ref, watch } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { Snackbar } from '@varlet/ui'
   import { mailReg, nonEditableContacts } from '@/constants/contacts'
@@ -10,6 +10,8 @@
   import { Icon } from '@iconify/vue'
   import ConfirmationDialog from './confirmation-dialog.vue'
   import ContactContent from './contact-content.vue'
+
+  const { $tr } = inject<I18nPlugin>('i18n')!
 
   const route = useRoute()
   const router = useRouter()
@@ -72,8 +74,8 @@
     },
   )
 
-  const checkRequired = (mail?: string): boolean|string => !!mail || 'This field is required'
-  const checkEmail = (mail?: string): boolean|string => mailReg.test(mail!) || 'Not valid mail'
+  const checkRequired = (mail?: string): boolean|string => !!mail || $tr('This field is required')
+  const checkEmail = (mail?: string): boolean|string => mailReg.test(mail!) || $tr('validation.text.mail')
   const rules = { mail: [checkRequired, checkEmail] }
 
   const cancel = () => router.push('/contacts')

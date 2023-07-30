@@ -11,11 +11,9 @@
   const searchText = ref<string>('')
 
   const addNewContact = () => {
-    console.log('\n--- addNewContact ---\n')
     router.push('/contacts/new')
   }
   const onInput = (text: string) => {
-    console.log('\nONINPUT: ', text)
     searchText.value = text
   }
 </script>

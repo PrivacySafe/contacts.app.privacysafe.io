@@ -20,9 +20,8 @@ export async function getAppConfig (): Promise<void> {
   const appStore = useAppStore()
   let configSrvConnection: web3n.rpc.client.RPCConnection
   try {
-    configSrvConnection = await w3n.otherAppsRPC!('launcher.app.privacysafe.io', 'AppConfigs')
+    configSrvConnection = await w3n.rpc!.otherAppsRPC!('launcher.app.privacysafe.io', 'AppConfigs')
     const configSrv = makeServiceCaller<AppConfigs>(configSrvConnection, ['getCurrentLanguage', 'getCurrentColorTheme']) as AppConfigs
-    console.log('\nconfigSrv: ', configSrv)
 
     const lang = await configSrv.getCurrentLanguage()
     const { currentTheme, colors } = await configSrv.getCurrentColorTheme()

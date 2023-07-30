@@ -281,7 +281,6 @@ export class DbCollection<T extends DbDocBase> implements DbFileCollection<T> {
   }
 
   async insert(docs: T[]): Promise<Record<string, T>> {
-    console.log('\n--- INSERT IN DB ---\n')
     const docsData = docs.map(doc =>
       !doc.id || doc.id === 'new'
         ? {
@@ -294,7 +293,6 @@ export class DbCollection<T extends DbDocBase> implements DbFileCollection<T> {
           createdAt: Date.now(),
         }
     )
-    console.log('\nDocsData: ', docsData)
 
     const { singleFile = false, indexes = [] } = this.options || {}
     if (singleFile) {

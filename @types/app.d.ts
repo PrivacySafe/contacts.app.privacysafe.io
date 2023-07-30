@@ -42,3 +42,12 @@ interface AppConfigs {
   getCurrentColorTheme: () => Promise<{currentTheme: AvailableColorThemes, colors: Record<string, string> }>;
   watchConfig(obs: web3n.Observer<NewConfig>): () => void;
 }
+
+
+interface AppContactsService {
+  getContactList(): Promise<PersonView[]>;
+  getContact(id: string): Promise<Person>;
+  upsertContact(contact: Person): Promise<void>;
+  deleteContact(id: string): Promise<void>;
+  watchContactList(obs: web3n.Observer<PersonView[]>): () => void;
+}
