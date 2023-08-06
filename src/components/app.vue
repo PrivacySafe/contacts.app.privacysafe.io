@@ -1,6 +1,7 @@
 <script lang="ts" setup>
   import { computed, onBeforeMount, onBeforeUnmount, ref } from 'vue'
   import { makeServiceCaller } from '@/libs/ipc-service-caller'
+  import { AppVersion } from '@/constants'
   import prLogo from '@/assets/images/privacysafe-logo.png'
   import { useAppStore } from '@/store/app.store'
   import { useContactsStore } from '@/store/contacts.store'
@@ -76,6 +77,9 @@
         </div>
         <div class="app__toolbar-app">
           {{ $tr('app.title') }}
+          <div class="app__toolbar-app-version">
+            v {{ AppVersion }}
+          </div>
         </div>
       </div>
 
@@ -174,9 +178,22 @@
       }
 
       &-app {
+        position: relative;
         font-size: var(--font-18);
         font-weight: 500;
         color: var(--black-90, #212121);
+
+        &-version {
+          position: absolute;
+          font-size: var(--font-11);
+          font-weight: 600;
+          color: var(--black-30);
+          line-height: var(--font-16);
+          left: 0;
+          width: 100%;
+          bottom: -10px;
+          text-align: center;
+        }
       }
 
       &-user {
