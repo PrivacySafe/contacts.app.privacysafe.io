@@ -3,6 +3,7 @@
   import { computed } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { useContactsStore } from '@/store/contacts.store'
+  import { Ui3nList } from '@v1nt1248/3nclient-lib'
   import ContactIcon from '@/components/contact-icon.vue'
 
   const route = useRoute()
@@ -28,11 +29,15 @@
     .reduce((res, item) => {
       const letter = item.displayName[0].toLowerCase() as string
       if (!res[letter])
-        res[letter] = []
+        res[letter] = {
+          id: letter,
+          title: letter,
+          contacts: []
+        }
 
-      res[letter].push(item)
+      res[letter].contacts.push(item)
       return res
-    }, {} as Record<string, Array<PersonView & { displayName: string }>>))
+    }, {} as Record<string, ContactGroup>))
 
   const selectContact = (id: string) => {
     router.push(`/contacts/${id}`)
@@ -40,66 +45,57 @@
 </script>
 
 <template>
-  <var-index-bar
-    class="contact-list"
-    duration="200"
-    hide-list
-    css-mode
+  <ui3n-list
+    :sticky="false"
+    :items="Object.values(contactListByLetters)"
   >
-    <div
-      v-for="(letter, index) in Object.keys(contactListByLetters)"
-      :key="letter"
-      class="contact-list__sublist"
-      :class="{'contact-list__sublist--last': index === Object.keys(contactListByLetters).length - 1}"
-    >
-      <var-index-anchor :index="letter">
-        {{ letter }}
-      </var-index-anchor>
-      <div
-        v-for="contact in contactListByLetters[letter]"
-        :key="contact.id"
-        :class="[
-          'contact-list__item',
-          { 'contact-list__item--selected': contact.id === selectedContactId }
-        ]"
-        @click="selectContact(contact.id)"
+    <template #item="{ item }">
+      <ui3n-list
+        :items="item.contacts"
       >
-        <contact-icon
-          :name="contact.displayName"
-          :size="32"
-          :readonly="true"
-        />
-        <span class="contact-list__item-name">
-          {{ contact.displayName }}
-        </span>
-      </div>
-    </div>
-  </var-index-bar>
+        <template #title>
+          <div class="contact-list__title">
+            {{ item.title.toUpperCase() }}
+          </div>
+        </template>
+        <template #item="{ item: contact }">
+          <div
+            :class="[
+              'contact-list__item',
+              { 'contact-list__item--selected': contact.id === selectedContactId },
+            ]"
+            @click="selectContact(contact.id)"
+          >
+            <contact-icon
+              :name="contact.displayName"
+              :size="32"
+              :readonly="true"
+            />
+            <span class="contact-list__item-name">
+              {{ contact.displayName }}
+            </span>
+          </div>
+        </template>
+      </ui3n-list>
+    </template>
+  </ui3n-list>
 </template>
 
 <style lang="scss" scoped>
   .contact-list {
-    &__sublist {
-      padding: calc(var(--base-size) / 2) 0;
-    }
-
-    :deep(.var-sticky) {
-      padding-left: 2px;
-      width: calc(var(--base-size) * 5);
+    &__title {
+      position: relative;
+      width: calc(var(--base-size) *4);
       text-align: center;
-      margin-bottom: calc(var(--base-size) / 2);
-    }
-
-    :deep(.var-index-anchor) {
-      font-size: 14px;
+      padding-left: calc(var(--base-size) * 1.5);
+      font-size: var(--font-16, 16px);
       font-weight: 600;
       color: var(--blue-main, #0090ec);
-      text-transform: uppercase;
-      line-height: 1;
     }
 
     &__item {
       position: relative;
+      width: 100%;
       height: calc(var(--base-size) * 5.5);
       display: flex;
       justify-content: space-between;

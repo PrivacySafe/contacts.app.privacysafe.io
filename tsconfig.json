@@ -17,7 +17,6 @@
     "lib": ["esnext", "dom"],
     "types": [
       "vite/client",
-      "@varlet/ui/types/global",
       "@types/lodash"
     ],
     "baseUrl": ".",

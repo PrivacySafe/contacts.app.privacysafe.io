@@ -1,18 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import path from 'path'
 import { defineConfig } from 'vite'
+import { resolve } from 'node:path'
 import vue from '@vitejs/plugin-vue'
-import components from 'unplugin-vue-components/vite'
-import { VarletUIResolver } from 'unplugin-vue-components/resolvers'
-
-function _resolve(dir) {
-  return path.resolve(__dirname, dir)
-}
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const isDev = mode === 'development'
-  const isProd = mode === 'production'
+  // const isProd = mode === 'production'
 
   const server = {
     port: '3030',
@@ -24,12 +18,7 @@ export default defineConfig(({ mode }) => {
     'process.env': {},
   }
 
-  const plugins = [
-    vue(),
-    components({
-      resolvers: [VarletUIResolver()],
-    }),
-  ]
+  const plugins = [vue()]
 
   let optimizeDeps = {}
   if (isDev) {
@@ -37,10 +26,7 @@ export default defineConfig(({ mode }) => {
       include: [
         'vue',
         'vue-router',
-        '@iconify/vue',
-        '@varlet/ui',
         'lodash',
-        'dayjs'
       ]
     }
   }
@@ -58,7 +44,7 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         'vue': 'vue/dist/vue.esm-bundler.js',
-        '@': _resolve('./src'),
+        '@': resolve(__dirname, './src'),
       }
     }
   }

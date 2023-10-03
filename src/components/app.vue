@@ -6,9 +6,9 @@
   import { useAppStore } from '@/store/app.store'
   import { useContactsStore } from '@/store/contacts.store'
   import { getAppConfig } from '@/helpers/forRpc'
+  import { Ui3nMenu } from '@v1nt1248/3nclient-lib'
   import ContactIcon from '@/components/contact-icon.vue'
 
-  const isMenuOpen = ref(false)
   const appStore = useAppStore()
   const contactsStore = useContactsStore()
   const user = computed<string>(() => appStore.user)
@@ -97,15 +97,12 @@
             </span>
           </span>
         </div>
-        <var-menu
-          v-model:show="isMenuOpen"
-          :offset-y="40"
+
+        <ui3n-menu
           :offset-x="-40"
+          :offset-y="4"
         >
-          <div
-            class="app__toolbar-icon"
-            @click="isMenuOpen = true"
-          >
+          <div class="app__toolbar-icon">
             <contact-icon
               :name="user"
               :size="36"
@@ -115,15 +112,15 @@
 
           <template #menu>
             <div class="app__toolbar-menu">
-              <var-cell
+              <div
                 class="app__toolbar-menu-item"
                 @click="appExit"
               >
                 {{ $tr('app.exit') }}
-              </var-cell>
+              </div>
             </div>
           </template>
-        </var-menu>
+        </ui3n-menu>
       </div>
     </div>
     <div class="app__content">
@@ -133,8 +130,6 @@
         </transition>
       </router-view>
     </div>
-
-    <div id="notification" />
   </div>
 </template>
 
@@ -240,7 +235,20 @@
         width: 80px;
 
         &-item {
+          display: flex;
+          justify-content: flex-start;
+          align-items: center;
+          position: relative;
+          width: 100%;
+          height: calc(var(--base-size) * 3);
           cursor: pointer;
+          font-size: var(--font-12);
+          font-weight: 400;
+          padding: 0 var(--base-size);
+
+          &:hover {
+            background-color: var(--gray-50, #f2f2f2);
+          }
         }
       }
     }
@@ -251,18 +259,6 @@
       right: 0;
       top: calc(var(--main-toolbar-height) + 1px);
       bottom: 0;
-    }
-
-    #notification {
-      position: fixed;
-      bottom: calc(var(--base-size) / 2);
-      left: calc(var(--base-size) * 2);
-      right: calc(var(--base-size) * 2);
-      z-index: 5000;
-      height: auto;
-      display: flex;
-      justify-content: center;
-      align-content: flex-end;
     }
   }
 </style>

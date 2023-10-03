@@ -1,7 +1,6 @@
 <script lang="ts" setup>
   import { computed } from 'vue'
-  import { Icon } from '@iconify/vue'
-  import { getElementColor } from '@/data/helpers/forUi'
+  import { getElementColor, Ui3nIcon } from '@v1nt1248/3nclient-lib'
 
   const props = defineProps<{
     size?: number;
@@ -59,9 +58,9 @@
       {{ letters }}
     </div>
 
-    <icon
+    <ui3n-icon
       v-if="props.selected"
-      icon="round-check"
+      icon="check"
       :width="innerSize / 2"
       :height="innerSize / 2"
     />

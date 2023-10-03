@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { keyBy } from 'lodash'
+import { getRandomId } from '@v1nt1248/3nclient-lib'
 import { appContactsSrvProxy } from '@/services/services-provider'
-import { randomStr } from '@/services/base/random'
 
 function handleError(e: unknown) {
   console.error(JSON.stringify(e))
@@ -22,13 +22,13 @@ export const useContactsStore = defineStore(
         const updatedData = contact.id === 'new'
           ? {
             ...contact,
-            id: randomStr(6),
+            id: getRandomId(6),
           }
           : contact
-        
+
         await appContactsSrvProxy.upsertContact(updatedData)
           .catch(e => handleError(e))
-        
+
         const contactList = await appContactsSrvProxy.getContactList()
           .catch(e => handleError(e))
         if (contactList) {

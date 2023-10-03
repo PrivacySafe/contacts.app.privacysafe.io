@@ -1,12 +1,10 @@
 <script lang="ts" setup>
   import { ref } from 'vue'
   import { useRouter } from 'vue-router'
-  import { useAppStore } from '@/store/app.store'
   import ContactsToolbar from './contacts-toolbar.vue'
   import ContactList from './contact-list.vue'
 
   const router = useRouter()
-  const appStore = useAppStore()
 
   const searchText = ref<string>('')
 
@@ -31,14 +29,6 @@
         />
       </div>
     </div>
-
-    <var-snackbar
-      v-model:show="appStore.snackbarOptions.show"
-      :type="appStore.snackbarOptions.type"
-      :content="appStore.snackbarOptions.content"
-      teleport="body"
-      :duration="1500"
-    />
 
     <div class="contacts__content">
       <router-view v-slot="{ Component }">

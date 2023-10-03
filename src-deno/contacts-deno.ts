@@ -51,16 +51,17 @@ class ContactsService {
     this.sqlite = sqlite
   }
 
-  static async initialization(): Promise<ContactsService> {
-    const fs = await w3n.storage!.getAppSyncedFS()
-    const file = await fs.writableFile('contacts-db')
+  static async initialization(): Promise<ContactsService|undefined> {
+    try {
+      const fs = await w3n.storage!.getAppSyncedFS()
+      const file = await fs.writableFile('contacts-db')
 
-    const sqlite = await SQLiteOn3NStorage.makeAndStart(file)
+      const sqlite = await SQLiteOn3NStorage.makeAndStart(file)
 
-    const tableList = sqlite.listTables()
+      const tableList = sqlite.listTables()
 
-    if (!tableList.includes('contacts')) {
-      sqlite.db.exec(`CREATE TABLE contacts (
+      if (!tableList.includes('contacts')) {
+        sqlite.db.exec(`CREATE TABLE contacts (
         id TEXT PRIMARY KEY UNIQUE,
         name TEXT,
         mail TEXT NOT NULL,
@@ -71,24 +72,27 @@ class ContactsService {
         activities TEXT
       ) STRICT`)
 
-      const contacts: Person[] = await getDefaultContacts()
-      const statement = sqlite.db.prepare(insertContactQuery)
+        const contacts: Person[] = await getDefaultContacts()
+        const statement = sqlite.db.prepare(insertContactQuery)
 
-      for (const contact of contacts) {
-        const params = personValueToSqlInsertParams(contact) as any
-        statement.run(params)
+        for (const contact of contacts) {
+          const params = personValueToSqlInsertParams(contact) as any
+          statement.run(params)
+        }
       }
-    }
 
-    sqlite.db.exec(`CREATE TABLE IF NOT EXISTS activities (
+      sqlite.db.exec(`CREATE TABLE IF NOT EXISTS activities (
       id TEXT PRIMARY KEY UNIQUE,
       type TEXT NOT NULL,
       description TEXT,
       timestamp INTEGER NOT NULL
     ) STRICT`)
 
-    await sqlite.saveToFile()
-    return new ContactsService(sqlite)
+      await sqlite.saveToFile()
+      return new ContactsService(sqlite)
+    } catch (e) {
+      w3n.log!('error','ContactDenoService initialization error.', e)
+    }
   }
 
   async upsertContact(value: Person): Promise<void> {
@@ -152,19 +156,21 @@ class ContactsService {
 
 ContactsService.initialization()
   .then(async srv => {
-    const srvWrapInternal = new MultiConnectionIPCWrap('AppContactsInternal')
-    const srvWrap = new MultiConnectionIPCWrap('AppContacts')
+    if (srv) {
+      const srvWrapInternal = new MultiConnectionIPCWrap('AppContactsInternal')
+      const srvWrap = new MultiConnectionIPCWrap('AppContacts')
 
-    srvWrapInternal.exposeReqReplyMethods(srv, ['upsertContact', 'getContact', 'getContactList', 'deleteContact' ])
-    srvWrapInternal.exposeObservableMethods(srv, ['watchContactList'])
-    srvWrapInternal.startIPC()
+      srvWrapInternal.exposeReqReplyMethods(srv, ['upsertContact', 'getContact', 'getContactList', 'deleteContact' ])
+      srvWrapInternal.exposeObservableMethods(srv, ['watchContactList'])
+      srvWrapInternal.startIPC()
 
-    srvWrap.exposeReqReplyMethods(srv, [ 'getContact', 'getContactList', 'upsertContact' ])
-    srvWrap.exposeObservableMethods(srv, ['watchContactList'])
-    srvWrap.startIPC()
+      srvWrap.exposeReqReplyMethods(srv, [ 'getContact', 'getContactList', 'upsertContact' ])
+      srvWrap.exposeObservableMethods(srv, ['watchContactList'])
+      srvWrap.startIPC()
+    }
   })
   .catch(err => {
-    console.error(`Error in a startup of contacts service component`, err)
+    w3n.log!('error',`Error in a startup of contacts service component`, err)
     setTimeout(() => w3n.closeSelf!(), 100)
   })
 

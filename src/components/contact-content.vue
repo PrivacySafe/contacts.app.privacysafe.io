@@ -1,7 +1,7 @@
 <script lang="ts" setup>
   import { computed, ref, watch } from 'vue'
   import { get, cloneDeep } from 'lodash'
-  import PField from './p-field.vue'
+  import { Ui3nInput, Ui3nText } from '@v1nt1248/3nclient-lib'
 
   const emit = defineEmits(['input', 'update:contact', 'update:valid'])
   const props = defineProps<{
@@ -58,44 +58,45 @@
       { 'contact-content__disabled': props.disabled },
     ]"
   >
-    <p-field
-      v-model:valid="isValid.mail"
+    <ui3n-input
+      :value="contact.mail"
       :autofocus="true"
-      :text="contact.mail"
       :label="`${$tr('contact.content.mail')}*`"
       :rules="getRules('mail')"
       :disabled="props.disabled"
       class="contact-content__field"
+      @update:valid="value => isValid.mail = value"
       @input="onInput($event, 'mail')"
     />
 
-    <p-field
-      v-model:valid="isValid.name"
-      :text="contact.name"
+    <ui3n-input
+      :value="contact.name!"
       :label="$tr('contact.content.name')"
       :rules="getRules('name')"
       :disabled="props.disabled"
       class="contact-content__field"
+      @update:valid="value => isValid.name = value"
       @input="onInput($event, 'name')"
     />
 
-    <p-field
-      v-model:valid="isValid.phone"
-      :text="contact.phone"
+    <ui3n-input
+      :value="contact.phone!"
       :label="$tr('contact.content.phone')"
       :rules="getRules('phone')"
       :disabled="props.disabled"
       class="contact-content__field"
+      @update:valid="value => isValid.phone = value"
       @input="onInput($event, 'phone')"
     />
 
-    <p-field
-      v-model:valid="isValid.notice"
-      :text="contact.notice"
-      type="textarea"
+    <ui3n-text
+      :text="contact.notice!"
       :label="$tr('contact.content.notice')"
+      :rows="6"
+      :max-rows="6"
       :rules="getRules('notice')"
       :disabled="props.disabled"
+      @update:valid="value => isValid.notice = value"
       @input="onInput($event, 'notice')"
     />
   </div>

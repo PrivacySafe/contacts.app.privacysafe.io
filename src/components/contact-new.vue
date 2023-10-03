@@ -1,17 +1,23 @@
 <script lang="ts" setup>
   import { computed, inject, ref } from 'vue'
   import { useRouter } from 'vue-router'
-  import { useAppStore } from '@/store/app.store'
+  import {
+    getElementColor,
+    mailReg,
+    I18N_KEY,
+    I18nPlugin,
+    NOTIFICATIONS_KEY,
+    NotificationsPlugin,
+    Ui3nButton,
+    Ui3nIcon,
+  } from '@v1nt1248/3nclient-lib'
   import { useContactsStore } from '@/store/contacts.store'
-  import { mailReg } from '@/constants/contacts'
-  import { getElementColor } from '@/data/helpers/forUi'
-  import { Icon } from '@iconify/vue'
-  import ContactContent from "@/components/contact-content.vue";
+  import ContactContent from '@/components/contact-content.vue'
 
-  const { $tr } = inject<I18nPlugin>('i18n')!
- 
+  const { $tr } = inject<I18nPlugin>(I18N_KEY)!
+  const notification = inject<NotificationsPlugin>(NOTIFICATIONS_KEY)!
+
   const router = useRouter()
-  const appStore = useAppStore()
   const contactsStore = useContactsStore()
 
   const data = ref<ContactContent>({
@@ -55,15 +61,17 @@
 
       contactsStore.upsertContact(savedData)
         .then(() => {
-          appStore.snackbarOptions.content = 'The contact was saved.'
-          appStore.snackbarOptions.type = 'success'
-          appStore.snackbarOptions.show = true
+          notification.$createNotice({
+            type: 'success',
+            content: $tr('contact.upsert.success.text'),
+          })
           cancel()
         })
         .catch(() => {
-          appStore.snackbarOptions.content = 'Save contact error. Contact Support.'
-          appStore.snackbarOptions.type = 'error'
-          appStore.snackbarOptions.show = true
+          notification.$createNotice({
+            type: 'error',
+            content: $tr('contact.upsert.error.text'),
+          })
         })
     }
   }
@@ -71,19 +79,15 @@
 
 <template>
   <div class="contact-new">
-    <var-button
-      text
+    <ui3n-button
       round
+      color="var(--system-white, #fff)"
+      icon="close"
+      icon-size="18"
+      icon-color="var(--gray-90, #444)"
       class="contact-new__cancel-btn"
       @click="cancel"
-    >
-      <icon
-        icon="baseline-close"
-        :width="18"
-        :height="18"
-        color="var(--grey-highest, rgba(0, 0, 0, 0.87))"
-      />
-    </var-button>
+    />
 
     <div class="contact-new__avatar">
       <div
@@ -97,9 +101,9 @@
           {{ contactLetters }}
         </span>
 
-        <icon
+        <ui3n-icon
           v-else
-          icon="round-person"
+          icon="person"
           :width="96"
           :height="96"
           color="var(--system-white, #fff)"
@@ -116,36 +120,37 @@
     </div>
 
     <div class="contact-new__actions">
-      <var-button
-        text
-        type="primary"
+      <ui3n-button
+        color="var(--system-white, #fff)"
+        text-color="var(--blue-main, #0090ec)"
         @click="cancel"
       >
         {{ $tr('app.btn.cancel') }}
-      </var-button>
+      </ui3n-button>
 
-      <var-button
-        type="primary"
+      <ui3n-button
         :disabled="!valid"
         @click="saveContact"
       >
         {{ $tr('app.btn.save') }}
-      </var-button>
+      </ui3n-button>
     </div>
   </div>
 </template>
 
 <style lang="scss" scoped>
   .contact-new {
+    --contact-padding: calc(var(--base-size) * 2);
+
     position: relative;
     width: 100%;
     height: 100%;
-    padding: calc(var(--base-size) * 2);
+    padding: var(--contact-padding) 0 var(--contact-padding) var(--contact-padding);
 
     &__cancel-btn {
       position: absolute;
-      top: var(--base-size);
-      right: var(--base-size);
+      top: var(--base-size, 8px);
+      right: var(--base-size, 8px);
       z-index: 1;
     }
 
@@ -161,6 +166,7 @@
       display: flex;
       justify-content: flex-end;
       align-items: center;
+      padding-right: var(--contact-padding);
 
       button {
         width: calc(var(--base-size) * 10);
@@ -172,6 +178,7 @@
       position: relative;
       width: 100%;
       height: calc(var(--base-size) * 16);
+      padding-right: var(--contact-padding);
       margin-bottom: calc(var(--base-size) * 2);
       display: flex;
       justify-content: center;
@@ -204,6 +211,7 @@
       width: 100%;
       height: calc(100% - var(--base-size) * 23);
       overflow-y: auto;
+      padding-right: var(--contact-padding);
     }
   }
 </style>

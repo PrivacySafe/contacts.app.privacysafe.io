@@ -1,21 +1,28 @@
 <script lang="ts" setup>
   import { debounce, omit } from 'lodash'
-  import { computed, inject, onBeforeMount, ref, watch } from 'vue'
+  import { computed, defineAsyncComponent, inject, onBeforeMount, ref, watch } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
-  import { Snackbar } from '@varlet/ui'
-  import { mailReg, nonEditableContacts } from '@/constants/contacts'
-  import { useAppStore } from '@/store/app.store'
+  import {
+    mailReg,
+    getElementColor,
+    I18N_KEY,
+    I18nPlugin,
+    NOTIFICATIONS_KEY,
+    NotificationsPlugin,
+    DIALOGS_KEY,
+    DialogsPlugin,
+    Ui3nButton,
+  } from '@v1nt1248/3nclient-lib'
+  import { nonEditableContacts } from '@/constants/contacts'
   import { useContactsStore } from '@/store/contacts.store'
-  import { getElementColor } from '@/data/helpers/forUi'
-  import { Icon } from '@iconify/vue'
-  import ConfirmationDialog from './confirmation-dialog.vue'
   import ContactContent from './contact-content.vue'
 
-  const { $tr } = inject<I18nPlugin>('i18n')!
+  const { $tr } = inject<I18nPlugin>(I18N_KEY)!
+  const notification = inject<NotificationsPlugin>(NOTIFICATIONS_KEY)!
+  const dialog = inject<DialogsPlugin>(DIALOGS_KEY)
 
   const route = useRoute()
   const router = useRouter()
-  const appStore = useAppStore()
   const contactsStore = useContactsStore()
 
   const contactId = computed<string>(() => route.params.id as string)
@@ -28,7 +35,6 @@
     backgroundColor: getElementColor(contactLetters.value)
   }))
 
-  const isDialogOpen = ref(false)
   const contentEl = ref<HTMLDivElement|null>(null)
   const data = ref<ContactContent>({
     name: '',
@@ -60,7 +66,6 @@
   }
 
   onBeforeMount(async () => {
-    Snackbar.allowMultiple(true)
     await prepareContactFields()
   })
 
@@ -80,22 +85,38 @@
 
   const cancel = () => router.push('/contacts')
 
-  const delContact = async () => {
-    isDialogOpen.value = false
-    contactsStore.deleteContact(contactId.value)
-      .then(() => {
-        appStore.snackbarOptions.content = 'The Contact was deleted.'
-        appStore.snackbarOptions.type = 'success'
-        appStore.snackbarOptions.show = true
-      })
-      .catch(() => {
-        appStore.snackbarOptions.content = 'Delete contact error. Contact Support.'
-        appStore.snackbarOptions.type = 'error'
-        appStore.snackbarOptions.show = true
-      })
-      .finally(() => {
-        cancel()
-      })
+  const deleteContact = async () => {
+    const confirmationDialogComponent = defineAsyncComponent(() => import('./confirmation-dialog.vue'))
+    dialog?.$openDialog({
+      component: confirmationDialogComponent,
+      componentProps: {
+        dialogText: $tr('confirmation.delete.text', { name: `<b>${contactDisplayName.value}</b>` })
+      },
+      dialogProps: {
+        title: $tr('contact.delete.title'),
+        confirmButtonText: $tr('contact.delete.confirmBtn.text'),
+        cancelButtonText: $tr('contact.delete.cancelBtn.text'),
+        onConfirm: () => {
+          contactsStore.deleteContact(contactId.value)
+            .then(() => {
+              notification.$createNotice({
+                type: 'success',
+                content: $tr('contact.delete.success.text'),
+              })
+            })
+            .catch(() => {
+              notification.$createNotice({
+                type: 'error',
+                content: $tr('contact.delete.error.text'),
+              })
+            })
+            .finally(() => {
+              cancel()
+            })
+        },
+        onCancel: () => cancel(),
+      },
+    })
   }
 
   const onInput = (value: ContactContent) => {
@@ -106,14 +127,16 @@
       }
       contactsStore.upsertContact(savedData)
         .then(() => {
-          appStore.snackbarOptions.content = 'The contact was saved.'
-          appStore.snackbarOptions.type = 'success'
-          appStore.snackbarOptions.show = true
+          notification.$createNotice({
+            type: 'success',
+            content: $tr('contact.upsert.success.text')
+          })
         })
         .catch(() => {
-          appStore.snackbarOptions.content = 'Save contact error. Contact Support.'
-          appStore.snackbarOptions.type = 'error'
-          appStore.snackbarOptions.show = true
+          notification.$createNotice({
+            type: 'error',
+            content: $tr('contact.upsert.error.text')
+          })
         })
     }
   }
@@ -123,20 +146,16 @@
 <template>
   <div class="contact">
     <div class="contact__header">
-      <var-button
+      <ui3n-button
         v-if="!nonEditableContacts.includes(contactId)"
-        text
         round
+        color="var(--system-white, #fff)"
+        icon="delete"
+        icon-size="18"
+        icon-color="var(--pear-100, #f75d53)"
         class="contact__header-btn"
-        @click="isDialogOpen = true"
-      >
-        <icon
-          icon="outline-delete"
-          :width="18"
-          :height="18"
-          color="var(--pear-100, #f75d53)"
-        />
-      </var-button>
+        @click="deleteContact"
+      />
       <div
         class="contact__avatar"
         :style="contactAvatarStyle"
@@ -144,28 +163,21 @@
         {{ contactLetters }}
       </div>
       <div class="contact__header-actions">
-        <var-button
+        <ui3n-button
+          color="var(--blue-main, #0090ec)"
+          icon="chat"
+          icon-size="16"
+          :disabled="true"
           class="contact__header-actions-btn--offset"
-          type="primary"
-          :disabled="true"
-        >
-          <icon
-            icon="outline-chat"
-            :width="16"
-            :height="16"
-          />
-        </var-button>
+        />
 
-        <var-button
-          type="primary"
+        <ui3n-button
+          color="var(--blue-main, #0090ec)"
+          icon="mail"
+          icon-size="16"
           :disabled="true"
-        >
-          <icon
-            icon="outline-mail"
-            :width="16"
-            :height="16"
-          />
-        </var-button>
+          class="contact__header-actions-btn--offset"
+        />
       </div>
     </div>
 
@@ -181,14 +193,6 @@
         @input="debouncedOnInput"
       />
     </div>
-
-    <confirmation-dialog
-      :show="isDialogOpen"
-      :text="`<span>${$tr('confirmation.delete.text', { name: `<b>${contactDisplayName}</b>` })}</span>`"
-      confirm-button-text="Delete"
-      @cancel="isDialogOpen = false"
-      @confirm="delContact"
-    />
   </div>
 </template>
 
@@ -197,41 +201,32 @@
     --contact-width: calc(var(--column-size) * 4);
     --contact-header-height: calc(var(--base-size) * 22);
     --contact-avatar-size: calc(var(--base-size) * 16);
-    --contact-content-padding: calc(var(--base-size) * 2);
+    --contact-padding: calc(var(--base-size) * 2);
 
     position: relative;
     width: var(--contact-size);
     height: 100%;
-    padding: calc(var(--base-size) * 2);
+    padding: var(--contact-padding) 0 var(--contact-padding) var(--contact-padding);
 
     &__header {
       position: relative;
       width: 100%;
       height: var(--contact-header-height);
+      padding-right: var(--contact-padding);
 
       &-btn {
         position: absolute;
         top: 0;
-        right: 0;
+        right: var(--base-size, 8px);
       }
 
       &-actions {
-        --button-normal-height: calc(var(--base-size) * 4);
-        --button-primary-color: var(--blue-main, #0090ec);
-
         display: flex;
         justify-content: center;
         align-items: center;
 
-        .var-button {
-          width: calc(var(--base-size) * 6);
-          margin: 0 calc(var(--base-size) / 2);
-        }
-
-        &-btn--offset {
-          :deep(.var-button__content) {
-            padding-top: 2px;
-          }
+        .ui3n-button {
+          margin: 0 var(--half-size, 4px);
         }
       }
     }
@@ -245,6 +240,7 @@
       display: flex;
       justify-content: center;
       align-items: center;
+      padding-right: var(--contact-padding);
       margin: 0 auto calc(var(--base-size) * 2) auto;
       color: var(--system-white, #fff);
       -webkit-font-smoothing: antialiased;
@@ -256,7 +252,8 @@
     &__content {
       position: relative;
       width: 100%;
-      height: calc(100% - var(--contact-header-height));
+      height: calc(100% - var(--contact-header-height) - var(--base-size, 8px));
+      padding-right: var(--contact-padding);
       overflow-x: hidden;
       overflow-y: auto;
       margin-top: var(--base-size);

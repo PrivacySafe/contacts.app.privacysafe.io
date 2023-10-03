@@ -20,3 +20,9 @@ interface Person extends PersonView {
 }
 
 type ContactContent = Omit<Person, 'id'|'avatar'|'avatarMini'|'activities'>
+
+interface ContactGroup {
+  id: string;
+  title: string;
+  contacts: Array<PersonView & { displayName: string }>;
+}

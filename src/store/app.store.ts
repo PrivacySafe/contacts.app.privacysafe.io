@@ -1,6 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { defineStore } from 'pinia'
-import { SnackbarType } from "@varlet/ui";
 
 export const useAppStore = defineStore(
   'app',
@@ -12,11 +10,6 @@ export const useAppStore = defineStore(
         lang: 'en',
         theme: 'default',
         colors: {} as Record<string, string>,
-        snackbarOptions: {
-          show: false,
-          type: 'info' as SnackbarType,
-          content: '',
-        },
       }
     },
 
@@ -42,12 +35,6 @@ export const useAppStore = defineStore(
             const [color, value] = item
             parentElement.style.setProperty(`--${color}`, value)
           }
-        }
-      },
-      setSnackbarOptions(value: Record<'show'|'type'|'content', any>) {
-        this.snackbarOptions = {
-          ...this.setSnackbarOptions,
-          ...value,
         }
       },
     },

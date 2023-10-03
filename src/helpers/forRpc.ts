@@ -3,7 +3,6 @@ import { makeServiceCaller } from '@/libs/ipc-service-caller'
 
 type PassedDatum = web3n.rpc.PassedDatum;
 
-
 export function jsonToDatum(json: any): PassedDatum {
   const utf8Encoder = new TextEncoder()
   const dataBytes = utf8Encoder.encode(JSON.stringify(json))
