@@ -1,8 +1,9 @@
 {
   "name": "Contacts",
   "appDomain": "contacts.app.privacysafe.io",
-  "version": "0.5.6",
+  "version": "0.5.7",
   "components": {
+
     "/index.html": {
       "startedBy": "user",
       "runtime": "web-gui",
@@ -43,8 +44,9 @@
         "maxWidth": 760
       }
     },
+
     "/contactDenoServices.js": {
-      "startedBy": {
+      "allowedCallers": {
         "thisAppComponents": "*",
         "otherApps": "*"
       },
@@ -58,5 +60,6 @@
         }
       }
     }
+
   }
 }
