@@ -16,6 +16,7 @@
   import { nonEditableContacts } from '@/constants/contacts'
   import { useContactsStore } from '@/store/contacts.store'
   import ContactContent from './contact-content.vue'
+  import { OpenChatCmdArg, chatApp } from '@/constants'
 
   const { $tr } = inject<I18nPlugin>(I18N_KEY)!
   const notification = inject<NotificationsPlugin>(NOTIFICATIONS_KEY)!
@@ -141,6 +142,19 @@
     }
   }
   const debouncedOnInput = debounce(onInput, 500)
+
+  const openChat = () => {
+    const peerAddress = data.value.mail;
+    w3n.shell!.startAppWithParams!(
+      chatApp.domain, chatApp.openCmd,
+      {
+        peerAddress
+      } as OpenChatCmdArg
+    )
+    .then(() => console.log())
+    .catch(err => console.error(err))
+  }
+
 </script>
 
 <template>
@@ -167,10 +181,11 @@
           color="var(--blue-main, #0090ec)"
           icon="chat"
           icon-size="16"
-          :disabled="true"
           class="contact__header-actions-btn--offset"
+          @click="openChat"
         />
 
+        <!--
         <ui3n-button
           color="var(--blue-main, #0090ec)"
           icon="mail"
@@ -178,6 +193,8 @@
           :disabled="true"
           class="contact__header-actions-btn--offset"
         />
+        -->
+
       </div>
     </div>
 

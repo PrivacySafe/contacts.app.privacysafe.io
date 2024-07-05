@@ -1,7 +1,7 @@
 {
   "name": "Contacts",
   "appDomain": "contacts.app.privacysafe.io",
-  "version": "0.5.7",
+  "version": "0.5.10",
   "components": {
 
     "/index.html": {
@@ -13,7 +13,12 @@
         "log": "all",
         "mailerid": true,
         "shell": {
-          "fileDialog": "all"
+          "fileDialog": "all",
+          "startAppCmds": {
+            "otherApps": {
+              "chat.app.privacysafe.io": [ "open-chat-with" ]
+            }
+          }
         },
         "storage": {
           "appFS": [
@@ -42,7 +47,8 @@
         "minWidth": 760,
         "minHeight": 680,
         "maxWidth": 760
-      }
+      },
+      "icon": "logo.png"
     },
 
     "/contactDenoServices.js": {
