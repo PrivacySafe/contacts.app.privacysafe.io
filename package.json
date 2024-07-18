@@ -5,7 +5,7 @@
   "scripts": {
     "clean:coverage": "rimraf coverage",
     "dev": "vite",
-    "build:deno": "deno bundle './src-deno/contacts-deno.ts' -- './app/contactDenoServices.js'",
+    "build:deno": "bash ci/bundle-deno-code.sh",
     "build": "vue-tsc --noEmit && vite build && npm run build:deno",
     "serve": "vite preview",
     "stylelint": "stylelint --config stylelint.config.js 'src/**/*.{vue,scss}'",
