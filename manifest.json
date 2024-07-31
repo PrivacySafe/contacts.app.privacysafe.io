@@ -1,7 +1,7 @@
 {
   "name": "Contacts",
   "appDomain": "contacts.app.privacysafe.io",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "components": {
 
     "/index.html": {
@@ -30,15 +30,13 @@
           "userFS": "all",
           "sysFS": "all"
         },
-        "appRPC": {
-          "serviceComponents": ["AppContactsInternal"]
-        },
-        "otherAppsRPC": {
-          "callable": [{
+        "appRPC": [ "AppContactsInternal" ],
+        "otherAppsRPC": [
+          {
             "app": "launcher.app.privacysafe.io",
-            "component": "AppConfigs"
-          }]
-        },
+            "service": "AppConfigs"
+          }
+        ],
         "connectivity": "check"
       },
       "windowOpts": {
