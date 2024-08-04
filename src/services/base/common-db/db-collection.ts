@@ -16,7 +16,7 @@
 */
 import { get as lGet, keyBy, isEmpty, union } from 'lodash'
 import { randomStr } from '../random'
-import { NamedProcs } from '../processes'
+import { NamedProcs } from '../../../libs/processes/named-procs'
 
 type IndexDataFieldValue = string|number|boolean|undefined|string[]
 

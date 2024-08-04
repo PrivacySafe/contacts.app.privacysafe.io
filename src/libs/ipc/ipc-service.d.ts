@@ -1,4 +1,4 @@
-/// <reference path="../../@types/platform-defs/w3n.d.ts" />
+/// <reference path="../@types/platform-defs/w3n.d.ts" />
 declare type IncomingConnection = web3n.rpc.service.IncomingConnection;
 declare type PassedDatum = web3n.rpc.PassedDatum;
 declare type Observer<T> = web3n.Observer<T>;

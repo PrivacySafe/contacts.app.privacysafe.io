@@ -1,5 +1,5 @@
 import { useAppStore } from '@/store/app.store'
-import { makeServiceCaller } from '@/libs/ipc-service-caller'
+import { makeServiceCaller } from '@/libs/ipc/ipc-service-caller'
 
 type PassedDatum = web3n.rpc.PassedDatum;
 

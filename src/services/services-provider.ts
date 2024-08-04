@@ -14,7 +14,8 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
-import { makeServiceCaller } from '@/libs/ipc-service-caller'
+
+import { makeServiceCaller } from '@/libs/ipc/ipc-service-caller'
 
 interface AppContacts {
   upsertContact(value: Person): Promise<void>;

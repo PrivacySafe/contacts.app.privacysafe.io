@@ -6168,7 +6168,10 @@ class IPCWrap {
     exposeReqReplyMethods(srv, methods, transforms) {
         for (const method of methods) {
             const func = srv[method];
-            this.addReqReplyMethod(func.name, srv, func, (transforms ? transforms[method] : undefined));
+            if (typeof func !== 'function') {
+              throw new Error(`Given service object has no method ${method}`);
+            }
+            this.addReqReplyMethod(method, srv, func, (transforms ? transforms[method] : undefined));
         }
     }
     addObservableMethod(method, srv, func, transforms) {
@@ -6179,7 +6182,10 @@ class IPCWrap {
     exposeObservableMethods(srv, methods, transforms) {
         for (const method of methods) {
             const func = srv[method];
-            this.addObservableMethod(func.name, srv, func, (transforms ? transforms[method] : undefined));
+            if (typeof func !== 'function') {
+              throw new Error(`Given service object has no method ${method}`);
+            }
+            this.addObservableMethod(method, srv, func, (transforms ? transforms[method] : undefined));
         }
     }
     async onMsg(connection, connectionState, msg) {

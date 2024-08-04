@@ -1,3 +1,20 @@
+<!-- 
+ Copyright (C) 2020 - 2024 3NSoft Inc.
+
+ This program is free software: you can redistribute it and/or modify it under
+ the terms of the GNU General Public License as published by the Free Software
+ Foundation, either version 3 of the License, or (at your option) any later
+ version.
+
+ This program is distributed in the hope that it will be useful, but
+ WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ See the GNU General Public License for more details.
+
+ You should have received a copy of the GNU General Public License along with
+ this program. If not, see <http://www.gnu.org/licenses/>.
+-->
+
 <script lang="ts" setup>
   import { debounce, omit } from 'lodash'
   import { computed, defineAsyncComponent, inject, onBeforeMount, ref, watch } from 'vue'
@@ -17,6 +34,8 @@
   import { useContactsStore } from '@/store/contacts.store'
   import ContactContent from './contact-content.vue'
   import { OpenChatCmdArg, chatApp } from '@/constants'
+  import { useAppStore } from '@/store/app.store'
+  import { areAddressesEqual } from '@/libs/address-utils'
 
   const { $tr } = inject<I18nPlugin>(I18N_KEY)!
   const notification = inject<NotificationsPlugin>(NOTIFICATIONS_KEY)!
@@ -45,7 +64,7 @@
   })
   const contactValid = ref(true)
 
-  const prepareContactFields = async () => {
+  async function prepareContactFields() {
     if (contactId.value === 'new') {
       data.value = {
         name: '',
@@ -80,13 +99,17 @@
     },
   )
 
-  const checkRequired = (mail?: string): boolean|string => !!mail || $tr('This field is required')
-  const checkEmail = (mail?: string): boolean|string => mailReg.test(mail!) || $tr('validation.text.mail')
+  function checkRequired(mail?: string): boolean|string {
+    return !!mail || $tr('This field is required')
+  }
+  function checkEmail(mail?: string): boolean|string {
+    return mailReg.test(mail!) || $tr('validation.text.mail')
+  }
   const rules = { mail: [checkRequired, checkEmail] }
 
   const cancel = () => router.push('/contacts')
 
-  const deleteContact = async () => {
+  async function deleteContact() {
     const confirmationDialogComponent = defineAsyncComponent(() => import('./confirmation-dialog.vue'))
     dialog?.$openDialog({
       component: confirmationDialogComponent,
@@ -120,7 +143,7 @@
     })
   }
 
-  const onInput = (value: ContactContent) => {
+  function onInput(value: ContactContent) {
     if (contactValid.value) {
       const savedData = {
         id: contactId.value,
@@ -143,7 +166,7 @@
   }
   const debouncedOnInput = debounce(onInput, 500)
 
-  const openChat = () => {
+  function openChat() {
     const peerAddress = data.value.mail;
     w3n.shell!.startAppWithParams!(
       chatApp.domain, chatApp.openCmd,
@@ -154,6 +177,11 @@
     .then(() => console.log())
     .catch(err => console.error(err))
   }
+
+  const appStore = useAppStore()
+  const isUserAddress = computed(() => (data.value.mail ?
+    areAddressesEqual(appStore.user, data.value.mail) : false
+  ))
 
 </script>
 
@@ -177,7 +205,7 @@
         {{ contactLetters }}
       </div>
       <div class="contact__header-actions">
-        <ui3n-button
+        <ui3n-button v-if="!isUserAddress"
           color="var(--blue-main, #0090ec)"
           icon="chat"
           icon-size="16"
