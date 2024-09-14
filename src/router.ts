@@ -1,8 +1,8 @@
-import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
-import Contacts from '@/components/contacts.vue'
-import ContactPlaceholder from '@/components/contact-placeholder.vue'
-import Contact from '@/components/contact.vue'
-import ContactNew from '@/components/contact-new.vue'
+import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
+import Contacts from '@/view/contacts.vue';
+import ContactPlaceholder from '@/view/contact-placeholder.vue';
+import Contact from '@/view/contact.vue';
+import ContactNew from '@/view/contact-new.vue';
 
 const routes: RouteRecordRaw[] = [
   { path: '/', redirect: '/contacts' },
@@ -27,12 +27,12 @@ const routes: RouteRecordRaw[] = [
         name: 'empty',
         path: '',
         component: ContactPlaceholder,
-      }
+      },
     ],
   },
-]
+];
 
 export const router = createRouter({
   history: createWebHistory(),
   routes,
-})
+});

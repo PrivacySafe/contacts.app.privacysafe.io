@@ -1,5 +1,5 @@
 /*
- Copyright (C) 2020 3NSoft Inc.
+ Copyright (C) 2020-2024 3NSoft Inc.
 
  This program is free software: you can redistribute it and/or modify it under
  the terms of the GNU General Public License as published by the Free Software
@@ -14,8 +14,8 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
-
-import { makeServiceCaller } from '@/libs/ipc/ipc-service-caller'
+import { makeServiceCaller } from '@/libs/ipc/ipc-service-caller';
+import type { Person } from '@/types';
 
 interface AppContacts {
   upsertContact(value: Person): Promise<void>;
@@ -24,18 +24,18 @@ interface AppContacts {
   deleteContact(id: string): Promise<void>;
 }
 
-export let appContactsSrvProxy: AppContacts
+export let appContactsSrvProxy: AppContacts;
 
 export async function initializationServices() {
 
   try {
-    const srvConn = await w3n.rpc!.thisApp!('AppContactsInternal')
+    const srvConn = await w3n.rpc!.thisApp!('AppContactsInternal');
     appContactsSrvProxy = makeServiceCaller<AppContacts>(
-      srvConn, [ 'upsertContact', 'getContact',  'getContactList', 'deleteContact' ]
-    ) as AppContacts
+      srvConn, ['upsertContact', 'getContact', 'getContactList', 'deleteContact'],
+    ) as AppContacts;
 
-    console.info('\n--- initializationServices DONE---\n')
+    console.info('\n--- initializationServices DONE---\n');
   } catch (e) {
-    console.error('\nERROR into initializationServices: ', e)
+    console.error('\nERROR into initializationServices: ', e);
   }
 }

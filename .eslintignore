@@ -1,0 +1,9 @@
+node_modules
+.eslint.config.mjs
+.vscode
+app
+tmp/
+@types
+**/*.d.ts
+src/**/*.js
+src-deno/**/*.js

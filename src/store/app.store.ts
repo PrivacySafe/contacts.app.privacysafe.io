@@ -1,42 +1,64 @@
-import { defineStore } from 'pinia'
+import { defineStore } from 'pinia';
+import { UISettings } from '@/services/ui-settings';
+import type { ConnectivityStatus, AvailableColorTheme, AvailableLanguage } from '@/types';
+
+export interface AppStoreState {
+  connectivityStatus: ConnectivityStatus;
+  user: string;
+  lang: AvailableLanguage;
+  colorTheme: AvailableColorTheme;
+}
 
 export const useAppStore = defineStore(
   'app',
   {
-    state: () => {
+    state: (): AppStoreState => {
       return {
         connectivityStatus: 'offline',
         user: '',
         lang: 'en',
-        theme: 'default',
-        colors: {} as Record<string, string>,
-      }
+        colorTheme: 'default',
+      };
     },
 
     actions: {
-      setConnectivityStatus(status: web3n.connectivity.OnlineAssesment) {
-        const parsedStatus = status.split('_')
-        this.connectivityStatus = parsedStatus[0]
+      async getConnectivityStatus() {
+        const status = await w3n.connectivity!.isOnline();
+        const parsedStatus = status.split('_');
+        this.connectivityStatus = parsedStatus[0] as ConnectivityStatus;
       },
-      setUser(user: string) {
-        this.user = user
-      },
-      setLang(lang: AvailableLanguages) {
-        this.lang = lang
-      },
-      setColorTheme({ theme, colors }: { theme: AvailableColorThemes, colors: Record<string, string> }) {
-        this.theme = theme
-        this.colors = colors
 
-        const parentElement = document.documentElement
-        if (parentElement) {
-          parentElement.setAttribute('data-theme', theme)
-          for (const item of Object.entries(colors)) {
-            const [color, value] = item
-            parentElement.style.setProperty(`--${color}`, value)
-          }
+      async getUser() {
+        this.user = await w3n.mailerid!.getUserId();
+      },
+
+      async getAppConfig() {
+        try {
+          const config = await UISettings.makeResourceReader();
+          const lang = await config.getCurrentLanguage();
+          const colorTheme = await config.getCurrentColorTheme();
+          this.setLang(lang);
+          this.setColorTheme(colorTheme);
+          return config;
+        } catch (e) {
+          console.error('Load the app config error: ', e);
         }
+      },
+
+      setLang(lang: AvailableLanguage) {
+        this.lang = lang;
+      },
+
+      setColorTheme(theme: AvailableColorTheme) {
+        this.colorTheme = theme;
+        const htmlEl = document.querySelector('html');
+        if (!htmlEl) return;
+
+        const prevColorThemeCssClass = theme === 'default' ? 'dark-theme' : 'default-theme';
+        const curColorThemeCssClass = theme === 'default' ? 'default-theme' : 'dark-theme';
+        htmlEl.classList.remove(prevColorThemeCssClass);
+        htmlEl.classList.add(curColorThemeCssClass);
       },
     },
   },
-)
+);

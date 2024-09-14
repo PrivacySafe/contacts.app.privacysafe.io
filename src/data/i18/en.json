@@ -8,7 +8,7 @@
   "app.btn.save": "Save",
   "app.btn.add": "Add New",
   "confirmation.warning": "Warning",
-  "confirmation.delete.text": "You try to Delete {name} Contact.",
+  "confirmation.delete.text": "You try to Delete {name} Contact. This operation will remove all Activities from the User.",
   "contact.delete.title": "Delete contact",
   "contact.delete.confirmBtn.text": "Delete",
   "contact.delete.cancelBtn.text": "Cancel",

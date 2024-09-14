@@ -1,11 +1,12 @@
-import { defineStore } from 'pinia'
-import { keyBy } from 'lodash'
-import { getRandomId } from '@v1nt1248/3nclient-lib'
-import { appContactsSrvProxy } from '@/services/services-provider'
+import { defineStore } from 'pinia';
+import { keyBy } from 'lodash';
+import { getRandomId } from '@v1nt1248/3nclient-lib/utils';
+import { appContactsSrvProxy } from '@/services/services-provider';
+import type { Person, PersonView } from '@/types';
 
 function handleError(e: unknown) {
-  console.error(JSON.stringify(e))
-  throw new Error(JSON.stringify(e))
+  console.error(JSON.stringify(e));
+  throw new Error(JSON.stringify(e));
 }
 
 export const useContactsStore = defineStore(
@@ -14,7 +15,7 @@ export const useContactsStore = defineStore(
     state: () => {
       return {
         contactList: {} as Record<string, PersonView>,
-      }
+      };
     },
 
     actions: {
@@ -24,36 +25,36 @@ export const useContactsStore = defineStore(
             ...contact,
             id: getRandomId(6),
           }
-          : contact
+          : contact;
 
         await appContactsSrvProxy.upsertContact(updatedData)
-          .catch(e => handleError(e))
+          .catch(e => handleError(e));
 
         const contactList = await appContactsSrvProxy.getContactList()
-          .catch(e => handleError(e))
+          .catch(e => handleError(e));
         if (contactList) {
-          this.contactList = keyBy(contactList, 'id')
+          this.contactList = keyBy(contactList, 'id');
         }
       },
 
       async getContact(contactId: string): Promise<Person> {
-        return appContactsSrvProxy.getContact(contactId)
+        return appContactsSrvProxy.getContact(contactId);
       },
 
       async getContactList(): Promise<void> {
         const contactList = await appContactsSrvProxy.getContactList()
-          .catch(e => handleError(e))
+          .catch(e => handleError(e));
         if (contactList) {
-          this.contactList = keyBy(contactList, 'id')
+          this.contactList = keyBy(contactList, 'id');
         }
       },
 
       async deleteContact(contactId: string): Promise<void> {
         if (contactId) {
-          await appContactsSrvProxy.deleteContact(contactId)
-          delete this.contactList[contactId]
+          await appContactsSrvProxy.deleteContact(contactId);
+          delete this.contactList[contactId];
         }
       },
     },
   },
-)
+);

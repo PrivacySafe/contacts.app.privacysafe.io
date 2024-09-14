@@ -14,6 +14,7 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 // export function logError(msg: string, err: any): Promise<void>;
 // export function logError(err: any): Promise<void>;
@@ -32,7 +33,9 @@ export async function logError(msgOrErr: any, err?: any): Promise<void> {
 }
 
 function jsonifyError(err: any): any {
-  if (!err) { return err; }
+  if (!err) {
+    return err;
+  }
   if ((err as Error).stack) {
     return {
       message: err.message,

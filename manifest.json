@@ -1,9 +1,8 @@
 {
   "name": "Contacts",
   "appDomain": "contacts.app.privacysafe.io",
-  "version": "0.6.2",
+  "version": "0.6.5",
   "components": {
-
     "/index.html": {
       "startedBy": "user",
       "runtime": "web-gui",
@@ -16,7 +15,14 @@
           "fileDialog": "all",
           "startAppCmds": {
             "otherApps": {
-              "chat.app.privacysafe.io": [ "open-chat-with" ]
+              "chat.app.privacysafe.io": [
+                "open-chat-with"
+              ]
+            }
+          },
+          "fsResource": {
+            "otherApps": {
+              "launcher.app.privacysafe.io": "ui-settings"
             }
           }
         },
@@ -30,12 +36,8 @@
           "userFS": "all",
           "sysFS": "all"
         },
-        "appRPC": [ "AppContactsInternal" ],
-        "otherAppsRPC": [
-          {
-            "app": "launcher.app.privacysafe.io",
-            "service": "AppConfigs"
-          }
+        "appRPC": [
+          "AppContactsInternal"
         ],
         "connectivity": "check"
       },
@@ -48,7 +50,6 @@
       },
       "icon": "logo.png"
     },
-
     "/contactDenoServices.js": {
       "services": {
         "AppContacts": {
@@ -68,6 +69,13 @@
         }
       }
     }
-
-  }
+  },
+  "launchOnSystemStartup": [
+    {
+      "name": "Contacts service",
+      "component": "/contactDenoServices.js",
+      "icon": "logo.png",
+      "description": "Warms up contacts app service"
+    }
+  ]
 }

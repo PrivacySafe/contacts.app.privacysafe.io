@@ -15,18 +15,20 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-import { bytesToUrlSafeBase64 } from "./base64";
+import { bytesToUrlSafeBase64 } from './base64';
 
 export function randomStr(numOfChars: number): string {
-	if (numOfChars < 1) { throw new Error(`number of chars is less than one`); }
-	const byteLen = 3*(Math.floor(numOfChars/4) + 1);
-	const bytes = new Uint8Array(byteLen);
-	crypto.getRandomValues(bytes);
-	return bytesToUrlSafeBase64(bytes).slice(0, numOfChars);
+  if (numOfChars < 1) {
+    throw new Error(`number of chars is less than one`);
+  }
+  const byteLen = 3 * (Math.floor(numOfChars / 4) + 1);
+  const bytes = new Uint8Array(byteLen);
+  crypto.getRandomValues(bytes);
+  return bytesToUrlSafeBase64(bytes).slice(0, numOfChars);
 }
 
 export function randomBytes(numOfBytes: number): Uint8Array {
-	const bytes = new Uint8Array(numOfBytes);
-	crypto.getRandomValues(bytes);
-	return bytes;
+  const bytes = new Uint8Array(numOfBytes);
+  crypto.getRandomValues(bytes);
+  return bytes;
 }

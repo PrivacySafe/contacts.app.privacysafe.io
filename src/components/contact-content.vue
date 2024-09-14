@@ -1,4 +1,4 @@
-<!-- 
+<!--
  Copyright (C) 2020 - 2024 3NSoft Inc.
 
  This program is free software: you can redistribute it and/or modify it under
@@ -14,95 +14,91 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
-
 <script lang="ts" setup>
-  import { computed, ref, watch } from 'vue'
-  import { get, cloneDeep } from 'lodash'
-  import { Ui3nInput, Ui3nText } from '@v1nt1248/3nclient-lib'
+import { computed, ref, watch } from 'vue';
+import { get, cloneDeep } from 'lodash';
+import type { ContactContent } from '@/types';
+import { Ui3nInput, Ui3nText } from '@v1nt1248/3nclient-lib';
 
-  const emit = defineEmits(['input', 'update:contact', 'update:valid'])
-  const props = defineProps<{
-    contact: ContactContent;
-    rules?: Record<string, ((value: string) => boolean|string)[]>;
-    valid: boolean;
-    disabled?: boolean;
-  }>()
-  const contact = ref<ContactContent>({
-    name: '',
-    mail: '',
-    phone: '',
-    notice: '',
-  })
-  const isValid = ref({
-    name: true,
-    mail: true,
-    phone: true,
-    notice: true,
-  })
-  const valid = computed(() => {
-    return Object.entries(isValid.value).every(([, isFieldValid]) => isFieldValid)
-  })
+const emit = defineEmits(['input', 'update:contact', 'update:valid']);
+const props = defineProps<{
+  contact: ContactContent;
+  rules?: Record<string, ((value: string) => boolean | string)[]>;
+  valid: boolean;
+  disabled?: boolean;
+}>();
 
-  const onInput = (ev: string, field: 'name'|'mail'|'phone'|'notice') => {
-    contact.value[field] = ev
-    emit('input', contact.value)
-    emit('update:contact', contact.value)
-  }
+const innerContactValue = ref<ContactContent>({
+  name: '',
+  mail: '',
+  phone: '',
+  notice: '',
+});
+const isValid = ref({
+  name: true,
+  mail: true,
+  phone: true,
+  notice: true,
+});
+const innerValidValue = computed(() => {
+  return Object.entries(isValid.value).every(([, isFieldValid]) => isFieldValid);
+});
 
-  watch(
-    () => props.contact,
-    (val: ContactContent) => {
-      contact.value = cloneDeep(val)
-    },
-    { deep: true, immediate: true },
-  )
+const onInput = (ev: string, field: 'name' | 'mail' | 'phone' | 'notice') => {
+  innerContactValue.value[field] = ev;
+  emit('input', innerContactValue.value);
+  emit('update:contact', innerContactValue.value);
+};
 
-  watch(
-    () => valid.value,
-    val => emit('update:valid', val),
-    { immediate: true },
-  )
+watch(
+  () => props.contact,
+  (val: ContactContent) => {
+    innerContactValue.value = cloneDeep(val);
+  },
+  { deep: true, immediate: true },
+);
 
-  const getRules = (field: string): ((value: string) => boolean|string)[] | [] => {
-    return get(props.rules, field, [])
-  }
+watch(
+  () => innerValidValue.value,
+  val => emit('update:valid', val),
+  { immediate: true },
+);
+
+const getRules = (field: string): ((value: string) => boolean | string)[] | [] => {
+  return get(props.rules, field, []);
+};
 </script>
 
 <template>
-  <div
-    :class="[
-      'contact-content',
-      { 'contact-content__disabled': props.disabled },
-    ]"
-  >
+  <div :class="$style.contactContent">
     <ui3n-input
-      :value="contact.mail"
+      :model-value="contact.mail"
       :autofocus="true"
       :label="`${$tr('contact.content.mail')}*`"
       :rules="getRules('mail')"
-      :disabled="props.disabled"
-      class="contact-content__field"
-      @update:valid="value => isValid.mail = value"
+      :disabled="disabled"
+      :class="$style.field"
+      @update:valid="(value: boolean) => isValid.mail = value"
       @input="onInput($event, 'mail')"
     />
 
     <ui3n-input
-      :value="contact.name!"
+      :model-value="contact.name!"
       :label="$tr('contact.content.name')"
       :rules="getRules('name')"
-      :disabled="props.disabled"
-      class="contact-content__field"
-      @update:valid="value => isValid.name = value"
+      :disabled="disabled"
+      :class="$style.field"
+      @update:valid="(value: boolean) => isValid.name = value"
       @input="onInput($event, 'name')"
     />
 
     <ui3n-input
-      :value="contact.phone!"
+      :model-value="contact.phone!"
       :label="$tr('contact.content.phone')"
       :rules="getRules('phone')"
-      :disabled="props.disabled"
-      class="contact-content__field"
-      @update:valid="value => isValid.phone = value"
+      :disabled="disabled"
+      :class="$style.field"
+      @update:valid="(value: boolean) => isValid.phone = value"
       @input="onInput($event, 'phone')"
     />
 
@@ -112,20 +108,20 @@
       :rows="6"
       :max-rows="6"
       :rules="getRules('notice')"
-      :disabled="props.disabled"
-      @update:valid="value => isValid.notice = value"
+      :disabled="disabled"
+      @update:valid="(value: boolean) => isValid.notice = value"
       @input="onInput($event, 'notice')"
     />
   </div>
 </template>
 
-<style lang="scss" scoped>
-  .contact-content {
-    position: relative;
-    width: 100%;
+<style lang="scss" module>
+.contactContent {
+  position: relative;
+  width: 100%;
+}
 
-    &__field {
-      margin-bottom: calc(var(--base-size) * 1.5);
-    }
-  }
+.field {
+  margin-bottom: calc(var(--spacing-s) * 1.5);
+}
 </style>
