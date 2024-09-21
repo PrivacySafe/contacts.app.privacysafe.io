@@ -1,6 +1,6 @@
 {
   "name": "contacts.app.privacysafe.io",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "private": true,
   "type": "module",
   "scripts": {
@@ -16,7 +16,7 @@
     "lint": "pnpm run linter && pnpm run stylelint"
   },
   "dependencies": {
-    "@v1nt1248/3nclient-lib": "0.1.19",
+    "@v1nt1248/3nclient-lib": "0.1.20",
     "lodash": "4.17.21",
     "pinia": "2.2.2",
     "vue": "3.5.4",
