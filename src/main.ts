@@ -3,13 +3,14 @@ import { createPinia } from 'pinia';
 import { router } from './router';
 import { i18n, I18nOptions, dialogs, notifications } from '@v1nt1248/3nclient-lib/plugins';
 import { initializationServices } from '@/services/services-provider';
-import App from '@/view/app.vue';
 
 import '@v1nt1248/3nclient-lib/style.css';
 import '@v1nt1248/3nclient-lib/variables.css';
 import '@/assets/styles/main.css';
 
 import en from './data/i18/en.json';
+
+import App from '@/view/app.vue';
 
 const mode = process.env.NODE_ENV;
 

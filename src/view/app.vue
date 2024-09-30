@@ -17,7 +17,7 @@
 <script lang="ts" setup>
 import { computed, onBeforeMount, onBeforeUnmount, ref } from 'vue';
 import { storeToRefs } from 'pinia';
-import { Ui3nMenu } from '@v1nt1248/3nclient-lib';
+import { Ui3nMenu, Ui3nRipple } from '@v1nt1248/3nclient-lib';
 import { makeServiceCaller } from '../../shared-libs/ipc/ipc-service-caller';
 import { AppVersion } from '@/constants';
 import prLogo from '@/assets/images/privacysafe-logo.svg';
@@ -26,6 +26,8 @@ import { useContactsStore } from '@/store/contacts.store';
 import { UISettings } from '@/services/ui-settings';
 import type { AppContactsService } from '@/types';
 import ContactIcon from '@/components/contact-icon.vue';
+
+const vUi3nRipple = Ui3nRipple;
 
 const appStore = useAppStore();
 const { user, connectivityStatus } = storeToRefs(appStore);
@@ -113,7 +115,10 @@ onBeforeUnmount(() => {
           position-strategy="fixed"
           :offset-y="4"
         >
-          <div :class="$style.icon">
+          <div
+            v-ui3n-ripple
+            :class="$style.icon"
+          >
             <contact-icon
               :name="user"
               :size="36"
@@ -244,6 +249,8 @@ onBeforeUnmount(() => {
 .icon {
   position: relative;
   cursor: pointer;
+  overflow: hidden;
+  border-radius: 50%;
 }
 
 .menu {
