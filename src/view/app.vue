@@ -19,7 +19,6 @@ import { computed, onBeforeMount, onBeforeUnmount, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { Ui3nMenu, Ui3nRipple } from '@v1nt1248/3nclient-lib';
 import { makeServiceCaller } from '../../shared-libs/ipc/ipc-service-caller';
-import { AppVersion } from '@/constants';
 import prLogo from '@/assets/images/privacysafe-logo.svg';
 import { useAppStore } from '@/store/app.store';
 import { useContactsStore } from '@/store/contacts.store';
@@ -36,9 +35,8 @@ const { getAppConfig, getUser, getConnectivityStatus, setLang, setColorTheme } =
 const contactsStore = useContactsStore();
 const { getContactList } = contactsStore;
 
-const connectivityStatusText = computed(() => connectivityStatus.value === 'online'
-  ? 'app.status.connected.online'
-  : 'app.status.connected.offline',
+const connectivityStatusText = computed(() =>
+  connectivityStatus.value === 'online' ? 'app.status.connected.online' : 'app.status.connected.offline',
 );
 const connectivityTimerId = ref<ReturnType<typeof setInterval> | undefined>();
 
@@ -46,13 +44,18 @@ async function appExit() {
   w3n.closeSelf!();
 }
 
+const appVersion = ref('');
+
 onBeforeMount(async () => {
   try {
-    await getUser();
-    await getAppConfig();
-    await getConnectivityStatus();
+    await Promise.all([
+      w3n.myVersion().then(v => { appVersion.value = v; }),
+      getUser(),
+      getAppConfig(),
+      getConnectivityStatus(),
 
-    await getContactList();
+      getContactList()
+    ]);
 
     connectivityTimerId.value = setInterval(getConnectivityStatus, 60000);
 
@@ -94,7 +97,7 @@ onBeforeUnmount(() => {
         <div :class="$style.delimiter">/</div>
         <div :class="$style.info">
           Contacts
-          <div :class="$style.version">v {{ AppVersion }}</div>
+          <div :class="$style.version">v {{ appVersion }}</div>
         </div>
       </div>
 
@@ -191,7 +194,6 @@ onBeforeUnmount(() => {
   margin-right: var(--spacing-m);
   padding-bottom: 2px;
 }
-
 
 .info {
   position: relative;

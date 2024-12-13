@@ -34,7 +34,15 @@ declare namespace web3n.caps {
 	 * to use it.
 	 */
 	interface W3N extends caps.common.W3N {
-		closeSelf?: () => void;
+		closeSelf: () => void;
+		platformVersion: () => Promise<string>;
+		myVersion: () => Promise<string>;
+
+		// idea for lifecycle methods
+		// lifecycle: {
+		//   addListener: (event, hook) => void;
+		// };
+
 		apps?: apps.Apps;
 		logout?: Logout;
 		shell?: shell.ShellCAPs;

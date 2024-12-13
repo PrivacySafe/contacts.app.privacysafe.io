@@ -2,7 +2,6 @@ import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import vueDevTools from 'vite-plugin-vue-devtools';
-import components from 'unplugin-vue-components/vite';
 
 function _resolve(dir: string) {
   return resolve(__dirname, dir);
@@ -20,7 +19,7 @@ export default defineConfig(config => {
   };
   const define = { 'process.env': {} };
 
-  const plugins = [vue(), vueDevTools(), components()];
+  const plugins = [vue(), vueDevTools()];
 
   let optimizeDeps = {};
   if (isDev) {
