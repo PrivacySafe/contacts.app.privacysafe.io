@@ -1,7 +1,7 @@
 {
   "name": "Contacts",
   "appDomain": "contacts.app.privacysafe.io",
-  "version": "0.6.10",
+  "version": "0.6.15",
   "description": "Contacts app stores your contacts' informaton.",
   "icon": "logo.png",
 
@@ -15,6 +15,7 @@
         "logout": "all",
         "log": "all",
         "mailerid": true,
+        "keyrings": "all",
         "shell": {
           "fileDialog": "all",
           "startAppCmds": {

@@ -91,7 +91,7 @@ class ContactsService {
       timestamp INTEGER NOT NULL
     ) STRICT`);
 
-      await sqlite.saveToFile();
+      await sqlite.saveToFile({ skipUpload: true });
       return new ContactsService(sqlite);
     } catch (e) {
       w3n.log!('error', 'ContactDenoService initialization error.', e);
@@ -104,7 +104,7 @@ class ContactsService {
       this.sqlite.db.exec(upsertContactQuery, params as any);
       const countModifiedRow = this.sqlite.db.getRowsModified();
       if (countModifiedRow > 0) {
-        await this.sqlite.saveToFile();
+        await this.sqlite.saveToFile({ skipUpload: true });
         const contactList = this.getContactList();
         for (const obs of this.observers) {
           if (obs.next) {

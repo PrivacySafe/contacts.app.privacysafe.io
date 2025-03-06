@@ -15,7 +15,7 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-/// <reference path="../../node_modules/core-3nweb-client-lib/build/api-defs/common-caps.d.ts" />
+/// <reference path="../core-defs/common-caps.d.ts" />
 
 declare namespace web3n.caps {
 
@@ -108,10 +108,7 @@ declare namespace web3n.caps {
 		 * startCmd object defines command that is invoked by this launcher.
 		 * Launcher can have either component, or startCmd, but not both.
 		 */
-		startCmd?: {
-			cmd: string;
-			params: any[];
-		}
+		startCmd?: shell.commands.CmdParams;
 		/**
 		 * description is a place to tell user what this app/launcher does.
 		 */
@@ -203,7 +200,7 @@ declare namespace web3n.caps {
 	}
 
 	interface CommonComponentSetting {
-		runtime: NonGUIRuntime | GUIRuntime;
+		runtime: Runtime;
 		capsRequested?: RequestedCAPs;
 		sharedLibs?: SharedLibInfo[];
 	}
@@ -225,6 +222,8 @@ declare namespace web3n.caps {
 
 	type NonGUIRuntime = 'wasm,mp1' | 'deno';
 
+	type Runtime = NonGUIRuntime | GUIRuntime;
+
 	interface AllowedCallers {
 		thisAppComponents?: '*' | string[];
 		otherApps?: '*' | string[];
@@ -238,12 +237,13 @@ declare namespace web3n.caps {
 	}
 
 	interface RequestedCAPs extends common.RequestedCAPs {
-		apps?: AppsCAPSetting;
 		logout?: LogoutCAPSetting;
 		appRPC?: string[];
 		otherAppsRPC?: { app: string; service: string; }[];
 		shell?: ShellCAPsSetting;
 		connectivity?: ConnectivityCAPSetting;
+		mediaDevices?: MediaDevicesCAPSetting;
+		webrtc?: WebRTCCAPSetting;
 	}
 
 	type AppsCAPSetting = 'all' | (keyof apps.Apps)[];
@@ -268,6 +268,16 @@ declare namespace web3n.caps {
 		thisApp?: string|string[];
 		otherApps?: { [ appDomain: string ]: string|string[]; };
 	}
+
+	interface MediaDevicesCAPSetting {
+		cameras?: 'all'|'select'|'use';
+		microphones?: 'all'|'select'|'use';
+		speakers?: 'all'|'select'|'use';
+		screens?: 'all'|'select'|'use';
+		windows?: 'all'|'select'|'use';
+	}
+
+	type WebRTCCAPSetting = 'all';
 
 	interface SiteManifest {
 		siteDomain: string;
