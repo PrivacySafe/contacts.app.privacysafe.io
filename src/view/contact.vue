@@ -89,12 +89,12 @@ async function prepareContactFields() {
   }
 }
 
-function checkRequired(mail?: string): boolean | string {
+function checkRequired(mail?: unknown): boolean | string {
   return !!mail || $tr('validation.text.required');
 }
 
-function checkEmail(mail?: string): boolean | string {
-  return mailReg.test(mail!) || $tr('validation.text.mail');
+function checkEmail(mail?: unknown): boolean | string {
+  return mailReg.test(mail! as string) || $tr('validation.text.mail');
 }
 
 const rules = { mail: [checkRequired, checkEmail] };

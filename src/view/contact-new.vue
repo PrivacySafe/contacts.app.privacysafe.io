@@ -60,8 +60,8 @@ const contactLettersStyle = computed(() => {
   };
 });
 
-const checkRequired = (mail?: string): boolean | string => !!mail || $tr('validation.text.required');
-const checkEmail = (mail?: string): boolean | string => mailReg.test(mail!) || $tr('validation.text.mail');
+const checkRequired = (mail?: unknown): boolean | string => !!mail || $tr('validation.text.required');
+const checkEmail = (mail?: unknown): boolean | string => mailReg.test(mail! as string) || $tr('validation.text.mail');
 const rules = { mail: [checkRequired, checkEmail] };
 
 const cancel = () => {

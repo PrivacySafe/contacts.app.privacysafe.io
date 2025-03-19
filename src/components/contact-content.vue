@@ -23,7 +23,7 @@ import { Ui3nInput, Ui3nText } from '@v1nt1248/3nclient-lib';
 const emit = defineEmits(['input', 'update:contact', 'update:valid']);
 const props = defineProps<{
   contact: ContactContent;
-  rules?: Record<string, ((value: string) => boolean | string)[]>;
+  rules?: Record<string, ((value: unknown) => boolean | string)[]>;
   valid: boolean;
   disabled?: boolean;
 }>();
@@ -64,7 +64,7 @@ watch(
   { immediate: true },
 );
 
-const getRules = (field: string): ((value: string) => boolean | string)[] | [] => {
+const getRules = (field: string): ((value: unknown) => string | boolean)[] | [] => {
   return get(props.rules, field, []);
 };
 </script>

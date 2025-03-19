@@ -1,6 +1,6 @@
 {
   "name": "contacts.app.privacysafe.io",
-  "version": "0.6.10",
+  "version": "0.6.11",
   "private": true,
   "type": "module",
   "scripts": {
@@ -16,11 +16,11 @@
     "lint": "pnpm run linter && pnpm run stylelint"
   },
   "dependencies": {
-    "@v1nt1248/3nclient-lib": "0.1.29",
+    "@v1nt1248/3nclient-lib": "0.1.77",
     "lodash": "4.17.21",
-    "pinia": "2.2.4",
-    "vue": "3.5.12",
-    "vue-router": "4.4.5"
+    "pinia": "2.3.1",
+    "vue": "3.5.13",
+    "vue-router": "4.5.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.1.0",
@@ -34,7 +34,7 @@
     "@typescript-eslint/eslint-plugin": "8.8.1",
     "@typescript-eslint/parser": "8.8.1",
     "@vitejs/plugin-vue": "5.1.4",
-    "@vue/devtools": "7.4.6",
+    "@vue/devtools": "7.7.2",
     "@vue/eslint-config-typescript": "13.0.0",
     "@vuedx/typescript-plugin-vue": "0.7.6",
     "eslint": "9.12.0",
