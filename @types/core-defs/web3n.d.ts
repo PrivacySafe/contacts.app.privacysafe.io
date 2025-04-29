@@ -33,6 +33,21 @@ declare namespace web3n {
 		message?: string;
 	}
 
+	interface HTTPErrorDetails extends web3n.RuntimeException {
+		url: string;
+		method: string;
+		message?: string;
+	}
+	
+	interface ConnectException extends HTTPErrorDetails {
+		type: 'http-connect';
+	}
+	
+	interface HTTPException extends HTTPErrorDetails {
+		type: 'http-request';
+		status: number;
+	}
+
 	interface EncryptionException {
 		failedCipherVerification?: true;
 		failedSignatureVerification?: true;

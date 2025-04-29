@@ -24,11 +24,14 @@
     "types": [
       "vite/client",
       "@types/node",
-      "@types/lodash"
+      "@types/lodash",
+      "@types/jasmine"
     ],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@main/*": ["src/*"],
+      "@shared/*": ["shared-libs/*"],
+      "@tests/*": ["tests-app/src/*"]
     },
     "plugins": [{
       "name": "@vuedx/typescript-plugin-vue"
@@ -37,7 +40,10 @@
   "include": [
     "vite.config.ts",
     "src/**/*",
-    "@types/**/*"
+    "shared-libs/**/*",
+    "src-deno/**/*",
+    "@types/**/*",
+    "tests-app/src/**/*"
   ],
   "exclude": [
     "node_modules",

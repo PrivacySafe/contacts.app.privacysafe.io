@@ -1,4 +1,4 @@
-import type { DbCollection } from '@/services/base/common-db/db-collection.ts';
+import type { DbCollection } from '@main/services/base/common-db/db-collection.ts';
 
 export type WritableFS = web3n.files.WritableFS;
 

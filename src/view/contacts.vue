@@ -17,8 +17,8 @@
 <script lang="ts" setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import ContactsToolbar from '@/components/contacts-toolbar.vue';
-import ContactList from '@/components/contact-list.vue';
+import ContactsToolbar from '@main/components/contacts-toolbar.vue';
+import ContactList from '@main/components/contact-list.vue';
 
 const router = useRouter();
 

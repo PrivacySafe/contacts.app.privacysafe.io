@@ -15,8 +15,7 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 import { get as lGet, keyBy, isEmpty, union } from 'lodash';
-import { randomStr } from '../random';
-import { NamedProcs } from '../../../libs/processes/named-procs';
+import { NamedProcs } from '@shared/processes/named-procs';
 import type {
   DataToProcessing,
   DbFileCollection,
@@ -244,7 +243,7 @@ export class DbCollection<T extends DbDocBase> implements DbFileCollection<T> {
         docDataFilePath,
         () => this.fs!.readJSONFile<Record<string, T>>(docDataFilePath),
       ).catch((err: web3n.files.FileException) => {
-        console.error(JSON.stringify(err));
+        console.error(err);
         return null;
       });
       if (!singleFileData || (singleFileData && !id)) {
@@ -258,7 +257,7 @@ export class DbCollection<T extends DbDocBase> implements DbFileCollection<T> {
       docDataFilePath,
       () => this.fs!.readJSONFile<T>(docDataFilePath),
     ).catch((err: web3n.files.FileException) => {
-      console.error(JSON.stringify(err));
+      console.error(err);
       return null;
     });
   }
@@ -268,7 +267,6 @@ export class DbCollection<T extends DbDocBase> implements DbFileCollection<T> {
       !doc.id || doc.id === 'new'
         ? {
           ...doc,
-          id: randomStr(6),
           createdAt: Date.now(),
         }
         : {
@@ -285,7 +283,7 @@ export class DbCollection<T extends DbDocBase> implements DbFileCollection<T> {
           if (err.notFound && err.path === 'data.json') {
             return {};
           }
-          console.error(JSON.stringify(err));
+          console.error(err);
           return null;
         });
       const data = currentData || {};
@@ -314,7 +312,7 @@ export class DbCollection<T extends DbDocBase> implements DbFileCollection<T> {
     try {
       await Promise.all(actionPromises);
     } catch (e) {
-      console.error(JSON.stringify(e));
+      console.error(e);
     }
 
     if (!isEmpty(indexes)) {

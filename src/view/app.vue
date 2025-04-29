@@ -1,5 +1,5 @@
 <!--
- Copyright (C) 2020 - 2024 3NSoft Inc.
+ Copyright (C) 2020 - 2025 3NSoft Inc.
 
  This program is free software: you can redistribute it and/or modify it under
  the terms of the GNU General Public License as published by the Free Software
@@ -15,78 +15,32 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
 <script lang="ts" setup>
-import { computed, onBeforeMount, onBeforeUnmount, ref } from 'vue';
-import { storeToRefs } from 'pinia';
-import { Ui3nMenu, Ui3nRipple } from '@v1nt1248/3nclient-lib';
-import { makeServiceCaller } from '../../shared-libs/ipc/ipc-service-caller';
-import prLogo from '@/assets/images/privacysafe-logo.svg';
-import { useAppStore } from '@/store/app.store';
-import { useContactsStore } from '@/store/contacts.store';
-import { UISettings } from '@/services/ui-settings';
-import type { AppContactsService } from '@/types';
-import ContactIcon from '@/components/contact-icon.vue';
+import { onBeforeMount, onBeforeUnmount } from 'vue';
+import { Ui3nMenu, Ui3nRipple as vUi3nRipple } from '@v1nt1248/3nclient-lib';
+import prLogo from '@main/assets/images/privacysafe-logo.svg';
+import ContactIcon from '@main/components/contact-icon.vue';
+import { useAppView } from './useAppView';
 
-const vUi3nRipple = Ui3nRipple;
+const {
+  appExit,
+  appElement,
+  appVersion,
+  connectivityStatusText,
+  doBeforeMount,
+  doBeforeUnmount,
+  user
+} = useAppView();
 
-const appStore = useAppStore();
-const { user, connectivityStatus } = storeToRefs(appStore);
-const { getAppConfig, getUser, getConnectivityStatus, setLang, setColorTheme } = appStore;
+onBeforeMount(doBeforeMount);
+onBeforeUnmount(doBeforeUnmount);
 
-const contactsStore = useContactsStore();
-const { getContactList } = contactsStore;
-
-const connectivityStatusText = computed(() =>
-  connectivityStatus.value === 'online' ? 'app.status.connected.online' : 'app.status.connected.offline',
-);
-const connectivityTimerId = ref<ReturnType<typeof setInterval> | undefined>();
-
-async function appExit() {
-  w3n.closeSelf!();
-}
-
-const appVersion = ref('');
-
-onBeforeMount(async () => {
-  try {
-    await Promise.all([
-      w3n.myVersion().then(v => { appVersion.value = v; }),
-      getUser(),
-      getAppConfig(),
-      getConnectivityStatus(),
-
-      getContactList()
-    ]);
-
-    connectivityTimerId.value = setInterval(getConnectivityStatus, 60000);
-
-    const config = await UISettings.makeResourceReader();
-    config.watchConfig({
-      next: appConfig => {
-        const { lang, colorTheme } = appConfig;
-        setLang(lang);
-        setColorTheme(colorTheme);
-      },
-    });
-
-    const contactsSrvConnection = await w3n.rpc!.thisApp!('AppContactsInternal');
-    const contactsSrv = makeServiceCaller(contactsSrvConnection, [], ['watchContactList']) as AppContactsService;
-    contactsSrv.watchContactList({
-      next: () => contactsStore.getContactList(),
-      error: e => console.error(e),
-      complete: () => contactsSrvConnection.close(),
-    });
-  } catch (e) {
-    console.error('MOUNTED ERROR: ', e);
-  }
-});
-
-onBeforeUnmount(() => {
-  connectivityTimerId.value && clearInterval(connectivityTimerId.value);
-});
 </script>
 
 <template>
-  <div :class="$style.app">
+  <div
+    ref="appElement"
+    :class="$style.app"
+  >
     <div :class="$style.toolbar">
       <div :class="$style.toolbarTitle">
         <img

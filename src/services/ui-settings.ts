@@ -1,4 +1,4 @@
-import type { AppConfig, AvailableLanguage, AvailableColorTheme } from '@/types';
+import type { AppConfig, AvailableLanguage, AvailableColorTheme } from '@main/types';
 
 export interface AppConfigsInternal {
   getSettingsFile: () => Promise<AppSettings>;

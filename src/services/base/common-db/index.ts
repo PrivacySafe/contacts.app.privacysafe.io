@@ -15,7 +15,7 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 import { isEmpty } from 'lodash';
-import { NamedProcs } from '../../../libs/processes/named-procs';
+import { NamedProcs } from '@shared/processes/named-procs';
 import { DbCollection } from './db-collection';
 import type { DbDocBase, DbCollectionOptions, DbCommon, WritableFS } from './types';
 

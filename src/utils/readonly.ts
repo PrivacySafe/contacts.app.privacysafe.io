@@ -15,15 +15,12 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-import '@v1nt1248/3nclient-lib/style.css';
-import '@v1nt1248/3nclient-lib/variables.css';
-import '@main/assets/styles/main.css';
+import { readonly } from "vue";
 
-import { initializeServices } from '@main/services/services-provider';
-import { setupMainApp } from './app-setup';
-
-initializeServices()
-.then(async () => {
-  const { app, router } = setupMainApp();
-  app.mount('#main');
-});
+export function toRO<T extends object>(r: T): T {
+  if ((window as any).isTestApp) {
+    return readonly(r) as T;
+  } else {
+    return r;
+  }
+}

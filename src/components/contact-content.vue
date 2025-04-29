@@ -16,8 +16,8 @@
 -->
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue';
-import { get, cloneDeep } from 'lodash';
-import type { ContactContent } from '@/types';
+import { cloneDeep } from 'lodash';
+import type { ContactContent } from '@main/types';
 import { Ui3nInput, Ui3nText } from '@v1nt1248/3nclient-lib';
 
 const emit = defineEmits(['input', 'update:contact', 'update:valid']);
@@ -55,17 +55,31 @@ watch(
   (val: ContactContent) => {
     innerContactValue.value = cloneDeep(val);
   },
-  { deep: true, immediate: true },
+  { deep: true, immediate: true }
 );
 
 watch(
   () => innerValidValue.value,
   val => emit('update:valid', val),
-  { immediate: true },
+  { immediate: true }
 );
 
-const getRules = (field: string): ((value: unknown) => string | boolean)[] | [] => {
-  return get(props.rules, field, []);
+function getRules(field: string): ((value: unknown) => string|boolean)[] {
+  // XXX ui3n-input runs all checks and shows all error messages,
+  //     but it should stop on the first failed check
+  const rules = props.rules?.[field];
+  return (rules ?
+    [ v => {
+      for (const check of rules) {
+        const result = check(v);
+        if ((result === false) || (typeof result === 'string')) {
+          return result;
+        }
+      }
+      return true;
+    } ] :
+    []
+  )
 };
 </script>
 
@@ -104,7 +118,7 @@ const getRules = (field: string): ((value: unknown) => string | boolean)[] | [] 
 
     <ui3n-text
       :text="contact.notice!"
-      :label="$tr('contact.content.notice')"
+      :label="$tr('contact.content.note')"
       :rows="6"
       :max-rows="6"
       :rules="getRules('notice')"

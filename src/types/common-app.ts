@@ -1,5 +1,5 @@
 /*
- Copyright (C) 2025 3NSoft Inc.
+ Copyright (C) 2020-2025 3NSoft Inc.
 
  This program is free software: you can redistribute it and/or modify it under
  the terms of the GNU General Public License as published by the Free Software
@@ -15,15 +15,13 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-import '@v1nt1248/3nclient-lib/style.css';
-import '@v1nt1248/3nclient-lib/variables.css';
-import '@main/assets/styles/main.css';
+export type AvailableLanguage = 'en';
 
-import { initializeServices } from '@main/services/services-provider';
-import { setupMainApp } from './app-setup';
+export type AvailableColorTheme = 'default' | 'dark';
 
-initializeServices()
-.then(async () => {
-  const { app, router } = setupMainApp();
-  app.mount('#main');
-});
+export type AppConfig = {
+  lang: AvailableLanguage;
+  colorTheme: AvailableColorTheme;
+};
+
+export type ConnectivityStatus = 'offline' | 'online';

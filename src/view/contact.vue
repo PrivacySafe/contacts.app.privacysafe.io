@@ -28,12 +28,12 @@ import {
   DialogsPlugin,
 } from '@v1nt1248/3nclient-lib/plugins';
 import { mailReg, getElementColor } from '@v1nt1248/3nclient-lib/utils';
-import { useContactsStore } from '@/store/contacts.store';
-import { useAppStore } from '@/store/app.store';
+import { useContactsStore } from '@main/store/contacts.store';
+import { useAppStore } from '@main/store/app.store';
 import { areAddressesEqual } from '../../shared-libs/address-utils';
-import { chatApp, nonEditableContacts } from '@/constants';
-import type { ContactContent, OpenChatCmdArg } from '@/types';
-import ContactBody from '@/components/contact-content.vue';
+import { chatApp } from '@main/constants';
+import type { ContactContent, OpenChatCmdArg } from '@main/types';
+import ContactBody from '@main/components/contact-content.vue';
 
 const { $tr } = inject<I18nPlugin>(I18N_KEY)!;
 const notification = inject<NotificationsPlugin>(NOTIFICATIONS_KEY)!;
@@ -41,19 +41,24 @@ const dialog = inject<DialogsPlugin>(DIALOGS_KEY);
 
 const route = useRoute();
 const router = useRouter();
-const contactsStore = useContactsStore();
-const { getContact } = contactsStore;
+const { getContact, deleteContact, upsertContact } = useContactsStore();
 
 const appStore = useAppStore();
 const isUserAddress = computed(() => (data.value.mail ?
-    areAddressesEqual(appStore.user, data.value.mail) : false
+  areAddressesEqual(appStore.user, data.value.mail) : false
 ));
 
 const contactId = computed<string>(() => route.params.id as string);
-const contactDisplayName = computed<string>(() => data.value.name || data.value.mail || ' ');
-const contactLetters = computed<string>(() => (contactDisplayName.value.length > 1
-    ? `${contactDisplayName.value[0].toLocaleUpperCase()}${contactDisplayName.value[1].toLocaleLowerCase()}`
-    : contactDisplayName.value[0].toLocaleUpperCase()
+const canDeleteContact = computed(() => !areAddressesEqual(
+  contactId.value, appStore.user
+));
+const contactDisplayName = computed<string>(() =>
+  data.value.name || data.value.mail || ' '
+);
+const contactLetters = computed<string>(() => (
+  contactDisplayName.value.length > 1 ?
+  `${contactDisplayName.value[0].toLocaleUpperCase()}${contactDisplayName.value[1].toLocaleLowerCase()}` :
+  contactDisplayName.value[0].toLocaleUpperCase()
 ));
 const contactAvatarStyle = computed<Record<string, string>>(() => ({
   backgroundColor: getElementColor(contactLetters.value),
@@ -103,74 +108,71 @@ function cancel() {
   router.push('/contacts');
 }
 
-async function deleteContact() {
-  const confirmationDialogComponent = defineAsyncComponent(() => import('../components/confirmation-dialog.vue'));
-
-  dialog?.$openDialog({
-    component: confirmationDialogComponent,
+async function openDialogToDeleteContact() {
+  dialog!.$openDialog({
+    component: defineAsyncComponent(() => import(
+      '../components/confirmation-dialog.vue'
+    )),
     componentProps: {
-      dialogText: $tr('confirmation.delete.text', { name: `<b>${contactDisplayName.value}</b>` }),
+      dialogText: $tr(
+        'confirmation.delete.text',
+        { name: `<b>${contactDisplayName.value}</b>` }
+      ),
     },
     dialogProps: {
       title: $tr('contact.delete.title'),
       confirmButtonText: $tr('contact.delete.confirmBtn.text'),
       cancelButtonText: $tr('contact.delete.cancelBtn.text'),
-      onConfirm: () => {
-        contactsStore.deleteContact(contactId.value)
-          .then(() => {
-            notification.$createNotice({
-              type: 'success',
-              content: $tr('contact.delete.success.text'),
-            });
-          })
-          .catch(() => {
-            notification.$createNotice({
-              type: 'error',
-              content: $tr('contact.delete.error.text'),
-            });
-          })
-          .finally(() => {
-            cancel();
+      onConfirm: async () => {
+        try {
+          await deleteContact(contactId.value);
+          notification.$createNotice({
+            type: 'success',
+            content: $tr('contact.delete.success.text'),
           });
+        } catch (err) {
+          notification.$createNotice({
+            type: 'error',
+            content: $tr('contact.delete.error.text'),
+          });
+        } finally {
+          cancel();
+        }
       },
     },
   });
 }
 
-function onInput(value: ContactContent) {
+async function doOnInit(value: ContactContent) {
   if (contactValid.value) {
     const savedData = {
       id: contactId.value,
       ...value,
     };
-    contactsStore.upsertContact(savedData)
-      .then(() => {
-        notification.$createNotice({
-          type: 'success',
-          content: $tr('contact.upsert.success.text'),
-        });
-      })
-      .catch(() => {
-        notification.$createNotice({
-          type: 'error',
-          content: $tr('contact.upsert.error.text'),
-        });
+    try {
+      await upsertContact(savedData);
+      notification.$createNotice({
+        type: 'success',
+        content: $tr('contact.upsert.success.text'),
       });
+    } catch {
+      notification.$createNotice({
+        type: 'error',
+        content: $tr('contact.upsert.error.text'),
+      });
+    }
   }
 }
 
-const debouncedOnInput = debounce(onInput, 500);
+const doOnInputWithDebounce = debounce(doOnInit, 500);
 
-function openChat() {
-  const peerAddress = data.value.mail;
-  w3n.shell!.startAppWithParams!(
+async function openChat() {
+  await w3n.shell!.startAppWithParams!(
     chatApp.domain, chatApp.openCmd,
     {
-      peerAddress,
+      peerAddress: data.value.mail,
     } as OpenChatCmdArg,
   )
-    .then(() => console.log())
-    .catch(err => console.error(err));
 }
 
 onBeforeMount(async () => {
@@ -192,14 +194,14 @@ watch(
   <div :class="$style.contact">
     <div :class="$style.header">
       <ui3n-button
-        v-if="!nonEditableContacts.includes(contactId)"
+        v-if="canDeleteContact"
         type="icon"
         color="transparent"
         icon="outline-delete"
         icon-size="18"
         icon-color="var(--warning-content-default)"
         :class="$style.headerBtn"
-        @click="deleteContact"
+        @click="openDialogToDeleteContact"
       />
       <div
         :class="$style.avatar"
@@ -216,13 +218,15 @@ watch(
           icon-color="var(--white-0)"
           @click="openChat"
         />
-<!--          <ui3n-icon-->
-<!--            icon="outline-chat"-->
-<!--            width="16"-->
-<!--            height="16"-->
-<!--            color="var(&#45;&#45;color-icon-button-primary-default)"-->
-<!--          />-->
-<!--        </ui3n-button>-->
+        <!--
+        <ui3n-icon
+           icon="outline-chat"
+           width="16"
+           height="16"
+           color="var(&#45;&#45;color-icon-button-primary-default)"
+         />
+        </ui3n-button>
+        -->
 
         <!--
         <ui3n-button
@@ -244,8 +248,7 @@ watch(
         v-model:contact="data"
         v-model:valid="contactValid"
         :rules="rules"
-        :disabled="nonEditableContacts.includes(contactId)"
-        @input="debouncedOnInput"
+        @input="doOnInputWithDebounce"
       />
     </div>
   </div>

@@ -1,60 +1,61 @@
+/*
+ Copyright (C) 2020-2025 3NSoft Inc.
+
+ This program is free software: you can redistribute it and/or modify it under
+ the terms of the GNU General Public License as published by the Free Software
+ Foundation, either version 3 of the License, or (at your option) any later
+ version.
+
+ This program is distributed in the hope that it will be useful, but
+ WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ See the GNU General Public License for more details.
+
+ You should have received a copy of the GNU General Public License along with
+ this program. If not, see <http://www.gnu.org/licenses/>.
+*/
+
 import { defineStore } from 'pinia';
 import { keyBy } from 'lodash';
-import { getRandomId } from '@v1nt1248/3nclient-lib/utils';
-import { appContactsSrvProxy } from '@/services/services-provider';
-import type { Person, PersonView } from '@/types';
+import { appContactsSrvProxy } from '@main/services/services-provider';
+import type { Person, PersonView } from '@main/types';
+import { ref } from 'vue';
+import { toRO } from '@main/utils/readonly';
 
-function handleError(e: unknown) {
-  console.error(JSON.stringify(e));
-  throw new Error(JSON.stringify(e));
-}
+export type ContactsStore = ReturnType<typeof useContactsStore>;
 
-export const useContactsStore = defineStore(
-  'contacts',
-  {
-    state: () => {
-      return {
-        contactList: {} as Record<string, PersonView>,
-      };
-    },
+export const useContactsStore = defineStore('contacts', () => {
 
-    actions: {
-      async upsertContact(contact: Person): Promise<void> {
-        const updatedData = contact.id === 'new'
-          ? {
-            ...contact,
-            id: getRandomId(6),
-          }
-          : contact;
+  const contactList = ref<Record<string, PersonView>>({});
 
-        await appContactsSrvProxy.upsertContact(updatedData)
-          .catch(e => handleError(e));
+  async function upsertContact(contact: Person): Promise<void> {
+    await appContactsSrvProxy.upsertContact(contact);
+    await fetchContacts();
+  }
 
-        const contactList = await appContactsSrvProxy.getContactList()
-          .catch(e => handleError(e));
-        if (contactList) {
-          this.contactList = keyBy(contactList, 'id');
-        }
-      },
+  async function getContact(contactId: string): Promise<Person> {
+    return appContactsSrvProxy.getContact(contactId);
+  }
 
-      async getContact(contactId: string): Promise<Person> {
-        return appContactsSrvProxy.getContact(contactId);
-      },
+  async function fetchContacts(): Promise<void> {
+    const lst = await appContactsSrvProxy.getContactList();
+    if (lst) {
+      contactList.value = keyBy(lst, 'id');
+    }
+  }
 
-      async getContactList(): Promise<void> {
-        const contactList = await appContactsSrvProxy.getContactList()
-          .catch(e => handleError(e));
-        if (contactList) {
-          this.contactList = keyBy(contactList, 'id');
-        }
-      },
+  async function deleteContact(contactId: string): Promise<void> {
+    if (contactId) {
+      await appContactsSrvProxy.deleteContact(contactId);
+      delete contactList.value[contactId];
+    }
+  }
 
-      async deleteContact(contactId: string): Promise<void> {
-        if (contactId) {
-          await appContactsSrvProxy.deleteContact(contactId);
-          delete this.contactList[contactId];
-        }
-      },
-    },
-  },
-);
+  return {
+    contactList: toRO(contactList),
+    fetchContacts,
+    getContact,
+    upsertContact,
+    deleteContact
+  };
+});

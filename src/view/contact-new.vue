@@ -25,15 +25,15 @@ import {
 } from '@v1nt1248/3nclient-lib/plugins';
 import { mailReg, getElementColor } from '@v1nt1248/3nclient-lib/utils';
 import { Ui3nButton, Ui3nIcon } from '@v1nt1248/3nclient-lib';
-import { useContactsStore } from '@/store/contacts.store';
-import type { ContactContent } from '@/types';
-import ContactBody from '@/components/contact-content.vue';
+import { useContactsStore } from '@main/store/contacts.store';
+import type { ContactContent } from '@main/types';
+import ContactBody from '@main/components/contact-content.vue';
 
 const { $tr } = inject<I18nPlugin>(I18N_KEY)!;
 const notification = inject<NotificationsPlugin>(NOTIFICATIONS_KEY)!;
 
 const router = useRouter();
-const contactsStore = useContactsStore();
+const { upsertContact } = useContactsStore();
 
 const data = ref<ContactContent>({
   name: '',
@@ -46,48 +46,53 @@ const valid = ref(false);
 const contactLetters = computed<string>(() => {
   const contactDisplayName = data.value.name || data.value.mail || '';
   if (contactDisplayName) {
-    return contactDisplayName.length === 1
-      ? contactDisplayName.toLocaleUpperCase()
-      : `${contactDisplayName[0].toLocaleUpperCase()}${contactDisplayName[1].toLocaleLowerCase()}`;
+    return (contactDisplayName.length === 1 ?
+      contactDisplayName.toLocaleUpperCase() :
+      `${contactDisplayName[0].toLocaleUpperCase()}${contactDisplayName[1].toLocaleLowerCase()}`
+    );
   }
   return '';
 });
 const contactLettersStyle = computed(() => {
   return {
-    backgroundColor: contactLetters.value
-      ? getElementColor(contactLetters.value)
-      : 'var(--gray-50, #f2f2f2)',
+    backgroundColor: (contactLetters.value ?
+      getElementColor(contactLetters.value) : 'var(--gray-50, #f2f2f2)'
+    ),
   };
 });
 
-const checkRequired = (mail?: unknown): boolean | string => !!mail || $tr('validation.text.required');
-const checkEmail = (mail?: unknown): boolean | string => mailReg.test(mail! as string) || $tr('validation.text.mail');
+function checkRequired(mail?: unknown): boolean | string {
+  return !!mail || $tr('validation.text.required');
+}
+function checkEmail(mail?: unknown): boolean | string {
+  return mailReg.test(mail! as string) || $tr('validation.text.mail');
+}
 const rules = { mail: [checkRequired, checkEmail] };
 
-const cancel = () => {
+function cancel() {
   router.push('/contacts');
-};
-const saveContact = () => {
+}
+
+async function saveContact() {
   if (valid.value) {
     const savedData = {
       id: 'new',
       ...data.value,
     };
 
-    contactsStore.upsertContact(savedData)
-      .then(() => {
-        notification.$createNotice({
-          type: 'success',
-          content: $tr('contact.upsert.success.text'),
-        });
-        cancel();
-      })
-      .catch(() => {
-        notification.$createNotice({
-          type: 'error',
-          content: $tr('contact.upsert.error.text'),
-        });
+    try {
+      await upsertContact(savedData);
+      notification.$createNotice({
+        type: 'success',
+        content: $tr('contact.upsert.success.text'),
       });
+      cancel();
+    } catch {
+      notification.$createNotice({
+        type: 'error',
+        content: $tr('contact.upsert.error.text'),
+      });
+    }
   }
 };
 </script>

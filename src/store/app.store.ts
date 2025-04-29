@@ -1,64 +1,54 @@
 import { defineStore } from 'pinia';
-import { UISettings } from '@/services/ui-settings';
-import type { ConnectivityStatus, AvailableColorTheme, AvailableLanguage } from '@/types';
+import { useSystemLevelAppConfig } from './app/system-level-app-config';
+import { useConnectivityStatus } from './app/connectivity';
+import { useAppSize } from './app/app-size';
 
-export interface AppStoreState {
-  connectivityStatus: ConnectivityStatus;
-  user: string;
-  lang: AvailableLanguage;
-  colorTheme: AvailableColorTheme;
-}
+export type AppStore = ReturnType<typeof useAppStore>;
 
-export const useAppStore = defineStore(
-  'app',
-  {
-    state: (): AppStoreState => {
-      return {
-        connectivityStatus: 'offline',
-        user: '',
-        lang: 'en',
-        colorTheme: 'default',
-      };
-    },
+export const useAppStore = defineStore('app', () => {
 
-    actions: {
-      async getConnectivityStatus() {
-        const status = await w3n.connectivity!.isOnline();
-        const parsedStatus = status.split('_');
-        this.connectivityStatus = parsedStatus[0] as ConnectivityStatus;
-      },
+  const appSize = useAppSize();
+  const {
+    appElement
+  } = appSize;
 
-      async getUser() {
-        this.user = await w3n.mailerid!.getUserId();
-      },
+  const connectivity = useConnectivityStatus();
+  const {
+    connectivityStatus
+  } = connectivity;
 
-      async getAppConfig() {
-        try {
-          const config = await UISettings.makeResourceReader();
-          const lang = await config.getCurrentLanguage();
-          const colorTheme = await config.getCurrentColorTheme();
-          this.setLang(lang);
-          this.setColorTheme(colorTheme);
-          return config;
-        } catch (e) {
-          console.error('Load the app config error: ', e);
-        }
-      },
+  const commonAppConfs = useSystemLevelAppConfig();
+  const {
+    appVersion,
+    user,
+    lang,
+    colorTheme
+  } = commonAppConfs;
 
-      setLang(lang: AvailableLanguage) {
-        this.lang = lang;
-      },
+  async function initialize() {
+    await Promise.all([
+      connectivity.initialize(),
+      commonAppConfs.initialize()
+    ]);
+  }
 
-      setColorTheme(theme: AvailableColorTheme) {
-        this.colorTheme = theme;
-        const htmlEl = document.querySelector('html');
-        if (!htmlEl) return;
+  function stopWatching() {
+    appSize.stopWatching();
+    connectivity.stopConnectivityCheck();
+    commonAppConfs.stopWatching();
+  }
 
-        const prevColorThemeCssClass = theme === 'default' ? 'dark-theme' : 'default-theme';
-        const curColorThemeCssClass = theme === 'default' ? 'default-theme' : 'dark-theme';
-        htmlEl.classList.remove(prevColorThemeCssClass);
-        htmlEl.classList.add(curColorThemeCssClass);
-      },
-    },
-  },
-);
+  return {
+    appVersion,
+    user,
+    lang,
+    colorTheme,
+
+    connectivityStatus,
+
+    appElement,
+
+    initialize,
+    stopWatching,
+  };
+});

@@ -18,10 +18,10 @@
 import { get as lGet } from 'lodash';
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useContactsStore } from '@/store/contacts.store';
+import { useContactsStore } from '@main/store/contacts.store';
 import { Ui3nList } from '@v1nt1248/3nclient-lib';
-import type { ContactGroup, PersonView } from '@/types';
-import ContactIcon from '@/components/contact-icon.vue';
+import type { ContactGroup, PersonView } from '@main/types';
+import ContactIcon from '@main/components/contact-icon.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -33,16 +33,17 @@ const props = defineProps<{
 const selectedContactId = computed<string>(() => route.params.id as string);
 const text = computed<string>(() => (props.searchText || '').toLocaleLowerCase());
 
-const contactList = computed((): Array<PersonView & { displayName: string }> => {
-  return Object.values(contactsStore.contactList)
-    .map(p => ({
-      ...p,
-      displayName: lGet(p, 'name') || lGet(p, 'mail') || ' ',
-    }))
-    .filter(c => c.displayName.toLocaleLowerCase().includes(text.value))
-    .sort((a, b) => (a.displayName > b.displayName ? 1 : -1));
-});
-const contactListByLetters = computed(() => contactList.value
+const contactList = computed((): (PersonView & { displayName: string })[] =>
+  Object.values(contactsStore.contactList)
+  .map(p => ({
+    ...p,
+    displayName: lGet(p, 'name') || lGet(p, 'mail') || ' ',
+  }))
+  .filter(c => c.displayName.toLocaleLowerCase().includes(text.value))
+  .sort((a, b) => (a.displayName > b.displayName ? 1 : -1))
+);
+const contactListByLetters = computed(() =>
+  contactList.value
   .reduce((res, item) => {
     const letter = item.displayName[0].toLowerCase() as string;
     if (!res[letter])
@@ -54,11 +55,12 @@ const contactListByLetters = computed(() => contactList.value
 
     res[letter].contacts.push(item);
     return res;
-  }, {} as Record<string, ContactGroup>));
+  }, {} as Record<string, ContactGroup>)
+);
 
-const selectContact = (id: string) => {
+function selectContact(id: string) {
   router.push(`/contacts/${id}`);
-};
+}
 </script>
 
 <template>

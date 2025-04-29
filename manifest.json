@@ -1,8 +1,8 @@
 {
   "name": "Contacts",
   "appDomain": "contacts.app.privacysafe.io",
-  "version": "0.6.15",
-  "description": "Contacts app stores your contacts' informaton.",
+  "version": "0.7.5",
+  "description": "Private address book for your contact list.",
   "icon": "logo.png",
 
   "components": {
@@ -69,6 +69,11 @@
       "capsRequested": {
         "log": "all",
         "mailerid": true,
+        "mail": {
+          "sendingTo": "all",
+          "receivingFrom": "all",
+          "preflightsTo": "all"
+        },
         "storage": {
           "appFS": "default"
         }

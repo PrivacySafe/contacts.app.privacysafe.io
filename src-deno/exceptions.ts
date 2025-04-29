@@ -15,15 +15,14 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-import '@v1nt1248/3nclient-lib/style.css';
-import '@v1nt1248/3nclient-lib/variables.css';
-import '@main/assets/styles/main.css';
+import { ContactsException } from "../src/types";
 
-import { initializeServices } from '@main/services/services-provider';
-import { setupMainApp } from './app-setup';
-
-initializeServices()
-.then(async () => {
-  const { app, router } = setupMainApp();
-  app.mount('#main');
-});
+export function makeContactsException(
+  opts: Partial<ContactsException>
+): ContactsException {
+  return {
+    runtimeException: true,
+    type: 'contacts',
+    ...opts
+  };
+}
