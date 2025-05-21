@@ -1,7 +1,7 @@
 {
   "name": "Contacts",
   "appDomain": "contacts.app.privacysafe.io",
-  "version": "0.7.5",
+  "version": "0.7.6",
   "description": "Private address book for your contact list.",
   "icon": "logo.png",
 
@@ -22,6 +22,9 @@
             "otherApps": {
               "chat.app.privacysafe.io": [
                 "open-chat-with"
+              ],
+              "inbox.app.privacysafe.io": [
+                "open-inbox-with"
               ]
             }
           },

@@ -18,7 +18,7 @@
 import { computed, defineAsyncComponent, inject, onBeforeMount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { debounce, omit } from 'lodash';
-import { Ui3nButton, Ui3nIcon } from '@v1nt1248/3nclient-lib';
+import { Ui3nButton } from '@v1nt1248/3nclient-lib';
 import {
   I18N_KEY,
   I18nPlugin,
@@ -31,8 +31,8 @@ import { mailReg, getElementColor } from '@v1nt1248/3nclient-lib/utils';
 import { useContactsStore } from '@main/store/contacts.store';
 import { useAppStore } from '@main/store/app.store';
 import { areAddressesEqual } from '../../shared-libs/address-utils';
-import { chatApp } from '@main/constants';
-import type { ContactContent, OpenChatCmdArg } from '@main/types';
+import { chatApp, inboxApp } from '@main/constants';
+import type { ContactContent, OpenChatCmdArg, OpenInboxCmdArg } from '@main/types';
 import ContactBody from '@main/components/contact-content.vue';
 
 const { $tr } = inject<I18nPlugin>(I18N_KEY)!;
@@ -130,6 +130,7 @@ async function openDialogToDeleteContact() {
             type: 'success',
             content: $tr('contact.delete.success.text'),
           });
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (err) {
           notification.$createNotice({
             type: 'error',
@@ -175,6 +176,15 @@ async function openChat() {
   )
 }
 
+async function openInbox() {
+  await w3n.shell!.startAppWithParams!(
+    inboxApp.domain, inboxApp.openCmd,
+    {
+      peerAddress: data.value.mail,
+    } as OpenInboxCmdArg,
+  )
+}
+
 onBeforeMount(async () => {
   await prepareContactFields();
 });
@@ -215,28 +225,17 @@ watch(
           type="icon"
           icon="outline-chat"
           icon-size="16"
-          icon-color="var(--white-0)"
+          icon-color="var(--color-icon-button-primary-default)"
           @click="openChat"
         />
-        <!--
-        <ui3n-icon
-           icon="outline-chat"
-           width="16"
-           height="16"
-           color="var(&#45;&#45;color-icon-button-primary-default)"
-         />
-        </ui3n-button>
-        -->
 
-        <!--
         <ui3n-button
-          type=primary
+          type="icon"
           icon="outline-mail"
           icon-size="16"
-          size="small"
-          :disabled="true"
+          icon-color="var(--color-icon-button-primary-default)"
+          @click="openInbox"
         />
-        -->
       </div>
     </div>
 

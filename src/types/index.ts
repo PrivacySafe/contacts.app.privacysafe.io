@@ -19,3 +19,7 @@ export interface ContactGroup {
 export interface OpenChatCmdArg {
   peerAddress: string;
 }
+
+export interface OpenInboxCmdArg {
+  peerAddress: string;
+}
