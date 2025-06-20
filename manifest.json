@@ -1,7 +1,7 @@
 {
   "name": "Contacts",
   "appDomain": "contacts.app.privacysafe.io",
-  "version": "0.7.6",
+  "version": "0.8.1",
   "description": "Private address book for your contact list.",
   "icon": "logo.png",
 
@@ -53,8 +53,59 @@
         "width": 760,
         "height": 720,
         "minWidth": 760,
-        "minHeight": 680,
-        "maxWidth": 760
+        "minHeight": 680
+      }
+    },
+
+    "/index-mobile.html": {
+      "startedBy": "user",
+      "runtime": "web-gui",
+      "capsRequested": {
+        "apps": "opener",
+        "logout": "all",
+        "log": "all",
+        "mailerid": true,
+        "keyrings": "all",
+        "shell": {
+          "fileDialog": "all",
+          "startAppCmds": {
+            "otherApps": {
+              "chat.app.privacysafe.io": [
+                "open-chat-with"
+              ],
+              "inbox.app.privacysafe.io": [
+                "open-inbox-with"
+              ]
+            }
+          },
+          "fsResource": {
+            "otherApps": {
+              "launcher.app.privacysafe.io": "ui-settings"
+            }
+          }
+        },
+        "storage": {
+          "appFS": [
+            {
+              "domain": "contacts.app.privacysafe.io",
+              "storage": "synced-n-local"
+            }
+          ],
+          "userFS": "all",
+          "sysFS": "all"
+        },
+        "appRPC": [
+          "AppContactsInternal"
+        ],
+        "connectivity": "check"
+      },
+      "windowOpts": {
+        "width": 360,
+        "height": 768,
+        "minWidth": 360,
+        "minHeight": 768,
+        "maxWidth": 360,
+        "maxHeight": 768
       }
     },
 
@@ -73,8 +124,6 @@
         "log": "all",
         "mailerid": true,
         "mail": {
-          "sendingTo": "all",
-          "receivingFrom": "all",
           "preflightsTo": "all"
         },
         "storage": {
@@ -84,6 +133,23 @@
     }
 
   },
+
+  "launchers": [
+    {
+      "name": "Contacts",
+      "icon": "logo.png",
+      "description": "Private address book for your contact list.",
+      "component": "/index.html",
+      "formFactor": [ "desktop", "tablet" ]
+    },
+    {
+      "name": "Contacts",
+      "icon": "logo.png",
+      "description": "Private address book for your contact list.",
+      "component": "/index-mobile.html",
+      "formFactor": "phone"
+    }
+  ],
 
   "launchOnSystemStartup": [
     {

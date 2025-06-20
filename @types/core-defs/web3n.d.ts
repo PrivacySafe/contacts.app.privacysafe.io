@@ -1,5 +1,5 @@
 /*
- Copyright (C) 2016 - 2018, 2020 3NSoft Inc.
+ Copyright (C) 2016 - 2018, 2020, 2025 3NSoft Inc.
 
  This program is free software: you can redistribute it and/or modify it under
  the terms of the GNU General Public License as published by the Free Software
@@ -47,7 +47,7 @@ declare namespace web3n {
 		type: 'http-request';
 		status: number;
 	}
-
+	
 	interface EncryptionException {
 		failedCipherVerification?: true;
 		failedSignatureVerification?: true;

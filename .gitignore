@@ -20,6 +20,7 @@ yarn-error.log*
 .idea
 .vscode
 .history
+.zed
 *.suo
 *.ntvs*
 *.njsproj
@@ -28,8 +29,4 @@ yarn-error.log*
 
 # Tmp files
 .~*
-/doc/chat.dbs.bak
-
-# Tmp files
-.~*
-/components.d.ts
+/setup-w3n.bundle.js

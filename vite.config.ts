@@ -3,6 +3,10 @@ import { UserConfig, defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import vueDevTools from 'vite-plugin-vue-devtools';
 
+function _resolve(dir: string) {
+  return resolve(__dirname, dir);
+}
+
 export const makeConfig = ({ mode }: UserConfig) => {
   const isDev = mode === 'development';
   // const isProd = mode === 'production'
@@ -27,15 +31,20 @@ export const makeConfig = ({ mode }: UserConfig) => {
     build: {
       // reference: https://rollupjs.org/configuration-options/
       rollupOptions: {
-          input: {
-          main: resolve(__dirname, './index.html')
+        input: {
+          main: _resolve('./index.html'),
+          'main-mobile': _resolve('./index-mobile.html'),
         },
         output: [
           {
             name: 'main',
-            dir: 'app'
-          }
-        ]
+            dir: 'app',
+          },
+          {
+            name: 'main-mobile',
+            dir: 'app',
+          },
+        ],
       },
     },
     define,
@@ -44,8 +53,8 @@ export const makeConfig = ({ mode }: UserConfig) => {
     resolve: {
       alias: {
         vue: 'vue/dist/vue.esm-bundler.js',
-        '@main': resolve(__dirname, './src'),
-        '@shared': resolve(__dirname, './shared-libs'),
+        '@main': _resolve('./src'),
+        '@shared': _resolve('./shared-libs'),
       },
     },
   };
