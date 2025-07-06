@@ -1,5 +1,5 @@
 /*
- Copyright (C) 2020-2025 3NSoft Inc.
+ Copyright (C) 2025 3NSoft Inc.
 
  This program is free software: you can redistribute it and/or modify it under
  the terms of the GNU General Public License as published by the Free Software
@@ -16,15 +16,16 @@
 */
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
-import keyBy from 'lodash/keyBy';
 import isEmpty from 'lodash/isEmpty';
 import { toRO } from '@main/common/utils/readonly';
 import { appContactsSrvProxy } from '@main/common/services/services-provider';
+import { useAppStore } from '@main/common/store/app.store.ts';
 import type { Person, PersonView } from '@main/common/types';
 
 export type ContactsStore = ReturnType<typeof useContactsStore>;
 
 export const useContactsStore = defineStore('contacts', () => {
+  const appStore = useAppStore();
 
   const contactList = ref<Record<string, PersonView>>({});
 
@@ -43,8 +44,16 @@ export const useContactsStore = defineStore('contacts', () => {
 
   async function fetchContacts(): Promise<void> {
     const lst = await appContactsSrvProxy.getContactList();
-    if (lst) {
-      contactList.value = keyBy(lst, 'id');
+
+    if (!isEmpty(lst)) {
+      contactList.value = lst.reduce((res, item) => {
+        res[item.id] = item;
+        if (item.mail === appStore.user) {
+          item.name = 'Me';
+        }
+
+        return res;
+      }, {} as Record<string, PersonView>);
     }
   }
 

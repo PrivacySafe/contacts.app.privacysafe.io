@@ -128,6 +128,7 @@ const {
         :contact="contact"
         :valid="contactValid"
         :rules="rules"
+        :disabled="isUserAddress"
         @update:field="onFieldUpdateDebounced"
         @update:valid="contactValid = $event"
       />

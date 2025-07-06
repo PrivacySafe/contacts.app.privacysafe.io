@@ -23,12 +23,13 @@ import type { ContactGroup, PersonView } from '@main/common/types';
 import ContactIcon from '@main/common/components/contact-icon.vue';
 import { useRouting } from '@main/desktop/composables/useRouting';
 
-const { goToContact, getContactIdFromRoute } = useRouting();
-const contactsStore = useContactsStore();
-
 const props = defineProps<{
   searchText?: string;
 }>();
+
+const { goToContact, getContactIdFromRoute } = useRouting();
+const contactsStore = useContactsStore();
+
 const selectedContactId = computed(() => getContactIdFromRoute());
 const text = computed<string>(() => (props.searchText || '').toLocaleLowerCase());
 
@@ -41,6 +42,7 @@ const contactList = computed((): (PersonView & { displayName: string })[] =>
   .filter(c => c.displayName.toLocaleLowerCase().includes(text.value))
   .sort((a, b) => (a.displayName > b.displayName ? 1 : -1))
 );
+
 const contactListByLetters = computed(() =>
   contactList.value
   .reduce((res, item) => {
