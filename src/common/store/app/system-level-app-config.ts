@@ -16,9 +16,10 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
 import { toRO } from '@main/common/utils/readonly.ts';
-import { UISettings } from '@main/common/services/ui-settings.ts';
-import { AvailableColorTheme, AvailableLanguage } from '@main/common/types';
+import { SystemSettings } from '@main/common/services/ui-settings.ts';
+import { AppConfig, AvailableColorTheme, AvailableLanguage } from '@main/common/types';
 import { ref } from 'vue';
+import { blobFromDataURL } from '@main/common/utils/image-files';
 
 export function useSystemLevelAppConfig() {
 
@@ -26,6 +27,7 @@ export function useSystemLevelAppConfig() {
   const user = ref<string>('');
   const lang = ref<AvailableLanguage>('en');
   const colorTheme = ref<AvailableColorTheme>('default');
+  const customLogoSrc = ref<string>();
 
   function setLang(value: AvailableLanguage) {
     lang.value = value;
@@ -42,20 +44,34 @@ export function useSystemLevelAppConfig() {
     htmlEl.classList.add(curColorThemeCssClass);
   }
 
+  async function setCustomLogo(dataURL: AppConfig['customLogo']): Promise<void> {
+    if (dataURL) {
+      try {
+        const imgBlob = blobFromDataURL(dataURL);
+        customLogoSrc.value = URL.createObjectURL(imgBlob);
+      } catch (err) {
+        console.error(`Parsing dataURL with customLogo throws error:`, err);
+      }
+    } else {
+      customLogoSrc.value = undefined;
+    }
+  }
+
   let unsubFromConfigWatch: (() => void) | undefined = undefined;
 
   async function readAndStartWatchingAppConfig() {
     try {
-      const config = await UISettings.makeResourceReader();
-      const lang = await config.getCurrentLanguage();
-      const colorTheme = await config.getCurrentColorTheme();
+      const config = await SystemSettings.makeResourceReader();
+      const { lang, colorTheme, customLogo } = await config.getAll();
       setLang(lang);
       setColorTheme(colorTheme);
+          setCustomLogo(customLogo);
       unsubFromConfigWatch = config.watchConfig({
         next: appConfig => {
-          const { lang, colorTheme } = appConfig;
+          const { lang, colorTheme, customLogo } = appConfig;
           setLang(lang);
           setColorTheme(colorTheme);
+          setCustomLogo(customLogo);
         },
       });
     } catch (e) {
@@ -87,6 +103,7 @@ export function useSystemLevelAppConfig() {
     user: toRO(user),
     lang: toRO(lang),
     colorTheme: toRO(colorTheme),
+    customLogoSrc: toRO(customLogoSrc),
 
     initialize,
     stopWatching,

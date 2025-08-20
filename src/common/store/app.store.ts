@@ -14,7 +14,7 @@ export const useAppStore = defineStore('app', () => {
   const { connectivityStatus } = connectivity;
 
   const commonAppConfs = useSystemLevelAppConfig();
-  const { appVersion, user, lang, colorTheme } = commonAppConfs;
+  const { appVersion, user, lang, colorTheme, customLogoSrc } = commonAppConfs;
 
   async function initialize() {
     await Promise.all([
@@ -34,6 +34,7 @@ export const useAppStore = defineStore('app', () => {
     user,
     lang,
     colorTheme,
+    customLogoSrc,
 
     connectivityStatus,
 

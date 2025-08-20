@@ -1,5 +1,5 @@
 /*
- Copyright (C) 2020-2025 3NSoft Inc.
+ Copyright (C) 2025 3NSoft Inc.
 
  This program is free software: you can redistribute it and/or modify it under
  the terms of the GNU General Public License as published by the Free Software
@@ -15,14 +15,14 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-export type AvailableLanguage = 'en';
+import type { ContactsException } from '../src/common/types';
 
-export type AvailableColorTheme = 'default' | 'dark';
-
-export type AppConfig = {
-  lang: AvailableLanguage;
-  colorTheme: AvailableColorTheme;
-  customLogo?: string;
-};
-
-export type ConnectivityStatus = 'offline' | 'online';
+export function makeContactsException(
+  opts: Partial<ContactsException>,
+): ContactsException {
+  return {
+    runtimeException: true,
+    type: 'contacts',
+    ...opts,
+  };
+}

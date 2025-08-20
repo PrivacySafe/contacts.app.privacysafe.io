@@ -27,7 +27,7 @@ export type AppViewInstance = ReturnType<typeof useAppView>;
 export function useAppView() {
   const appStore = useAppStore();
   const {
-    user, connectivityStatus, appElement, appVersion
+    user, connectivityStatus, appElement, appVersion, customLogoSrc
   } = storeToRefs(appStore);
 
   const { fetchContacts } = useContactsStore();
@@ -77,6 +77,7 @@ export function useAppView() {
     connectivityStatusText,
     doBeforeMount,
     doBeforeUnmount,
-    user
+    user,
+    customLogoSrc
   };
 }

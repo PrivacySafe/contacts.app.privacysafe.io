@@ -28,8 +28,13 @@ const {
   connectivityStatusText,
   doBeforeMount,
   doBeforeUnmount,
-  user
+  user,
+  customLogoSrc
 } = useAppView();
+
+  async function openDashboard() {
+    await w3n.shell!.openDashboard!();
+  }
 
 onBeforeMount(doBeforeMount);
 onBeforeUnmount(doBeforeUnmount);
@@ -43,11 +48,14 @@ onBeforeUnmount(doBeforeUnmount);
     <div :class="$style.toolbar">
       <div :class="$style.toolbarTitle">
         <img
-          :src="prLogo"
+          :src="customLogoSrc ? customLogoSrc : prLogo"
           alt="logo"
           :class="$style.toolbarLogo"
+          @click="openDashboard"
         >
-        <div :class="$style.delimiter" />
+        <div :class="$style.delimiter">
+          /
+        </div>
         <div :class="$style.info">
           {{ $tr('app.title') }}
           <div :class="$style.version">
@@ -141,6 +149,7 @@ onBeforeUnmount(doBeforeUnmount);
   top: -2px;
   margin-right: var(--spacing-m);
   height: var(--spacing-l);
+  cursor: pointer;
 }
 
 .delimiter {
