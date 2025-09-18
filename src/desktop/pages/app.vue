@@ -32,9 +32,9 @@ const {
   customLogoSrc
 } = useAppView();
 
-  async function openDashboard() {
-    await w3n.shell!.openDashboard!();
-  }
+async function openDashboard() {
+  await w3n.shell!.openDashboard!();
+}
 
 onBeforeMount(doBeforeMount);
 onBeforeUnmount(doBeforeUnmount);

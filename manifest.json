@@ -1,7 +1,7 @@
 {
   "name": "Contacts",
   "appDomain": "contacts.app.privacysafe.io",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "description": "Private address book for your contact list.",
   "icon": "logo.png",
 
@@ -10,6 +10,7 @@
     "/index.html": {
       "startedBy": "user",
       "runtime": "web-gui",
+      "formFactor": [ "desktop", "tablet" ],
       "capsRequested": {
         "apps": "opener",
         "logout": "all",
@@ -36,14 +37,7 @@
           "openDashboard": true
         },
         "storage": {
-          "appFS": [
-            {
-              "domain": "contacts.app.privacysafe.io",
-              "storage": "synced-n-local"
-            }
-          ],
-          "userFS": "all",
-          "sysFS": "all"
+          "appFS": "default"
         },
         "appRPC": [
           "AppContactsInternal"
@@ -61,6 +55,7 @@
     "/index-mobile.html": {
       "startedBy": "user",
       "runtime": "web-gui",
+      "formFactor": "phone",
       "capsRequested": {
         "apps": "opener",
         "logout": "all",
@@ -87,27 +82,12 @@
           "openDashboard": true
         },
         "storage": {
-          "appFS": [
-            {
-              "domain": "contacts.app.privacysafe.io",
-              "storage": "synced-n-local"
-            }
-          ],
-          "userFS": "all",
-          "sysFS": "all"
+          "appFS": "default"
         },
         "appRPC": [
           "AppContactsInternal"
         ],
         "connectivity": "check"
-      },
-      "windowOpts": {
-        "width": 360,
-        "height": 768,
-        "minWidth": 360,
-        "minHeight": 768,
-        "maxWidth": 360,
-        "maxHeight": 768
       }
     },
 

@@ -65,7 +65,7 @@ export function useSystemLevelAppConfig() {
       const { lang, colorTheme, customLogo } = await config.getAll();
       setLang(lang);
       setColorTheme(colorTheme);
-          setCustomLogo(customLogo);
+      setCustomLogo(customLogo);
       unsubFromConfigWatch = config.watchConfig({
         next: appConfig => {
           const { lang, colorTheme, customLogo } = appConfig;
