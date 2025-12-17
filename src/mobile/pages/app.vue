@@ -15,50 +15,29 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
 <script lang="ts" setup>
-import { computed, onBeforeMount, onBeforeUnmount, ref } from 'vue';
-import { storeToRefs } from 'pinia';
+import { onBeforeMount, onBeforeUnmount, ref } from 'vue';
 import { Ui3nButton } from '@v1nt1248/3nclient-lib';
-import { useAppStore } from '@main/common/store/app.store';
-import { useContactsStore } from '@main/common/store/contacts.store';
+import { useAppView } from '@main/common/composables/useAppView';
 import AppMenu from '@main/mobile/components/app-menu.vue';
-import { makeServiceCaller } from '@shared/ipc/ipc-service-caller';
-import type { AppContactsService } from '@main/common/types';
 
-
-const appStore = useAppStore();
-const { user, connectivityStatus } = storeToRefs(appStore);
-const { initialize, stopWatching } = appStore;
-
-const { fetchContacts } = useContactsStore();
+const {
+  user,
+  appVersion,
+  connectivityStatusText,
+  syncStatusText,
+  appExit,
+  doBeforeMount,
+  doBeforeUnmount,
+} = useAppView();
 
 const isMenuOpen = ref(false);
-
-const connectivityStatusText = computed(() =>
-  connectivityStatus.value === 'online' ? 'app.status.connected.online' : 'app.status.connected.offline',
-);
 
 function toggleMenu() {
   isMenuOpen.value = !isMenuOpen.value;
 }
 
-onBeforeMount(async () => {
-  await initialize();
-  await fetchContacts();
-
-  const contactsSrvConnection = await w3n.rpc!.thisApp!(
-    'AppContactsInternal'
-  );
-  const contactsSrv = makeServiceCaller(contactsSrvConnection, [], ['watchContactList']) as AppContactsService;
-  contactsSrv.watchContactList({
-    next: () => fetchContacts(),
-    error: e => console.error(e),
-    complete: () => contactsSrvConnection.close(),
-  });
-});
-
-onBeforeUnmount(() => {
-  stopWatching();
-});
+onBeforeMount(doBeforeMount);
+onBeforeUnmount(doBeforeUnmount);
 </script>
 
 <template>
@@ -70,7 +49,7 @@ onBeforeUnmount(() => {
       >
         <app-menu
           :user="user"
-          :connectivity-status-text="connectivityStatusText"
+          :app-exit="appExit"
           @close="isMenuOpen = false"
         />
       </div>
@@ -93,9 +72,25 @@ onBeforeUnmount(() => {
           <span :class="$style.itemName">
             {{ $tr('app.title') }}
           </span>
+
+          <span :class="$style.version">
+            {{ appVersion }}
+          </span>
         </div>
 
-        <span />
+        <div :class="$style.info">
+          <div :class="$style.status">
+            <span>{{ $tr('app.status') }}</span>
+
+            <b :class="connectivityStatusText.includes($tr('app.status.connected.online')) && $style.ok" />
+          </div>
+
+          <div :class="$style.status">
+            <span>{{ $tr('app.sync.status') }}</span>
+
+            <b :class="!syncStatusText.includes($tr('app.status.unsynced')) && $style.ok" />
+          </div>
+        </div>
       </div>
 
       <div :class="$style.content">
@@ -163,7 +158,7 @@ onBeforeUnmount(() => {
   position: relative;
   width: 100%;
   height: var(--main-toolbar-height);
-  padding: 0 var(--spacing-xl) 0 var(--spacing-s);
+  padding: 0 var(--spacing-m) 0 var(--spacing-s);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -173,6 +168,7 @@ onBeforeUnmount(() => {
 
 .item {
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   column-gap: var(--spacing-s);
@@ -184,10 +180,48 @@ onBeforeUnmount(() => {
   color: var(--color-text-block-primary-default);
 }
 
+.version {
+  font-size: var(--font-11);
+  line-height: var(--font-12);
+  color: var(--color-text-block-secondary-default);
+}
+
 .content {
   position: relative;
   width: 100%;
   height: calc(100% - var(--main-toolbar-height) - 1px);
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-end;
+  color: var(--color-text-control-primary-default);
+  line-height: 1.4;
+}
+
+.status {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  column-gap: var(--spacing-s);
+  font-size: var(--font-11);
+  font-weight: 500;
+
+  b {
+    position: relative;
+    width: 12px;
+    min-width: 12px;
+    height: 12px;
+    min-height: 12px;
+    border-radius: 50%;
+    background-color: var(--warning-content-default);
+  }
+
+  .ok {
+    background-color: var(--success-content-default);
+  }
 }
 
 #notification {

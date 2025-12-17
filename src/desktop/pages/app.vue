@@ -17,19 +17,20 @@
 <script lang="ts" setup>
 import { onBeforeMount, onBeforeUnmount } from 'vue';
 import { Ui3nMenu, Ui3nRipple as vUi3nRipple } from '@v1nt1248/3nclient-lib';
-import prLogo from '@main/common/assets/images/privacysafe-logo.svg';
+import prLogo from '@main/common/assets/images/privacysafe-logo-new.svg';
+import { useAppView } from '@main/common/composables/useAppView';
 import ContactIcon from '@main/common/components/contact-icon.vue';
-import { useAppView } from '../composables/useAppView.ts';
 
 const {
-  appExit,
+  user,
+  customLogoSrc,
   appElement,
   appVersion,
   connectivityStatusText,
+  syncStatusText,
+  appExit,
   doBeforeMount,
   doBeforeUnmount,
-  user,
-  customLogoSrc
 } = useAppView();
 
 async function openDashboard() {
@@ -69,12 +70,22 @@ onBeforeUnmount(doBeforeUnmount);
           <span :class="$style.mail">
             {{ user }}
           </span>
-          <span :class="$style.connection">
-            {{ $tr('app.status') }}:
-            <span :class="connectivityStatusText === 'app.status.connected.online' && $style.connectivity">
-              {{ $tr(connectivityStatusText) }}
-            </span>
-          </span>
+
+          <div :class="$style.status">
+            <span>{{ $tr('app.status') }}</span>
+
+            <b :class="connectivityStatusText.includes($tr('app.status.connected.online')) && $style.ok">
+              {{ connectivityStatusText }}
+            </b>
+          </div>
+
+          <div :class="$style.status">
+            <span>{{ $tr('app.sync.status') }}</span>
+
+            <b :class="!syncStatusText.includes($tr('app.status.unsynced')) && $style.ok">
+              {{ syncStatusText }}
+            </b>
+          </div>
         </div>
 
         <ui3n-menu
@@ -148,7 +159,7 @@ onBeforeUnmount(doBeforeUnmount);
   position: relative;
   top: -2px;
   margin-right: var(--spacing-m);
-  height: var(--spacing-l);
+  height: var(--spacing-m);
   cursor: pointer;
 }
 
@@ -192,10 +203,11 @@ onBeforeUnmount(doBeforeUnmount);
   justify-content: center;
   align-items: flex-end;
   margin-right: var(--spacing-m);
+  color: var(--color-text-control-primary-default);
+  line-height: 1.4;
 
-  span:not(.connectivity) {
-    color: var(--color-text-control-primary-default);
-    line-height: 1.4;
+  .ok {
+    color: var(--success-content-default);
   }
 }
 
@@ -204,13 +216,20 @@ onBeforeUnmount(doBeforeUnmount);
   font-weight: 600;
 }
 
-.connection {
+.status {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  column-gap: var(--spacing-s);
   font-size: var(--font-12);
   font-weight: 500;
-}
 
-.connectivity {
-  color: var(--success-content-default);
+  b {
+    position: relative;
+    width: 68px;
+    text-transform: uppercase;
+    text-align: right;
+  }
 }
 
 .icon {

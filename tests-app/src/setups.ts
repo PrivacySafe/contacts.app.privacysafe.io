@@ -18,7 +18,7 @@
 import { setupMainApp } from "@main/desktop/app-setup.ts";
 import { initializeServices } from "@main/common/services/services-provider";
 import { ContactsStore, useContactsStore } from "@main/common/store/contacts.store";
-import { AppViewInstance, useAppView } from "@main/desktop/composables/useAppView";
+import { AppViewInstance, useAppView } from "@main/common/composables/useAppView.ts";
 
 declare const w3n: web3n.testing.CommonW3N;
 

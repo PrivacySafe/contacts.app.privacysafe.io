@@ -16,21 +16,23 @@
 -->
 <script lang="ts" setup>
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 import ContactsToolbar from '@main/common/components/contacts-toolbar.vue';
-import ContactList from '../components/contact-list.vue';
-import { useRouting } from '../composables/useRouting';
+import ContactList from '@main/desktop/components/contacts/contact-list.vue';
+import ContactPlaceholder from '@main/desktop/components/contacts/contact-placeholder.vue';
 
-const { goToNew } = useRouting();
+const router = useRouter();
 
 const searchText = ref<string>('');
-
-function addNewContact() {
-  goToNew();
-}
 
 function onInput(text: string) {
   searchText.value = text;
 }
+
+function addNewContact() {
+  router.push({ name: 'contact', params: { id: 'new'} });
+}
+
 </script>
 
 <template>
@@ -41,16 +43,19 @@ function onInput(text: string) {
         @input="onInput"
       />
       <div :class="$style.asideBody">
-        <contact-list
-          :search-text="searchText"
-        />
+        <contact-list :search-text="searchText" />
       </div>
     </div>
 
     <div :class="$style.content">
       <router-view v-slot="{ Component }">
         <transition>
-          <component :is="Component" />
+          <component
+            :is="Component"
+            v-if="Component"
+          />
+
+          <contact-placeholder v-else />
         </transition>
       </router-view>
     </div>

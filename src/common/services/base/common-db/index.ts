@@ -36,18 +36,23 @@ export class Db implements DbCommon {
 
   async getCollectionList(): Promise<string[]> {
     const list = await this.fs?.listFolder('/');
-    if (!list)
+    if (!list) {
       return [];
+    }
 
     return list.reduce((res: string[], item) => {
-      if (item.isFolder)
+      if (item.isFolder) {
         res.push(item.name);
+      }
 
       return res;
     }, []);
   }
 
-  async initCollection<T extends DbDocBase>(name: string, options?: DbCollectionOptions): Promise<DbCollection<T>> {
+  async initCollection<T extends DbDocBase>(
+    name: string,
+    options?: DbCollectionOptions,
+  ): Promise<DbCollection<T>> {
     const isCollectionFolderPresence = await this.fs?.checkFolderPresence(name);
     const optionsFilePath = `${name}/options.json`;
     let optionsData: DbCollectionOptions | undefined = options;

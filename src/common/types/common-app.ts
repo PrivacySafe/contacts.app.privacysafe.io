@@ -19,10 +19,10 @@ export type AvailableLanguage = 'en';
 
 export type AvailableColorTheme = 'default' | 'dark';
 
-export type AppConfig = {
+export interface AppConfig {
   lang: AvailableLanguage;
   colorTheme: AvailableColorTheme;
   customLogo?: string;
-};
+}
 
 export type ConnectivityStatus = 'offline' | 'online';

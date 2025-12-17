@@ -327,6 +327,7 @@ export class DbCollection<T extends DbDocBase> implements DbFileCollection<T> {
       const singleFilePath = 'data.json';
       const data = await this.fs!.readJSONFile<Record<string, T>>(singleFilePath);
       for (const id of ids) {
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
         delete data[id];
       }
       await this.procs.startOrChain(

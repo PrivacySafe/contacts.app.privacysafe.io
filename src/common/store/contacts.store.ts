@@ -19,7 +19,7 @@ import { defineStore } from 'pinia';
 import isEmpty from 'lodash/isEmpty';
 import { toRO } from '@main/common/utils/readonly';
 import { appContactsSrvProxy } from '@main/common/services/services-provider';
-import { useAppStore } from '@main/common/store/app.store.ts';
+import { useAppStore } from '@main/common/store/app.store';
 import type { Person, PersonView } from '@main/common/types';
 
 export type ContactsStore = ReturnType<typeof useContactsStore>;
@@ -29,21 +29,19 @@ export const useContactsStore = defineStore('contacts', () => {
 
   const contactList = ref<Record<string, PersonView>>({});
 
-  async function upsertContact(contact: Person): Promise<void | { errorType: string; errorMessage: string }> {
+  async function upsertContact(contact: Omit<Person, 'timestamp'>): Promise<string | { errorType: string; errorMessage: string }> {
     const res = await appContactsSrvProxy.upsertContact(contact);
 
     await fetchContacts();
-    if (res?.errorType) {
-      return res;
-    }
+    return res;
   }
 
-  async function getContact(contactId: string): Promise<Person> {
+  async function getContact(contactId: string): Promise<Person | undefined> {
     return appContactsSrvProxy.getContact(contactId);
   }
 
-  async function fetchContacts(): Promise<void> {
-    const lst = await appContactsSrvProxy.getContactList();
+  async function fetchContacts(withImage?: boolean): Promise<void> {
+    const lst = await appContactsSrvProxy.getContactList(withImage);
 
     if (!isEmpty(lst)) {
       contactList.value = lst.reduce((res, item) => {
@@ -57,25 +55,50 @@ export const useContactsStore = defineStore('contacts', () => {
     }
   }
 
+  function upsertContactListItem(id: string, data: Partial<PersonView>) {
+    if (contactList.value[id]) {
+      contactList.value[id] = {
+        ...contactList.value[id],
+        id,
+        ...data,
+      };
+    } else {
+      contactList.value[id] = {
+        id,
+        avatarId: '',
+        avatarImage: '',
+        mail: '',
+        name: '',
+        timestamp: 0,
+        ...data,
+      };
+    }
+  }
+
   async function deleteContact(contactId: string): Promise<void> {
     if (contactId) {
       await appContactsSrvProxy.deleteContact(contactId);
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete contactList.value[contactId];
     }
   }
 
   async function deleteContacts(contactIds: string[]): Promise<void> {
-    if (isEmpty(contactIds)) return;
+    if (isEmpty(contactIds)) {
+      return;
+    }
 
     const pr = contactIds.map(id => appContactsSrvProxy.deleteContact(id));
     await Promise.allSettled(pr);
     for (const contactId of contactIds) {
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete contactList.value[contactId];
     }
   }
 
   return {
     contactList: toRO(contactList),
+    upsertContactListItem,
     fetchContacts,
     getContact,
     upsertContact,

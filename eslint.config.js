@@ -1,28 +1,37 @@
 import eslintJs from '@eslint/js';
 import tsEslint from 'typescript-eslint';
-import tsParser from '@typescript-eslint/parser';
 import vueParser from 'vue-eslint-parser';
 import pluginVue from 'eslint-plugin-vue';
-import pluginTsEslint from '@typescript-eslint/eslint-plugin';
 import pluginPrettier from 'eslint-plugin-prettier';
 import globals from 'globals';
 
 export default [
   {
-    ignores: ['**/@types/**/*.*', '**/app/**/*.*', '**/ci/**/*.*', '**/doc/**/*.*', '**/public/**/*.*'],
+    ignores: [
+      '**/@types/**/*.*',
+      '**/app/**/*.*',
+      '**/ci/**/*.*',
+      '**/doc/**/*.*',
+      '**/public/**/*.*',
+      '**/tests-app/**/*.*',
+      './shared-libs/ipc/**/*.js',
+      './shared-libs/sqlite-on-3nstorage/index.js',
+    ],
   },
 
   eslintJs.configs['recommended'],
-  ...tsEslint.configs['recommended'],
+  ...tsEslint.configs.strict,
+  ...tsEslint.configs.stylistic,
   {
     files: ['**/*.{js,ts,jsx,tsx}'],
     plugins: {
-      '@typescript-eslint': pluginTsEslint,
+      '@typescript-eslint': tsEslint.plugin,
       prettier: pluginPrettier,
     },
     languageOptions: {
-      parser: tsParser,
+      parser: tsEslint.parser,
       parserOptions: {
+        project: './tsconfig.json',
         ecmaVersion: 'latest',
         sourceType: 'module',
         ecmaFeatures: {
@@ -36,7 +45,7 @@ export default [
       'max-len': [
         'error',
         {
-          code: 120,
+          code: 115,
           ignoreComments: true,
           ignoreUrls: true,
           ignoreStrings: true,
@@ -47,12 +56,13 @@ export default [
       'no-console': 'off',
       'no-debugger': 'off',
       'no-undef': 'off',
+      'default-case': ['error'],
       'import/prefer-default-export': 'off',
-      'default-case': 'off',
       'lines-between-class-members': 'off',
       'no-param-reassign': 'off',
       'no-return-assign': 'off',
       'arrow-parens': ['error', 'as-needed'],
+      'curly': 'error',
       'object-curly-newline': [
         'error',
         {
@@ -78,6 +88,13 @@ export default [
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/ban-ts-comment': 'off',
       '@typescript-eslint/no-unused-expressions': ['error', { allowShortCircuit: true, allowTernary: true }],
+      '@typescript-eslint/prefer-function-type': 'off',
+      '@typescript-eslint/unified-signatures': 'off',
+      // '@typescript-eslint/no-unsafe-argument ': 'error',
+      // '@typescript-eslint/no-unsafe-assignment': 'error',
+      // '@typescript-eslint/no-unsafe-call': 'error',
+      // '@typescript-eslint/no-unsafe-member-access': 'error',
+      // '@typescript-eslint/no-unsafe-return': 'error',
     },
   },
 
@@ -87,13 +104,13 @@ export default [
   {
     files: ['*.vue', '**/*.vue'],
     plugins: {
-      '@typescript-eslint': pluginTsEslint,
+      '@typescript-eslint': tsEslint.plugin,
       prettier: pluginPrettier,
     },
     languageOptions: {
       parser: vueParser,
       parserOptions: {
-        parser: tsParser,
+        parser: tsEslint.parser,
         ecmaVersion: 'latest',
         ecmaFeatures: {
           jsx: true,
@@ -124,6 +141,8 @@ export default [
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/ban-ts-comment': 'off',
       '@typescript-eslint/no-unused-expressions': ['error', { allowShortCircuit: true, allowTernary: true }],
+      '@typescript-eslint/prefer-function-type': 'off',
+      '@typescript-eslint/unified-signatures': 'off',
 
       'vue/no-v-model-argument': 'off',
       'vue/multi-word-component-names': 'off',
@@ -157,12 +176,13 @@ export default [
 
   {
     ignores: [
-      'src/libs/**/*.js',
-      'src/libs/**/*.d.ts',
-      'src-deno/**/*.js',
-      'src-deno/**/*.d.ts',
-      '/doc/**/*.*',
       '/app/**/*.*',
+      '/doc/**/*.*',
+      '/shared-libs/**/*.js',
+      '/src-background-instance/**/*.js',
+      '/src-main/**/*.js',
+      '/src-video/**/*.js',
+      '/tests-app/**/*.js',
     ],
   },
 ];

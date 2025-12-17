@@ -18,7 +18,7 @@
 import { computed, inject, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import size from 'lodash/size';
-import { DIALOGS_KEY, I18N_KEY, NOTIFICATIONS_KEY } from '@v1nt1248/3nclient-lib/plugins';
+import { DIALOGS_KEY, DialogsPlugin, I18N_KEY, I18nPlugin, NOTIFICATIONS_KEY, NotificationsPlugin } from '@v1nt1248/3nclient-lib/plugins';
 import { Ui3nButton, Ui3nCheckbox, type Ui3nCheckboxValue, Ui3nInput, Ui3nList } from '@v1nt1248/3nclient-lib';
 import { useAppStore } from '@main/common/store/app.store';
 import { useContactsStore } from '@main/common/store/contacts.store';
@@ -27,9 +27,9 @@ import ContactIcon from '@main/common/components/contact-icon.vue';
 import ConfirmationDialog from '@main/common/dialogs/confirmation-dialog.vue';
 import { useRouting } from '../composables/useRouting';
 
-const { $tr } = inject(I18N_KEY)!;
-const dialogs = inject(DIALOGS_KEY)!;
-const notification = inject(NOTIFICATIONS_KEY)!;
+const { $tr } = inject<I18nPlugin>(I18N_KEY)!;
+const dialogs = inject<DialogsPlugin>(DIALOGS_KEY)!;
+const notification = inject<NotificationsPlugin>(NOTIFICATIONS_KEY)!;
 
 const { goToNew, goToContact } = useRouting();
 
@@ -137,12 +137,22 @@ async function deleteSelectedContacts() {
   clearSelectedList();
 }
 
-function openContact(contact: PersonView & { displayName: string }) {
-  goToContact(contact.id);
+async function openContact(contact: PersonView & { displayName: string }) {
+  await goToContact(contact.id);
 }
 
 function createNewContact() {
   goToNew();
+}
+
+function getContactIconStyle(contact: PersonView) {
+  if (contact.avatarId && contact.avatarImage) {
+    return {
+      backgroundImage: `url(${contact.avatarImage})`,
+    }
+  }
+
+  return {};
 }
 </script>
 
@@ -210,13 +220,24 @@ function createNewContact() {
                 :class="$style.item"
                 @click="openContact(contact)"
               >
-                <contact-icon
-                  :name="contact.displayName"
-                  :size="32"
-                  :selected="selectedContacts.includes(contact.id)"
-                  :readonly="contact.mail === user"
-                  @click="selectContact(contact)"
-                />
+                <div
+                  :class="[$style.icon, contact.avatarId && selectedContacts.includes(contact.id) && $style.iconSelected]"
+                  :style="getContactIconStyle(contact)"
+                  @click.stop.prevent="selectContact(contact)"
+                >
+                  <contact-icon
+                    v-if="!contact.avatarId"
+                    :name="contact.displayName"
+                    :size="32"
+                    :selected="selectedContacts.includes(contact.id)"
+                    :readonly="contact.mail === user"
+                  />
+
+                  <div
+                    v-if="contact.avatarId && selectedContacts.includes(contact.id)"
+                    :class="$style.iconSelectedIcon"
+                  />
+                </div>
 
                 <span :class="$style.name">
                   {{ contact.displayName }}
@@ -313,6 +334,53 @@ function createNewContact() {
   font-weight: 500;
   color: var(--color-text-control-primary-default);
   cursor: pointer;
+}
+
+.icon {
+  position: relative;
+  width: var(--spacing-l);
+  min-width: var(--spacing-l);
+  height: var(--spacing-l);
+  border-radius: 50%;
+  border: 1px solid var(--color-border-block-primary-default);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.iconSelected {
+  &::before {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background-color: transparent;
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 4px solid var(--default-fill-default);
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background-color: transparent;
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 2px solid var(--color-border-control-accent-default);
+  }
+
+  .iconSelectedIcon {
+    position: absolute;
+    width: 33.3%;
+    height: 33.3%;
+    border-radius: 50%;
+    background-color: var(--color-border-control-accent-default);
+    bottom: 0;
+    right: 0;
+    z-index: 1;
+  }
 }
 
 .name {

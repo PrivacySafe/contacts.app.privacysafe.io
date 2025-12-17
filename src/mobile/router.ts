@@ -7,18 +7,18 @@ const routes: RouteRecordRaw[] = [
   { path: '/index-mobile.html', redirect: '/list' },
   {
     path: '/list',
-    name: 'list',
+    name: 'contacts',
     component: List,
   },
   {
-    path: '/contact/:id`',
+    path: '/contact/:id',
     name: 'contact',
     component: Contact,
   },
 ];
 
 export interface ListRoute {
-  name: 'list'
+  name: 'contacts'
 }
 
 export interface ContactRoute {

@@ -24,7 +24,7 @@ export function useRouting() {
 
   function goToList() {
     const r: ListRoute = {
-      name: 'list'
+      name: 'contacts'
     };
     return router.push(r);
   }
@@ -33,10 +33,11 @@ export function useRouting() {
     const r: ContactRoute = {
       name: 'contact',
       params: { id },
+      ...(opts?.edit && {
+        query: { editMode: 'on' },
+      }),
     };
-    if (opts?.edit) {
-      r.query = { editMode: 'on' };
-    }
+
     return router.push(r);
   }
 

@@ -42,7 +42,7 @@ export async function selectOneImageFileWithDialog(
 }
 
 export async function blobFromImageFile(imgFile: ReadonlyFile): Promise<Blob> {
-  const imgBytes = await imgFile.readBytes();
+  const imgBytes = await imgFile.readBytes() as BlobPart;
   if (!imgBytes) {
     throw new Error(`Expected image file ${imgFile.name} is empty`);
   }

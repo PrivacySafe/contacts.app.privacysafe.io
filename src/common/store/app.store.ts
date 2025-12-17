@@ -1,31 +1,27 @@
+import { ref } from 'vue';
 import { defineStore } from 'pinia';
-import { useSystemLevelAppConfig } from './app/system-level-app-config.ts';
-import { useConnectivityStatus } from './app/connectivity.ts';
-import { useAppSize } from './app/app-size.ts';
-
-export type AppStore = ReturnType<typeof useAppStore>;
+import { useSystemLevelAppConfig } from './app/system-level-app-config';
+import { useAppSize } from './app/app-size';
 
 export const useAppStore = defineStore('app', () => {
+  const syncStatus = ref<'synced' | 'unsynced'>('unsynced');
+
+  function setSyncStatus(val: 'synced' | 'unsynced') {
+    syncStatus.value = val;
+  }
 
   const appSize = useAppSize();
   const { appElement } = appSize;
-
-  const connectivity = useConnectivityStatus();
-  const { connectivityStatus } = connectivity;
 
   const commonAppConfs = useSystemLevelAppConfig();
   const { appVersion, user, lang, colorTheme, customLogoSrc } = commonAppConfs;
 
   async function initialize() {
-    await Promise.all([
-      connectivity.initialize(),
-      commonAppConfs.initialize(),
-    ]);
+    await commonAppConfs.initialize();
   }
 
   function stopWatching() {
     appSize.stopWatching();
-    connectivity.stopConnectivityCheck();
     commonAppConfs.stopWatching();
   }
 
@@ -35,12 +31,10 @@ export const useAppStore = defineStore('app', () => {
     lang,
     colorTheme,
     customLogoSrc,
-
-    connectivityStatus,
-
+    syncStatus,
     appElement,
-
     initialize,
     stopWatching,
+    setSyncStatus,
   };
 });

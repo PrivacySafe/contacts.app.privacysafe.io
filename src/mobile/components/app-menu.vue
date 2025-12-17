@@ -4,12 +4,8 @@ import ContactIcon from '@main/common/components/contact-icon.vue';
 
 defineProps<{
   user: string;
-  connectivityStatusText: string;
+  appExit?: () => void;
 }>();
-
-async function appExit() {
-  w3n.closeSelf!();
-}
 </script>
 
 <template>
@@ -25,17 +21,13 @@ async function appExit() {
         <div :class="$style.user">
           {{ user }}
         </div>
-
-        <div :class="$style.status">
-          {{ $tr('app.status') }}: {{ $tr(connectivityStatusText) }}
-        </div>
       </div>
     </div>
 
     <div :class="$style.appMenuBody">
       <ui3n-button
         :class="$style.logout"
-        @click="appExit"
+        @click="() => appExit && appExit()"
       >
         {{ $tr('app.exit') }}
       </ui3n-button>

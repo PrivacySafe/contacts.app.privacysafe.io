@@ -68,7 +68,7 @@
 .circle1 {
   width: var(--circle-size-big);
   height: var(--circle-size-big);
-  background-color: rgba(0, 144, 236, 0.16);
+  background-color: rgb(0, 144, 236, 0.16);
   left: 26%;
   top: 0;
 }
@@ -76,7 +76,7 @@
 .circle2 {
   width: var(--circle-size-mid);
   height: var(--circle-size-mid);
-  background-color: rgba(0, 144, 236, 0.54);
+  background-color: rgb(0, 144, 236, 0.54);
   left: 8%;
   bottom: 24px;
 }
@@ -84,7 +84,7 @@
 .circle3 {
   width: var(--circle-size-small);
   height: var(--circle-size-small);
-  background-color: rgba(0, 144, 236, 0.87);
+  background-color: rgb(0, 144, 236, 0.87);
   right: 25%;
   bottom: 0;
 }

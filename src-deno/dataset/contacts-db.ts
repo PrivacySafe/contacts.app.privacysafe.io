@@ -17,54 +17,24 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 // @deno-types="../../shared-libs/sqlite-on-3nstorage/index.d.ts"
-import { SQLiteOn3NStorage, QueryExecResult, Database } from '../../shared-libs/sqlite-on-3nstorage/index.js';
+import { SQLiteOn3NStorage, QueryExecResult } from '../../shared-libs/sqlite-on-3nstorage/index.js';
 import type { Person, PersonView } from '../../src/common/types';
 import { randomStr } from '../../src/common/services/base/random.ts';
 import { makeContactsException } from '../exceptions.ts';
 
 type SqlValue = number | string | Uint8Array | null;
 
-// language=SQL format=false
-const queryToCreateContactsTab = `
-CREATE TABLE contacts (
-  -- id is a canonical form of mail address
-  id         TEXT PRIMARY KEY UNIQUE,
-
-  -- fields for PersonView
-  mail       TEXT NOT NULL,
-  name       TEXT,
-  avatarMini TEXT,
-
-  -- the rest of fields for Person
-  avatar     TEXT,
-  notice     TEXT,
-  phone      TEXT,
-  activities TEXT
-) STRICT
-`;
-
-const queryToInsertContact = `INSERT INTO contacts (id, name, mail, avatarMini, avatar, notice, phone, activities) VALUES ($id, $name, $mail, $avatarMini, $avatar, $notice, $phone, $activities) ON CONFLICT(id) DO NOTHING`;
-const queryToUpdateContact = `UPDATE contacts SET name=$name, mail=$mail, avatarMini=$avatarMini, avatar=$avatar, notice=$notice, phone=$phone, activities=$activities WHERE id = $id`;
-const queryToGetContactById = `SELECT * FROM contacts WHERE id = $id`;
-const queryToDeleteContactById = `DELETE FROM contacts WHERE id = $id`;
-const queryToContactsList = `SELECT id, name, mail, avatarMini FROM contacts`;
-
-function personValueToSqlInsertParams(value: Person) {
-  return {
-    $id: value.id,
-    $name: value.name || null,
-    $mail: value.mail,
-    $avatarMini: value.avatarMini || null,
-    $avatar: value.avatar || null,
-    $notice: value.notice || null,
-    $phone: value.phone || null,
-    $activities: Array.isArray(value.activities)
-      ? JSON.stringify(value.activities)
-      : null,
-  };
+export interface ContactDB {
+  insertContactInto: (contact: Person | Omit<Person, 'timestamp'>, withoutUpdateTs?: boolean) => string;
+  getContactFrom: (id: string) => Person | undefined;
+  updateContactInto: (contact: Person | Omit<Person, 'timestamp'>) => void;
+  deleteContactFrom: (id: string) => boolean;
+  listAllContactsFrom: () => PersonView[];
+  updateContactsTable: (contacts: PersonView[]) => boolean;
+  getIdsOfAllFilesInUse: () => string[];
 }
 
-function objectFromQueryExecResult<T>(sqlResult: QueryExecResult): Array<T> {
+export function objectFromQueryExecResult<T>(sqlResult: QueryExecResult): T[] {
   const { columns, values: rows } = sqlResult;
   return rows.map((row: SqlValue[]) => row.reduce((obj, cellValue, index) => {
     const field = columns[index] as keyof T;
@@ -73,97 +43,228 @@ function objectFromQueryExecResult<T>(sqlResult: QueryExecResult): Array<T> {
   }, {} as T));
 }
 
-function queryResultToPerson(sqlResult: QueryExecResult, row = 0): Person {
-  const person = objectFromQueryExecResult<Person>(sqlResult)[row];
-  person.activities = JSON.parse(person.activities as unknown as string);
-  return person;
-}
-
-/**
- * This inserts contact into a given db.
- * @param db sqlite (sqljs) db
- * @param contact
- */
-export function insertContactInto(db: Database, contact: Person): void {
-  contact.id = randomStr(8);
-  const params = personValueToSqlInsertParams(contact);
-  db.exec(queryToInsertContact, params);
-  if (db.getRowsModified() === 0) {
-    throw makeContactsException({ contactAlreadyExists: true });
+export async function contactDb(sqlite: SQLiteOn3NStorage): Promise<ContactDB> {
+  function personValueToSqlInsertParams(value: Omit<Person, 'avatarImage'>) {
+    return {
+      $id: value.id,
+      $name: value.name || null,
+      $mail: value.mail,
+      $avatarId: value.avatarId || null,
+      $timestamp: value.timestamp || 0,
+      $notice: value.notice || null,
+      $phone: value.phone || null,
+      $activities: Array.isArray(value.activities)
+        ? JSON.stringify(value.activities)
+        : null,
+      $settings: value.settings
+        ? JSON.stringify(value.settings)
+        : null,
+    };
   }
-}
 
-/**
- * This updates existing contact into a given db.
- * @param db sqlite (sqljs) db
- * @param contact
- */
-export function updateContactInto(db: Database, contact: Person): void {
-  if (!contact.id) {
-    throw makeContactsException({
-      invalidValue: true,
-      message: 'Given contact does not contain ID',
+  function queryResultToPerson(sqlResult: QueryExecResult, row = 0): Omit<Person, 'avatarImage'> {
+    const person = objectFromQueryExecResult<Omit<Person, 'avatarImage'>>(sqlResult)[row];
+    person.activities = person.activities !== null ? JSON.parse(person.activities as unknown as string) : [];
+    person.settings = person.settings !== null ? JSON.parse(person.settings as unknown as string) : {};
+    return person;
+  }
+
+  function insertContactInto(
+    contact: Omit<Person, 'avatarImage'> | Omit<Person, 'timestamp' | 'avatarImage'>,
+    withoutUpdateTs?: boolean,
+  ): string {
+    contact.id = randomStr(8);
+    const params = personValueToSqlInsertParams({
+      ...contact as Omit<Person, 'avatarImage'>,
+      ...(!withoutUpdateTs && { timestamp: Date.now() }),
     });
+    sqlite.db.exec(
+      `--sql
+    INSERT INTO contacts (id, name, mail, avatarId, timestamp, notice, phone, activities, settings)
+    VALUES ($id, $name, $mail, $avatarId, $timestamp, $notice, $phone, $activities, $settings)
+    ON CONFLICT(id) DO NOTHING`,
+      params,
+    );
+
+    if (sqlite.db.getRowsModified() === 0) {
+      throw makeContactsException({ contactAlreadyExists: true });
+    }
+
+    return contact.id;
   }
 
-  const params = personValueToSqlInsertParams(contact);
-  db.exec(queryToUpdateContact, params);
-}
+  function getContactFrom(id: string): Omit<Person, 'avatarImage'> | undefined {
+    const [sqlValue] = sqlite.db.exec(
+      `--sql
+    SELECT * FROM contacts WHERE id = $id`,
+      { $id: id },
+    );
 
-/**
- * @param db sqlite (sqljs) db
- * @param id contact's id
- * @returns found contact, or undefined
- */
-export function getContactFrom(db: Database, id: string): Person | undefined {
-  const [sqlValue] = db.exec(queryToGetContactById, { $id: id });
-  return ((sqlValue && (sqlValue.values.length === 1)) ?
-      queryResultToPerson(sqlValue, 0) : undefined
-  );
-}
-
-/**
- * @param db sqlite (sqljs) db
- * @param id contact's id
- * @returns true, if db was changed, and false, if contact was not found
- */
-export function deleteContactFrom(db: Database, id: string): boolean {
-  db.exec(queryToDeleteContactById, { $id: id });
-  return (db.getRowsModified() > 0);
-}
-
-export function listAllContactsFrom(db: Database): PersonView[] {
-  const [sqlValue] = db.exec(queryToContactsList);
-  return objectFromQueryExecResult<PersonView>(sqlValue);
-}
-
-export async function initializeDB(
-  sqlite: SQLiteOn3NStorage,
-): Promise<{ dbChanged: boolean; }> {
-  const tableList = sqlite.listTables();
-  let dbChanged = false;
-
-  if (!tableList.includes('contacts')) {
-    sqlite.db.exec(queryToCreateContactsTab);
-    const userOwnAddr = await w3n.mailerid!.getUserId();
-    insertContactInto(sqlite.db, {
-      mail: userOwnAddr,
-    } as Person);
-    dbChanged = true;
+    return ((sqlValue && (sqlValue.values.length === 1)) ?
+        queryResultToPerson(sqlValue, 0) : undefined
+    );
   }
 
-  if (!tableList.includes('activities')) {
-    sqlite.db.exec(queryToCreateActivitiesTab);
-    dbChanged = true;
+  function updateContactInto(
+    contact: Omit<Person, 'avatarImage'> | Omit<Person, 'avatarImage' | 'timestamp'>,
+  ): void {
+    if (!contact.id) {
+      throw makeContactsException({
+        invalidValue: true,
+        message: 'Given contact does not contain ID',
+      });
+    }
+
+    const params = personValueToSqlInsertParams({
+      ...contact as Omit<Person, 'avatarImage'>,
+      timestamp: Date.now(),
+    });
+
+    sqlite.db.exec(
+      `--sql
+    UPDATE contacts
+    SET name=$name, mail=$mail, avatarId=$avatarId, timestamp=$timestamp, notice=$notice, phone=$phone, activities=$activities, settings=$settings
+    WHERE id = $id`,
+      params,
+    );
   }
 
-  return { dbChanged };
+  function deleteContactFrom(id: string): boolean {
+    sqlite.db.exec(
+      `--sql
+    DELETE FROM contacts WHERE id = $id`,
+      { $id: id },
+    );
+    return (sqlite.db.getRowsModified() > 0);
+  }
+
+  function listAllContactsFrom(): Omit<PersonView, 'avatarImage'>[] {
+    const [sqlValue] = sqlite.db.exec(
+      `--sql
+    SELECT id, name, mail, avatarId, timestamp
+    FROM contacts`,
+    );
+    return objectFromQueryExecResult<Omit<PersonView, 'avatarImage'>>(sqlValue);
+  }
+
+  function getIdsOfAllFilesInUse(): string[] {
+    const [sqlValue] = sqlite.db.exec(
+      `--sql
+    SELECT avatarId FROM contacts
+    WHERE avatarId IS NOT NULL AND avatarId <> '' AND TRIM(avatarId) <> ''`,
+    );
+
+    if (!sqlValue) {
+      return [];
+    }
+
+    const res: string[] = [];
+    for (const value of (sqlValue.values as string[][])) {
+      for (const item of value) {
+        res.push(item);
+      }
+    }
+
+    return res;
+  }
+
+  function createContactsTable() {
+    sqlite.db.exec(
+      `--sql
+        CREATE TABLE contacts (
+          id          TEXT PRIMARY KEY UNIQUE,
+          mail        TEXT NOT NULL,
+          name        TEXT,
+          avatarId    TEXT,
+          timestamp   INTEGER,
+          notice      TEXT,
+          phone       TEXT,
+          activities  TEXT,
+          settings    TEXT
+        )`,
+    );
+  }
+
+  function updateContactsTable(contacts: Omit<Person, 'avatarImage'>[]): boolean {
+    sqlite.db.exec(
+      `--sql
+      DROP TABLE contacts`
+    );
+    createContactsTable();
+    for (const contact of contacts) {
+      insertContactInto(contact, true);
+    }
+
+    return (sqlite.db.getRowsModified() > 0);
+  }
+
+  async function initializeDB(): Promise<void> {
+    const tableList = sqlite.listTables();
+
+    if (!tableList.includes('contacts')) {
+      createContactsTable();
+      const userOwnAddr = await w3n.mailerid!.getUserId();
+      insertContactInto({ mail: userOwnAddr } as Person);
+    }
+
+    if (!tableList.includes('activities')) {
+      sqlite.db.exec(
+        `--sql
+          CREATE TABLE activities (
+          id          TEXT PRIMARY KEY UNIQUE,
+          type        TEXT    NOT NULL,
+          description TEXT,
+          timestamp   INTEGER NOT NULL
+        )`,
+      );
+    }
+
+    const [sqlValue] = sqlite.db.exec('PRAGMA table_info(contacts)');
+    const isThereTimestampField = sqlValue.values.some(item => item.includes('timestamp'));
+    const isThereAvatarIdField = sqlValue.values.some(item => item.includes('avatarId'));
+    const isThereSettingsField = sqlValue.values.some(item => item.includes('settings'));
+
+    if (!isThereTimestampField) {
+      sqlite.db.exec(
+        `--sql
+        ALTER TABLE contacts
+        ADD COLUMN timestamp INTEGER
+        DEFAULT 0`,
+      );
+    }
+
+    if (!isThereAvatarIdField) {
+      sqlite.db.exec(
+        `--sql
+        ALTER TABLE contacts
+        RENAME COLUMN avatar
+        TO avatarId`,
+      );
+    }
+
+    if (!isThereSettingsField) {
+      sqlite.db.exec(
+        `--sql
+        ALTER TABLE contacts
+        RENAME COLUMN avatarMini
+        TO settings`,
+      );
+    }
+
+    if (!isThereTimestampField || !isThereAvatarIdField || !isThereSettingsField) {
+      await sqlite.saveToFile({ skipUpload: true });
+    }
+  }
+
+  await initializeDB();
+
+  return {
+    insertContactInto,
+    getContactFrom,
+    updateContactInto,
+    deleteContactFrom,
+    listAllContactsFrom,
+    updateContactsTable,
+    getIdsOfAllFilesInUse,
+  };
 }
-
-const queryToCreateActivitiesTab = `CREATE TABLE activities (
-  id TEXT PRIMARY KEY UNIQUE,
-  type TEXT NOT NULL,
-  description TEXT,
-  timestamp INTEGER NOT NULL
-) STRICT`;
-

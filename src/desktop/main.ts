@@ -18,8 +18,8 @@ import '@v1nt1248/3nclient-lib/style.css';
 import '@v1nt1248/3nclient-lib/variables.css';
 import '@main/common/assets/styles/main.css';
 
-import { initializeServices } from '@main/common/services/services-provider.ts';
-import { setupMainApp } from '@main/desktop/app-setup.ts';
+import { initializeServices } from '@main/common/services/services-provider';
+import { setupMainApp } from '@main/desktop/app-setup';
 
 initializeServices()
   .then(async () => {

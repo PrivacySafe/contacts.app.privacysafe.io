@@ -15,25 +15,25 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 import { makeServiceCaller } from '@shared/ipc/ipc-service-caller';
-import type { Person } from '@main/common/types';
+import type { ContactsService } from '@main/common/types';
 
-interface AppContacts {
-  isThereContactWithTheMail(mail: string): boolean;
-  upsertContact(value: Person): Promise<void | { errorType: string; errorMessage: string }>;
-  getContact(id: string): Promise<Person>;
-  getContactList(): Promise<Person[]>;
-  deleteContact(id: string): Promise<void>;
-}
-
-export let appContactsSrvProxy: AppContacts;
+export let appContactsSrvProxy: ContactsService;
 
 export async function initializeServices() {
-
   try {
     const srvConn = await w3n.rpc!.thisApp!('AppContactsInternal');
-    appContactsSrvProxy = makeServiceCaller<AppContacts>(
-      srvConn, ['isThereContactWithTheMail', 'upsertContact', 'getContact', 'getContactList', 'deleteContact'],
-    ) as AppContacts;
+    appContactsSrvProxy = makeServiceCaller<ContactsService>(
+      srvConn, [
+        'isThereContactWithTheMail',
+        'upsertContact',
+        'getContact',
+        'getContactList',
+        'deleteContact',
+        'addImage',
+        'deleteImage',
+        'removeUnnecessaryImageFiles',
+      ],
+    ) as ContactsService;
 
     console.info('<- SERVICES ARE INITIALIZED ->');
   } catch (e) {

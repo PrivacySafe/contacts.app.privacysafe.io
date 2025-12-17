@@ -19,7 +19,7 @@ import { toCanonicalAddress } from '../shared-libs/address-utils.ts';
 import { makeContactsException } from './exceptions.ts';
 
 type ASMailSendException = web3n.asmail.ASMailSendException;
-type ServLocException = web3n.asmail.ServLocException;
+type ServLocException = web3n.ServLocException;
 type ConnectException = web3n.ConnectException;
 
 export type AddressCheckResult =
@@ -47,7 +47,7 @@ export async function checkAddressExistenceForASMail(
       } else {
         throw exc;
       }
-    } else if ((err as ConnectException).type === 'http-connect') {
+    } else if ((err as ConnectException).type === 'connect') {
       throw err;
     } else if ((err as ServLocException).type === 'service-locating') {
       return 'no-service-for-domain';

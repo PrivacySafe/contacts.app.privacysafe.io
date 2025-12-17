@@ -6,7 +6,7 @@
   "singleQuote": true,
   "trailingComma": "all",
   "parser": "typescript",
-  "printWidth": 120,
+  "printWidth": 115,
   "tabWidth": 2,
   "useTabs": false,
   "singleAttributePerLine": true,

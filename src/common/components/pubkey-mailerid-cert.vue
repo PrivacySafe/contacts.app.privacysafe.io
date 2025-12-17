@@ -16,7 +16,7 @@
 -->
 <script lang="ts" setup>
 import { computed, inject } from 'vue';
-import { I18N_KEY } from '@v1nt1248/3nclient-lib/plugins';
+import { I18N_KEY, I18nPlugin } from '@v1nt1248/3nclient-lib/plugins';
 import { getKeyCert } from '@shared/jwkeys';
 import { algToHumanString } from '@main/common/utils/keys-info';
 
@@ -26,7 +26,7 @@ const props = defineProps<{
   pkeyCert: PKeyCertChain;
 }>();
 
-const { $tr } = inject(I18N_KEY)!;
+const { $tr } = inject<I18nPlugin>(I18N_KEY)!;
 
 const pkey = computed(() => getKeyCert(props.pkeyCert.pkeyCert));
 const expiry = computed(() => new Date(pkey.value.expiresAt * 1000));

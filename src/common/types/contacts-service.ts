@@ -16,20 +16,97 @@
 */
 
 export interface ContactsService {
-  isThereContactWithTheMail(mail: string): boolean;
-  getContactByMail(mail: string): Person | undefined;
-  getContactList(): Promise<PersonView[]>;
-  getContact(id: string): Promise<Person|undefined>;
-  insertContact(contact: Person): Promise<void | { errorType: string; errorMessage: string }>;
-  upsertContact(contact: Person): Promise<void | { errorType: string; errorMessage: string }>;
+  isThereContactWithTheMail(mail: string): Promise<boolean>;
+
+  getContactByMail(mail: string): Promise<Person | undefined>;
+
+  getContactList(withImage?: boolean): Promise<PersonView[]>;
+
+  getContact(id: string): Promise<Person | undefined>;
+
+  insertContact(contact: Person | Omit<Person, 'timestamp'>): Promise<string | {
+    errorType: string;
+    errorMessage: string
+  }>;
+
+  updateContact(contact: Person | Omit<Person, 'timestamp'>): Promise<string>;
+
+  upsertContact(contact: Person | Omit<Person, 'timestamp'>): Promise<string | {
+    errorType: string;
+    errorMessage: string
+  }>;
+
+  deleteContact(id: string): Promise<void>;
+
+  addImage(
+    { base64, id, withUploadParentFolder }:
+    { base64: string; id?: string; withUploadParentFolder?: boolean },
+  ): Promise<string>;
+
+  getImage(id: string): Promise<string>;
+
+  deleteImage(id: string): Promise<void>;
+
+  removeUnnecessaryImageFiles(): Promise<void>;
+
   watchContactList(obs: web3n.Observer<PersonView[]>): () => void;
+
+  completeAllWatchers(): void;
+
+  checkSyncStatus(): Promise<'synced' | 'unsynced'>;
+
+  watchEvent(obs: web3n.Observer<ContactEvent>): () => void;
 }
+
+export interface ContactAddedEvent {
+  event: 'added';
+  contact: Person;
+}
+
+export interface ContactRemovedEvent {
+  event: 'removed';
+  contactId: string;
+}
+
+export interface ContactUpdatedEvent {
+  event: 'updated';
+  contact: Person;
+}
+
+export interface ContactProcessingStartEvent {
+  event: 'processing:start';
+}
+
+export interface ContactProcessingEndEvent {
+  event: 'processing:end';
+}
+
+export interface ContactSyncStatusChangeEvent {
+  event: 'syncstatus:change';
+  status: 'synced' | 'unsynced';
+}
+
+export type ContactEvent = ContactAddedEvent
+  | ContactRemovedEvent
+  | ContactUpdatedEvent
+  | ContactProcessingStartEvent
+  | ContactProcessingEndEvent
+  | ContactSyncStatusChangeEvent;
 
 export interface PersonView {
   id: string;
   name?: string;
   mail: string;
-  avatarMini?: string;
+  avatarId?: string;
+  avatarImage?: string;
+  timestamp: number;
+}
+
+export interface Person extends PersonView {
+  notice?: string;
+  phone?: string;
+  activities?: string[];
+  settings?: unknown;
 }
 
 export interface PersonActivity {
@@ -45,11 +122,3 @@ export interface ContactsException extends web3n.RuntimeException {
   invalidValue?: true;
   failASMailCheck?: true;
 }
-
-export interface Person extends PersonView {
-  avatar?: string;
-  notice?: string;
-  phone?: string;
-  activities?: string[];
-}
-

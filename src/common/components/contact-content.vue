@@ -33,7 +33,7 @@ const emits = defineEmits<{
   (event: 'update:field', value: { field: keyof (ContactContent | Person), val: string }): void;
 }>();
 
-const isValid = ref<Record<keyof (ContactContent | Person), boolean>>({
+const isValid = ref<Record<keyof Pick<ContactContent, 'mail' | 'name' | 'phone' | 'notice'>, boolean>>({
   name: fieldValidate('name'),
   mail: fieldValidate('mail'),
   phone: fieldValidate('phone'),
@@ -57,11 +57,11 @@ function onInput(ev: string, field: keyof (ContactContent | Person)) {
 
   Object.keys(isValid.value).forEach(f => {
     if (f === field) {
-      isValid.value[f] = fieldValidate(f, ev);
+      isValid.value[f as keyof Pick<ContactContent, 'mail' | 'name' | 'phone' | 'notice'>] = fieldValidate(f, ev);
     } else {
-      isValid.value[f as keyof (ContactContent | Person)] = fieldValidate(
+      isValid.value[f as keyof Pick<ContactContent, 'mail' | 'name' | 'phone' | 'notice'>] = fieldValidate(
         f as keyof (ContactContent | Person),
-        props.contact[f as keyof (ContactContent | Person)],
+        props.contact[f as keyof (ContactContent | Person)] as string,
       );
     }
   });
@@ -92,42 +92,47 @@ onBeforeUnmount(() => {
 
 <template>
   <div :class="$style.contactContent">
-    <ui3n-input
-      :model-value="contact.mail"
-      :label="`${$tr('contact.content.mail')}*`"
-      :rules="getRules('mail')"
-      :disabled="disabled"
-      :class="$style.field"
-      @input="onInput($event, 'mail')"
-    />
+    <div :class="$style.field">
+      <ui3n-input
+        :model-value="contact.mail"
+        :label="`${$tr('contact.content.mail')}*`"
+        :rules="getRules('mail')"
+        :disabled="disabled"
+        @input="onInput($event, 'mail')"
+      />
+    </div>
 
-    <ui3n-input
-      :model-value="contact.name!"
-      :label="$tr('contact.content.name')"
-      :rules="getRules('name')"
-      :disabled="disabled"
-      :class="$style.field"
-      @input="onInput($event, 'name')"
-    />
+    <div :class="$style.field">
+      <ui3n-input
+        :model-value="contact.name!"
+        :label="$tr('contact.content.name')"
+        :rules="getRules('name')"
+        :disabled="disabled"
+        @input="onInput($event, 'name')"
+      />
+    </div>
 
-    <ui3n-input
-      :model-value="contact.phone!"
-      :label="$tr('contact.content.phone')"
-      :rules="getRules('phone')"
-      :disabled="disabled"
-      :class="$style.field"
-      @input="onInput($event, 'phone')"
-    />
+    <div :class="$style.field">
+      <ui3n-input
+        :model-value="contact.phone!"
+        :label="$tr('contact.content.phone')"
+        :rules="getRules('phone')"
+        :disabled="disabled"
+        @input="onInput($event, 'phone')"
+      />
+    </div>
 
-    <ui3n-text
-      :text="contact.notice!"
-      :label="$tr('contact.content.note')"
-      :rows="6"
-      :max-rows="6"
-      :rules="getRules('notice')"
-      :disabled="disabled"
-      @input="onInput($event, 'notice')"
-    />
+    <div :class="$style.field">
+      <ui3n-text
+        :text="contact.notice!"
+        :label="$tr('contact.content.note')"
+        :rows="6"
+        :max-rows="6"
+        :rules="getRules('notice')"
+        :disabled="disabled"
+        @input="onInput($event, 'notice')"
+      />
+    </div>
   </div>
 </template>
 
@@ -135,9 +140,13 @@ onBeforeUnmount(() => {
 .contactContent {
   position: relative;
   width: 100%;
+  height: 100%;
+  padding-right: var(--spacing-xs);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .field {
-  margin-bottom: calc(var(--spacing-s) * 1.5);
+  padding-bottom: var(--spacing-s);
 }
 </style>

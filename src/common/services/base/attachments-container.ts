@@ -28,7 +28,9 @@ export function isContainerEmpty(c: AttachmentsContainer | undefined): boolean {
   return !(c.folders && (Object.keys(c.folders).length > 0));
 }
 
-export function* iterFilesIn(c: AttachmentsContainer | undefined): IterableIterator<{ fileName: string, file: FileW }> {
+export function* iterFilesIn(
+  c: AttachmentsContainer | undefined
+): IterableIterator<{ fileName: string, file: FileW }> {
   if (!c || !c.files) {
     return;
   }
@@ -87,6 +89,8 @@ export function renameFileIn(c: AttachmentsContainer, initName: string, newName:
   }
   const file = c.files[initName];
   addFileTo(c, file, newName);
+
+  // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
   delete c.files[initName];
 }
 
@@ -96,5 +100,6 @@ export function renameFolderIn(c: AttachmentsContainer, initName: string, newNam
   }
   const folder = c.folders[initName];
   addFolderTo(c, folder, newName);
+  // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
   delete c.folders[initName];
 }

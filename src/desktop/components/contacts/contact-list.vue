@@ -17,20 +17,22 @@
 <script lang="ts" setup>
 import { get as lGet } from 'lodash';
 import { computed } from 'vue';
-import { useContactsStore } from '@main/common/store/contacts.store.ts';
+import { useRoute, useRouter } from 'vue-router';
 import { Ui3nList } from '@v1nt1248/3nclient-lib';
+import { useContactsStore } from '@main/common/store/contacts.store';
 import type { ContactGroup, PersonView } from '@main/common/types';
 import ContactIcon from '@main/common/components/contact-icon.vue';
-import { useRouting } from '@main/desktop/composables/useRouting';
 
 const props = defineProps<{
   searchText?: string;
 }>();
 
-const { goToContact, getContactIdFromRoute } = useRouting();
+const route = useRoute();
+const router = useRouter();
+
 const contactsStore = useContactsStore();
 
-const selectedContactId = computed(() => getContactIdFromRoute());
+const selectedContactId = computed(() => route.params.id as string);
 const text = computed<string>(() => (props.searchText || '').toLocaleLowerCase());
 
 const contactList = computed((): (PersonView & { displayName: string })[] =>
@@ -59,8 +61,18 @@ const contactListByLetters = computed(() =>
   }, {} as Record<string, ContactGroup>)
 );
 
-function selectContact(id: string) {
-  goToContact(id);
+async function selectContact(id: string) {
+  await router.push({ name: 'contact', params: { id } });
+}
+
+function getContactIconStyle(contact: PersonView) {
+  if (contact.avatarId && contact.avatarImage) {
+    return {
+      backgroundImage: `url(${contact.avatarImage})`,
+    }
+  }
+
+  return {};
 }
 </script>
 
@@ -83,11 +95,18 @@ function selectContact(id: string) {
             :class="[$style.item, contact.id === selectedContactId && $style.selected]"
             @click="selectContact(contact.id)"
           >
-            <contact-icon
-              :name="contact.displayName"
-              :size="32"
-              :readonly="true"
-            />
+            <div
+              :class="$style.icon"
+              :style="getContactIconStyle(contact)"
+            >
+              <contact-icon
+                v-if="!contact.avatarId"
+                :name="contact.displayName"
+                :size="32"
+                :readonly="true"
+              />
+            </div>
+
             <span :class="$style.name">
               {{ contact.displayName }}
             </span>
@@ -125,6 +144,18 @@ function selectContact(id: string) {
   &:hover {
     background-color: var(--color-bg-control-primary-hover);
   }
+}
+
+.icon {
+  position: relative;
+  width: var(--spacing-l);
+  min-width: var(--spacing-l);
+  height: var(--spacing-l);
+  border-radius: 50%;
+  border: 1px solid var(--color-border-block-primary-default);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 .name {

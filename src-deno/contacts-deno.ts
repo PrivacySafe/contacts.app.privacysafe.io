@@ -1,5 +1,5 @@
 /*
- Copyright (C) 2020-2025 3NSoft Inc.
+ Copyright (C) 2025 3NSoft Inc.
 
  This program is free software: you can redistribute it and/or modify it under
  the terms of the GNU General Public License as published by the Free Software
@@ -14,127 +14,186 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
-
-
 /// <reference path="../@types/platform-defs/injected-w3n.d.ts" />
 /// <reference path="../@types/platform-defs/test-stand.d.ts" />
 // @deno-types="../shared-libs/ipc/ipc-service.d.ts"
 import { MultiConnectionIPCWrap } from '../shared-libs/ipc/ipc-service.js';
 import { setupGlobalReportingOfUnhandledErrors } from '../shared-libs/error-handling.ts';
-import { AppContactsService, ContactsService, Person, PersonView } from '@main/common/types/index.ts';
+import { contactsDataSet } from './dataset/dataset.ts';
 import { sleep } from '../shared-libs/processes/sleep.ts';
-import { ContactsData } from './dataset/index.ts';
+import type { ContactsService, Person, PersonView } from '../src/common/types/index.ts';
 
-setupGlobalReportingOfUnhandledErrors(true);
+async function contactsService(): Promise<ContactsService> {
+  const observers = new Set<web3n.Observer<PersonView[]>>();
 
-class ContactsServiceInstance implements ContactsService, AppContactsService {
-  private readonly observers = new Set<web3n.Observer<PersonView[]>>();
+  const data = await contactsDataSet();
 
-  constructor(
-    private readonly data: ContactsData,
-  ) {
-  }
+  setupGlobalReportingOfUnhandledErrors(true);
 
-  static async initialization(): Promise<ContactsServiceInstance> {
-    const data = await ContactsData.makeAndStart();
-    return new ContactsServiceInstance(data);
-  }
-
-  // XXX this can be replaced by insertContact and updateContact
-  async upsertContact(contact: Person): Promise<void | { errorType: string; errorMessage: string }> {
-    if (contact.id === 'new') {
-      return await this.insertContact(contact);
-    } else {
-      await this.updateContact(contact);
-    }
-  }
-
-  async updateContact(contact: Person): Promise<void> {
-    await this.data.updateContact(contact);
-    this.sendUpdatedListToObservers();
-  }
-
-  async insertContact(contact: Person): Promise<void | { errorType: string; errorMessage: string }> {
-    const isThereSuchContact = this.isThereContactWithTheMail(contact.mail);
-
-    if (isThereSuchContact) {
-      return {
-        errorType: 'exists',
-        errorMessage: `There is already the contact with mail ${contact.mail}`,
-      };
-    } else {
-      await this.data.insertContact(contact);
-      this.sendUpdatedListToObservers();
-    }
-  }
-
-  private sendUpdatedListToObservers(): void {
-    const contactList = this.data.getContactList();
-    for (const obs of this.observers) {
+  async function sendUpdatedListToObservers(): Promise<void> {
+    const contactList = await data.getContactList();
+    for (const obs of observers) {
       if (obs.next) {
         obs.next(contactList);
       }
     }
   }
 
-  async getContact(id: string): Promise<Person | undefined> {
-    return this.data.getContact(id);
-  }
-
-  async getContactList(): Promise<PersonView[]> {
-    return this.data.getContactList();
-  }
-
-  getContactByMail(mail: string): Person | undefined {
-    const contactList = this.data.getContactList();
+  async function getContactByMail(mail: string): Promise<Person | undefined> {
+    const contactList = await data.getContactList();
     return contactList.find(contact => contact.mail === mail);
   }
 
-
-  isThereContactWithTheMail(mail: string): boolean {
-    return !!this.getContactByMail(mail);
+  async function getContact(id: string): Promise<Person | undefined> {
+    return data.getContact(id);
   }
 
-  watchContactList(obs: web3n.Observer<PersonView[]>): () => void {
-    this.observers.add(obs);
-    return () => this.observers.delete(obs);
+  async function getContactList(withImage?: boolean): Promise<PersonView[]> {
+    return data.getContactList(withImage);
   }
 
-  async deleteContact(id: string) {
-    const dbChanged = await this.data.deleteContact(id);
+  async function isThereContactWithTheMail(mail: string): Promise<boolean> {
+    return !!(await getContactByMail(mail));
+  }
+
+  async function insertContact(contact: Person | Omit<Person, 'timestamp'>): Promise<string | {
+    errorType: string;
+    errorMessage: string
+  }> {
+    const isThereSuchContact = await isThereContactWithTheMail(contact.mail);
+
+    if (isThereSuchContact) {
+      return {
+        errorType: 'exists',
+        errorMessage: `There is already the contact with mail ${contact.mail}`,
+      };
+    }
+
+    const contactId = await data.insertContact(contact);
+    await sendUpdatedListToObservers();
+    return contactId;
+  }
+
+  async function updateContact(contact: Person | Omit<Person, 'timestamp'>): Promise<string> {
+    await data.updateContact(contact);
+    await sendUpdatedListToObservers();
+    return contact.id;
+  }
+
+  async function upsertContact(contact: Person | Omit<Person, 'timestamp'>): Promise<string | {
+    errorType: string;
+    errorMessage: string
+  }> {
+    if (contact.id === 'new') {
+      return await insertContact(contact);
+    }
+
+    return await updateContact(contact);
+  }
+
+  async function deleteContact(id: string) {
+    const dbChanged = await data.deleteContact(id);
     if (dbChanged) {
-      this.sendUpdatedListToObservers();
+      sendUpdatedListToObservers();
     }
   }
 
-  completeAllWatchers(): void {
-    for (const obs of this.observers) {
+  async function addImage(
+    { base64, id, withUploadParentFolder }:
+    { base64: string; id?: string; withUploadParentFolder?: boolean },
+  ): Promise<string> {
+    return data.addImage({ base64, id, withUploadParentFolder });
+  }
+
+  async function getImage(id: string): Promise<string> {
+    return data.getImage(id);
+  }
+
+  async function deleteImage(id: string): Promise<void> {
+    return data.deleteImage(id);
+  }
+
+  function removeUnnecessaryImageFiles() {
+    return data.removeUnnecessaryImageFiles();
+  }
+
+  function watchContactList(obs: web3n.Observer<PersonView[]>): () => void {
+    observers.add(obs);
+    return () => observers.delete(obs);
+  }
+
+  function completeAllWatchers(): void {
+    for (const obs of observers) {
       if (obs.complete) {
         obs.complete();
       }
     }
-    this.observers.clear();
+    observers.clear();
   }
+
+  data.fs.watchFile('contacts-db', {
+    next: data.fileObs,
+    error: e => w3n.log('error', 'Error watching DB-file. ', e),
+  });
+
+  data.fs.watchFolder('images', {
+    next: data.imagesFolderObs,
+    error: e => w3n.log('error', 'Error watching the images folder. ', e),
+  });
+
+  return {
+    isThereContactWithTheMail,
+    getContactByMail,
+    getContact,
+    getContactList,
+    insertContact,
+    updateContact,
+    upsertContact,
+    deleteContact,
+    addImage,
+    getImage,
+    deleteImage,
+    removeUnnecessaryImageFiles,
+    watchContactList,
+    completeAllWatchers,
+    checkSyncStatus: data.checkSyncStatus,
+    watchEvent: data.watchEvent,
+  };
 }
 
-ContactsServiceInstance.initialization()
+contactsService()
   .then(async srv => {
     const srvWrapInternal = new MultiConnectionIPCWrap('AppContactsInternal');
     const srvWrap = new MultiConnectionIPCWrap('AppContacts');
 
-    srvWrapInternal.exposeReqReplyMethods<AppContactsService>(srv, [
-      'isThereContactWithTheMail', 'getContactByMail', 'upsertContact',
-      'insertContact', 'updateContact', 'getContact', 'getContactList',
+    srvWrapInternal.exposeReqReplyMethods<ContactsService>(srv, [
+      'isThereContactWithTheMail',
+      'getContactByMail',
+      'upsertContact',
+      'insertContact',
+      'updateContact',
+      'getContact',
+      'getContactList',
       'deleteContact',
+      'addImage',
+      'getImage',
+      'deleteImage',
+      'removeUnnecessaryImageFiles',
+      'checkSyncStatus',
     ]);
-    srvWrapInternal.exposeObservableMethods<AppContactsService>(srv, [
+    srvWrapInternal.exposeObservableMethods<ContactsService>(srv, [
       'watchContactList',
+      'watchEvent',
     ]);
     srvWrapInternal.startIPC();
 
     srvWrap.exposeReqReplyMethods<ContactsService>(srv, [
-      'isThereContactWithTheMail', 'getContactByMail', 'getContact',
-      'getContactList', 'upsertContact', 'insertContact',
+      'isThereContactWithTheMail',
+      'getContactByMail',
+      'getContact',
+      'getContactList',
+      'upsertContact',
+      'insertContact',
     ]);
     srvWrap.exposeObservableMethods<ContactsService>(srv, [
       'watchContactList',
@@ -142,8 +201,7 @@ ContactsServiceInstance.initialization()
     srvWrap.startIPC();
   })
   .catch(async err => {
-    await w3n.log('error', `Error in a startup of contacts service component`, err);
+    await w3n.log('error', 'Error in a startup of contacts service component. ', err);
     await sleep(10);
     w3n.closeSelf();
   });
-

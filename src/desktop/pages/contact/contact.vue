@@ -1,5 +1,5 @@
 <!--
- Copyright (C) 2020 - 2025 3NSoft Inc.
+ Copyright (C) 2025 3NSoft Inc.
 
  This program is free software: you can redistribute it and/or modify it under
  the terms of the GNU General Public License as published by the Free Software
@@ -14,25 +14,61 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
-<script lang="ts" setup>
-import { Ui3nButton, Ui3nTooltip } from '@v1nt1248/3nclient-lib';
-import { useContactPage } from '@main/desktop/composables/useContactPage';
+<script setup lang="ts">
+import { inject, onBeforeMount, onBeforeUnmount, watch, type WatchHandle } from 'vue';
+import { VUEBUS_KEY, type VueBusPlugin } from '@v1nt1248/3nclient-lib/plugins';
+import { Ui3nProgressCircular, Ui3nButton, Ui3nTooltip } from '@v1nt1248/3nclient-lib';
+import { useContact } from '@main/common/composables/useContact';
+import type { AppGlobalEvents } from '@main/common/types';
 import ContactBody from '@main/common/components/contact-content.vue';
 
+const { $emitter } = inject<VueBusPlugin<AppGlobalEvents>>(VUEBUS_KEY)!;
+
 const {
-  isUserAddress,
+  contentEl,
+  isLoading,
+  contactId,
   contact,
+  isUserAddress,
+  whetherContactChanged,
   contactAvatarStyle,
   contactLetters,
+  imageProcessing,
   contactValid,
   rules,
-  onFieldUpdateDebounced,
+  getContactData,
   delContact,
+  uploadImage,
+  deleteImage,
   openChat,
   openInbox,
-  showContactKeysInfo,
   showOwnKeysInfo,
-} = useContactPage();
+  showContactKeysInfo,
+  onFieldUpdate,
+  saveContact,
+  cancel,
+} = useContact();
+
+const routeWatching: WatchHandle = watch(
+  contactId,
+  async () => {
+    await getContactData();
+    if (contentEl.value) {
+      contentEl.value.scrollTop = 0;
+    }
+  }, {
+    immediate: true,
+  }
+);
+
+onBeforeMount(() => {
+  $emitter.on('contact-list:updated', getContactData);
+});
+
+onBeforeUnmount(() => {
+  routeWatching && routeWatching.stop();
+  $emitter.off('contact-list:updated', getContactData);
+});
 </script>
 
 <template>
@@ -45,7 +81,7 @@ const {
         icon="outline-delete"
         icon-size="18"
         icon-color="var(--warning-content-default)"
-        :class="$style.headerBtn"
+        :class="$style.delBtn"
         @click="delContact"
       />
 
@@ -53,10 +89,36 @@ const {
         :class="$style.avatar"
         :style="contactAvatarStyle"
       >
-        {{ contactLetters }}
+        <span v-if="!contact?.avatarId">{{ contactLetters }}</span>
+
+        <ui3n-tooltip
+          v-if="!imageProcessing"
+          :content="contact?.avatarId ? $tr('contact.avatar.delete') : $tr('contact.avatar.upload')"
+          position-strategy="fixed"
+          placement="top"
+        >
+          <ui3n-button
+            type="icon"
+            :icon="contact?.avatarId ? 'outline-delete' : 'outline-file-upload'"
+            icon-size="24"
+            :class="$style.avatarBtn"
+            :disabled="imageProcessing"
+            v-on="contact?.avatarId ? { click: deleteImage } : { click: uploadImage }"
+          />
+        </ui3n-tooltip>
+
+        <div
+          v-else
+          :class="$style.progress"
+        >
+          <ui3n-progress-circular
+            indeterminate
+            size="32"
+          />
+        </div>
       </div>
 
-      <div :class="$style.actions">
+      <div :class="$style.headerActions">
         <ui3n-tooltip
           v-if="!isUserAddress"
           :content="$tr('action.open.chat.tooltip')"
@@ -129,8 +191,34 @@ const {
         :valid="contactValid"
         :rules="rules"
         :disabled="isUserAddress"
-        @update:field="onFieldUpdateDebounced"
+        @update:field="onFieldUpdate"
         @update:valid="contactValid = $event"
+      />
+    </div>
+
+    <div :class="$style.actions">
+      <ui3n-button
+        type="secondary"
+        @click="cancel"
+      >
+        {{ $tr('app.btn.cancel') }}
+      </ui3n-button>
+
+      <ui3n-button
+        :disabled="!contactValid || !whetherContactChanged"
+        @click="saveContact(contact)"
+      >
+        {{ $tr('app.btn.save') }}
+      </ui3n-button>
+    </div>
+
+    <div
+      v-if="isLoading"
+      :class="$style.loader"
+    >
+      <ui3n-progress-circular
+        indeterminate
+        size="80"
       />
     </div>
   </div>
@@ -138,39 +226,26 @@ const {
 
 <style lang="scss" module>
 .contact {
-  --contact-width: calc(var(--column-size) * 4);
-  --contact-header-height: calc(var(--spacing-m) * 11);
-  --contact-avatar-size: calc(var(--spacing-l) * 4);
-  --contact-padding: var(--spacing-m);
+  --contact-header-height: 184px;
+  --contact-avatar-size: 128px;
+  --contact-actions-height: 64px;
 
   position: relative;
-  width: var(--contact-size);
+  width: 100%;
   height: 100%;
-  padding: var(--contact-padding) 0 var(--contact-padding) var(--contact-padding);
+  padding-top: var(--spacing-m);
 }
 
 .header {
   position: relative;
   width: 100%;
   height: var(--contact-header-height);
-  padding-right: var(--contact-padding);
 }
 
-.headerBtn {
+.delBtn {
   position: absolute;
   top: 0;
   right: var(--spacing-s);
-}
-
-.actions {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  column-gap: var(--spacing-s);
-
-  button {
-    border-radius: var(--spacing-xs) !important;
-  }
 }
 
 .avatar {
@@ -182,24 +257,74 @@ const {
   display: flex;
   justify-content: center;
   align-items: center;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
   margin: 0 auto var(--spacing-m) auto;
   color: var(--color-text-avatar-primary-default);
   -webkit-font-smoothing: antialiased;
   font-size: 50px;
   font-weight: 500;
+  cursor: pointer;
+
+  &:hover {
+    .avatarBtn {
+      display: flex;
+    }
+  }
+}
+
+.avatarBtn {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.progress {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1;
+}
+
+.headerActions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  column-gap: var(--spacing-s);
+  padding-bottom: var(--spacing-s);
+
+  button {
+    border-radius: var(--spacing-xs) !important;
+  }
 }
 
 .content {
   position: relative;
   width: 100%;
-  height: calc(100% - var(--contact-header-height) - var(--spacing-s));
-  padding-right: var(--contact-padding);
-  overflow-x: hidden;
-  overflow-y: auto;
-  margin-top: var(--spacing-s);
+  height: calc(100% - var(--contact-header-height) - var(--contact-actions-height));
+  padding: 0 var(--spacing-s) 0 var(--spacing-m);
 }
 
-.contentField {
-  margin-bottom: calc(var(--spacing-s) * 1.5);
+.actions {
+  display: flex;
+  height: var(--contact-actions-height);
+  justify-content: flex-end;
+  align-items: center;
+  padding-right: var(--spacing-m);
+  column-gap: var(--spacing-s);
+}
+
+.loader {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 </style>

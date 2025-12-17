@@ -259,7 +259,7 @@ class LabelledStore implements LabelledFileStore {
         } else {
           throw wrapErr(exc, `Fail to read content of ${id}`);
         }
-      });
+      }) as BlobPart;
     const type = await this.dataFS.getXAttr(id, TYPE_ATTR_NAME) as string;
     return new Blob([bytes ? bytes : new Uint8Array()], { type });
   }
@@ -373,6 +373,7 @@ function infoToAttrChanges(info: ItemAttrs): XAttrsChanges {
 }
 
 function noop() {
+  // Empty function
 }
 
 async function newBucketTree(dataFS: WritableFS): Promise<string> {

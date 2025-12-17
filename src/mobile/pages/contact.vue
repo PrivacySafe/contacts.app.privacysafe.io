@@ -15,33 +15,77 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
 <script lang="ts" setup>
-import { Ui3nButton } from '@v1nt1248/3nclient-lib';
-import { useContactPage } from '@main/mobile/composables/useContactPage';
+import { computed, onBeforeUnmount, ref, watch, type WatchHandle } from 'vue';
+import cloneDeep from 'lodash/cloneDeep';
+import { Ui3nButton, Ui3nProgressCircular } from '@v1nt1248/3nclient-lib';
+import { useContact } from '@main/common/composables/useContact';
+import { useRouting } from '@main/mobile/composables/useRouting';
 import ContactBody from '@main/common/components/contact-content.vue';
 import OwnKeysInfoDialog from '@main/common/dialogs/own-keys-info-dialog.vue';
 import ContactKeysInfoDialog from '@main/common/dialogs/contact-keys-info-dialog.vue';
 
+const { goToList, goToContact, getEditStateFromRoute } = useRouting();
+
 const {
-  contact,
-  contactDisplayName,
   isUserAddress,
-  isEditMode,
+  contact,
+  contactId,
+  contentEl,
+  initialContact,
   contactValid,
   contactLetters,
   contactAvatarStyle,
+  contactDisplayName,
   rules,
-  isOwnKeysInfoOpen,
-  isContactKeysInfoOpen,
-  goBack,
-  openEditMode,
+  imageProcessing,
+  getContactData,
   openChat,
   openInbox,
   saveContact,
-  onFieldUpdate,
-  closeEditMode,
   delContact,
-  closeKeysInfo,
-} = useContactPage();
+  onFieldUpdate,
+  uploadImage,
+  deleteImage,
+} = useContact();
+
+const isOwnKeysInfoOpen = ref(false);
+const isContactKeysInfoOpen = ref(false);
+
+const isEditMode = computed(() => getEditStateFromRoute());
+
+async function openEditMode() {
+  await goToContact(contact.value!.id, { edit: true });
+}
+
+async function closeEditMode() {
+  if (contact.value!.id === 'new') {
+    await goToList();
+  } else {
+    contact.value = cloneDeep(initialContact.value);
+    await goToContact(contact.value!.id, { edit: false });
+  }
+}
+
+function closeKeysInfo() {
+  isOwnKeysInfoOpen.value = false;
+  isContactKeysInfoOpen.value = false;
+}
+
+const routeWatching: WatchHandle = watch(
+  contactId,
+  async () => {
+    await getContactData();
+    if (contentEl.value) {
+      contentEl.value.scrollTop = 0;
+    }
+  }, {
+    immediate: true,
+  }
+);
+
+onBeforeUnmount(() => {
+  routeWatching && routeWatching.stop();
+});
 </script>
 
 <template>
@@ -54,7 +98,7 @@ const {
           icon="round-arrow-back"
           icon-color="var(--color-icon-block-primary-default)"
           icon-size="20"
-          @click="goBack"
+          @click="goToList"
         />
 
         <ui3n-button
@@ -87,25 +131,27 @@ const {
           @click="openInbox"
         />
 
-        <ui3n-button
-          v-if="isUserAddress"
-          type="icon"
-          color="var(--color-bg-block-primary-default)"
-          icon="round-key"
-          icon-size="20"
-          icon-color="var(--color-icon-button-secondary-default)"
-          @click="isOwnKeysInfoOpen = true"
-        />
+        <template v-if="!isEditMode">
+          <ui3n-button
+            v-if="isUserAddress"
+            type="icon"
+            color="var(--color-bg-block-primary-default)"
+            icon="round-key"
+            icon-size="20"
+            icon-color="var(--color-icon-button-secondary-default)"
+            @click="isOwnKeysInfoOpen = true"
+          />
 
-        <ui3n-button
-          v-if="!isUserAddress"
-          type="icon"
-          color="var(--color-bg-block-primary-default)"
-          icon="round-key"
-          icon-size="20"
-          icon-color="var(--color-icon-button-secondary-default)"
-          @click="isContactKeysInfoOpen = true"
-        />
+          <ui3n-button
+            v-if="!isUserAddress"
+            type="icon"
+            color="var(--color-bg-block-primary-default)"
+            icon="round-key"
+            icon-size="20"
+            icon-color="var(--color-icon-button-secondary-default)"
+            @click="isContactKeysInfoOpen = true"
+          />
+        </template>
       </div>
 
       <div :class="$style.toolbarBlock">
@@ -145,18 +191,43 @@ const {
       :class="$style.avatar"
       :style="contactAvatarStyle"
     >
-      {{ contactLetters }}
+      <span v-if="!contact?.avatarId">{{ contactLetters }}</span>
+
+      <div
+        v-if="imageProcessing"
+        :class="$style.progress"
+      >
+        <ui3n-progress-circular
+          indeterminate
+          size="48"
+        />
+      </div>
     </div>
 
-    <contact-body
-      v-if="contact"
-      :contact="contact"
-      :valid="contactValid"
-      :rules="rules"
-      :class="!isEditMode && $style.readonly"
-      @update:field="onFieldUpdate"
-      @update:valid="contactValid = $event"
-    />
+    <div :class="$style.avatarBtns">
+      <ui3n-button
+        v-if="!isUserAddress && isEditMode"
+        type="icon"
+        color="var(--color-bg-block-primary-default)"
+        :icon="contact?.avatarId ? 'outline-delete' : 'outline-file-upload'"
+        icon-size="20"
+        :icon-color="contact?.avatarId ? 'var(--warning-content-default)' : 'var(--color-icon-block-primary-default)'"
+        :disabled="imageProcessing"
+        v-on="contact?.avatarId ? { click: deleteImage } : { click: uploadImage }"
+      />
+    </div>
+
+    <div :class="$style.contactBody">
+      <contact-body
+        v-if="contact"
+        :contact="contact"
+        :valid="contactValid"
+        :rules="rules"
+        :class="!isEditMode && $style.readonly"
+        @update:field="onFieldUpdate"
+        @update:valid="contactValid = $event"
+      />
+    </div>
 
     <div
       v-if="isOwnKeysInfoOpen || isContactKeysInfoOpen"
@@ -191,12 +262,13 @@ const {
 
 <style lang="scss" module>
 .contact {
+  --contact-toolbar-height: var(--spacing-xxl);
   --contact-avatar-size: 160px;
 
   position: relative;
   width: 100%;
   height: 100%;
-  padding: var(--spacing-m);
+  padding: var(--spacing-m) var(--spacing-s) var(--spacing-m) var(--spacing-m);
   overflow-x: hidden;
   overflow-y: auto;
   background-color: var(--color-bg-block-primary-default);
@@ -207,7 +279,7 @@ const {
   top: 0;
   left: 0;
   width: 100%;
-  height: var(--spacing-xxl);
+  height: var(--contact-toolbar-height);
   background-color: var(--color-bg-block-primary-default);
   border-bottom: 1px solid var(--color-border-block-primary-default);
   z-index: 5;
@@ -236,11 +308,43 @@ const {
   display: flex;
   justify-content: center;
   align-items: center;
-  margin: 0 auto var(--spacing-m) auto;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  margin: 0 auto var(--spacing-s) auto;
   color: var(--color-text-avatar-primary-default);
   -webkit-font-smoothing: antialiased;
   font-size: 50px;
   font-weight: 500;
+  cursor: pointer;
+}
+
+.progress {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1;
+}
+
+.avatarBtns {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: var(--spacing-s);
+
+  button {
+    border: 1px solid var(--color-border-block-primary-default);
+  }
+}
+
+.contactBody {
+  position: relative;
+  width: 100%;
+  height: calc(100% - var(--contact-avatar-size) - var(--spacing-xxl));
+  overflow-y: auto;
 }
 
 .readonly {

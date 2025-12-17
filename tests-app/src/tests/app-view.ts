@@ -17,7 +17,7 @@
 
 import { itCond } from '../libs-for-tests/jasmine-utils.js';
 import { areAddressesEqual } from '@shared/address-utils.js';
-import { AppViewInstance } from '@main/desktop/composables/useAppView.js';
+import { AppViewInstance } from '@main/common/composables/useAppView.ts';
 import { TestSetupContainer } from '@tests/setups.js';
 
 declare const w3n: web3n.testing.CommonW3N;

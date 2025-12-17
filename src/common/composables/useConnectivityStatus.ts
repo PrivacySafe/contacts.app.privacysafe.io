@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2024 - 2025 3NSoft Inc.
+Copyright (C) 2025 3NSoft Inc.
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
@@ -14,14 +14,12 @@ See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along with
 this program. If not, see <http://www.gnu.org/licenses/>.
 */
-
-import { ref } from "vue";
-import { ConnectivityStatus } from "@main/common/types";
-import { toRO } from "@main/common/utils/readonly.ts";
+import { ref } from 'vue';
+import { ConnectivityStatus } from '@main/common/types';
 
 export function useConnectivityStatus() {
-
   const connectivityStatus = ref<string>('offline');
+  const connectivityTimerId = ref<ReturnType<typeof setInterval>>();
 
   async function fetchConnectivityStatus() {
     const status = await w3n.connectivity!.isOnline();
@@ -32,22 +30,20 @@ export function useConnectivityStatus() {
     }
   }
 
-  const connectivityTimerId = ref<ReturnType<typeof setInterval>>();
-
-  async function initialize() {
+  async function watchConnectivityStatus() {
     await fetchConnectivityStatus();
+
     connectivityTimerId.value = setInterval(fetchConnectivityStatus, 60000);
   }
 
-  function stopConnectivityCheck() {
+  function stopWatchingConnectivityStatus() {
     connectivityTimerId.value && clearInterval(connectivityTimerId.value!);
   }
 
-  return {
-    connectivityStatus: toRO(connectivityStatus),
+  watchConnectivityStatus();
 
-    fetchConnectivityStatus,
-    initialize,
-    stopConnectivityCheck
+  return {
+    connectivityStatus,
+    stopWatchingConnectivityStatus,
   };
 }

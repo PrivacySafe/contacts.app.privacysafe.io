@@ -2,10 +2,11 @@
 node_modules
 /dist
 /app
-/test-user-creds.json
+/test-user*.json
 /test-runner
 /test-data
 /temp
+/setup-w3n.bundle.js
 
 # local env files
 .env.local
@@ -19,8 +20,8 @@ yarn-error.log*
 # Editor directories and files
 .idea
 .vscode
-.history
 .zed
+.history
 *.suo
 *.ntvs*
 *.njsproj
@@ -29,6 +30,4 @@ yarn-error.log*
 
 # Tmp files
 .~*
-/setup-w3n.bundle.js
-
 pnpm-workspace.yaml
