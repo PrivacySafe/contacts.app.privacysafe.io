@@ -167,11 +167,13 @@ export const useContactsStore = defineStore('contacts', () => {
     }
   }
 
-  async function deleteContact(contactId: string): Promise<void> {
+  async function deleteContact(contactId: string, withoutParentUpload?: boolean): Promise<void> {
     if (contactId) {
-      await appContactsSrvProxy.deleteContact(contactId);
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-      delete contactList.value[contactId];
+      await appContactsSrvProxy.deleteContact(contactId, withoutParentUpload);
+      const index = contacts.value.findIndex(item => item.id === contactId);
+      if (index >= 0) {
+        contacts.value.splice(index, 1);
+      }
     }
   }
 
@@ -180,11 +182,9 @@ export const useContactsStore = defineStore('contacts', () => {
       return;
     }
 
-    const pr = contactIds.map(id => appContactsSrvProxy.deleteContact(id));
-    await Promise.allSettled(pr);
-    for (const contactId of contactIds) {
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-      delete contactList.value[contactId];
+    for (let i = 0; i < contactIds.length; i++) {
+      const withoutParentUpload = i !== contactIds.length - 1;
+      await deleteContact(contactIds[i], withoutParentUpload);
     }
   }
 
