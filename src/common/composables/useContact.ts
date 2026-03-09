@@ -74,7 +74,7 @@ export function useContact() {
   const imageProcessing = ref(false);
 
   const contactId = computed(() => route.params.id as string);
-  const isUserAddress = computed(() => contact.value?.id === user.value);
+  const isUserAddress = computed(() => contact.value?.id === user.value || contact.value?.mail === user.value);
   const contactDisplayName = computed(() => isUserAddress.value ? 'Me' : contact.value?.name || contact.value?.mail || ' ');
   const contactLetters = computed(() => (
     contactDisplayName.value.length > 1 ?
