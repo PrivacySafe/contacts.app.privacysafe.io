@@ -20,51 +20,49 @@ import { storeToRefs } from 'pinia';
 import size from 'lodash/size';
 import { DIALOGS_KEY, DialogsPlugin, I18N_KEY, I18nPlugin, NOTIFICATIONS_KEY, NotificationsPlugin } from '@v1nt1248/3nclient-lib/plugins';
 import { Ui3nButton, Ui3nCheckbox, type Ui3nCheckboxValue, Ui3nInput, Ui3nList } from '@v1nt1248/3nclient-lib';
+import { useRouting } from '../composables/useRouting';
 import { useAppStore } from '@main/common/store/app.store';
 import { useContactsStore } from '@main/common/store/contacts.store';
-import type { ContactGroup, PersonView } from '@main/common/types';
-import ContactIcon from '@main/common/components/contact-icon.vue';
+import type { ContactListItem, PersonView } from '@main/types';
 import ConfirmationDialog from '@main/common/dialogs/confirmation-dialog.vue';
-import { useRouting } from '../composables/useRouting';
+import ListItem from '@main/common/components/contact-list-item.vue';
 
 const { $tr } = inject<I18nPlugin>(I18N_KEY)!;
 const dialogs = inject<DialogsPlugin>(DIALOGS_KEY)!;
 const notification = inject<NotificationsPlugin>(NOTIFICATIONS_KEY)!;
 
-const { goToNew, goToContact } = useRouting();
+const { goToNew } = useRouting();
 
 const { user } = storeToRefs(useAppStore());
 const contactsStore = useContactsStore();
-const { contactList } = storeToRefs(contactsStore);
+const { contacts } = storeToRefs(contactsStore);
 const { deleteContacts } = contactsStore;
 
 const searchText = ref<string>('');
 const selectedContacts = ref<string[]>([]);
 
-const filteredContactList = computed(() => Object.values(contactList.value)
-  .map(p => ({
-    ...p,
-    displayName: p.name || p.mail || ' ',
-  }))
-  .filter(c => c.displayName.toLocaleLowerCase().includes(searchText.value.toLocaleLowerCase()))
-  .sort((a, b) => (a.displayName.toLocaleLowerCase() > b.displayName.toLocaleLowerCase() ? 1 : -1)),
+const text = computed<string>(() => (searchText.value || '').toLocaleLowerCase());
+
+const filteredContactList = computed(() => contacts.value
+  .filter(c => c.displayName.toLocaleLowerCase().includes(text.value)
+    || c.mail.toLocaleLowerCase().includes(text.value)),
 );
 
 const contactListByLetters = computed(() =>
-  filteredContactList.value
-    .reduce((res, item) => {
-      const letter = item.displayName[0].toLowerCase() as string;
-      if (!res[letter])
-        res[letter] = {
-          id: letter,
-          title: letter,
-          contacts: [],
-        };
+  filteredContactList.value.reduce((res, item) => {
+    const firstLetter = item.displayName[0].toLowerCase();
+    if (!res[firstLetter]) {
+      res[firstLetter] = [];
+    }
 
-      res[letter].contacts.push(item);
-      return res;
-    }, {} as Record<string, ContactGroup>),
+    res[firstLetter].push(item);
+    return res;
+  }, {} as Record<string, ContactListItem[]>),
 );
+
+const contactsInitialLetters = computed(() => Object.keys(contactListByLetters.value)
+  .sort((a, b) => a > b ? 1 : -1)
+  .map(l => ({ id: l, label: l })));
 
 const areAllFilteredContactsSelected = computed(() => {
   const isUserInFilteredList = !!filteredContactList.value.find(c => c.mail === user.value);
@@ -102,57 +100,42 @@ function toggleSelectedAll(value: Ui3nCheckboxValue) {
 }
 
 async function deleteSelectedContacts() {
-  dialogs.$openDialog<typeof ConfirmationDialog>({
+  const res = await dialogs.$openDialog(ConfirmationDialog, {
     component: ConfirmationDialog,
-    componentProps: {
-      dialogText: $tr(
-        'confirmation.delete.multiple.text',
-        { count: `<b>${size(selectedContacts.value)}</b>` },
-      ),
-    },
+    dialogText: $tr(
+      'confirmation.delete.multiple.text',
+      { count: `<b>${size(selectedContacts.value)}</b>` },
+    ),
     dialogProps: {
       title: $tr('contact.delete.multiple.title'),
       width: 300,
       confirmButtonText: $tr('contact.delete.confirmBtn.text'),
       cancelButtonText: $tr('contact.delete.cancelBtn.text'),
-      onConfirm: async () => {
-        try {
-          await deleteContacts(selectedContacts.value);
-          notification.$createNotice({
-            type: 'success',
-            content: $tr('contact.delete.multiple.success.text'),
-          });
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (err) {
-          notification.$createNotice({
-            type: 'error',
-            content: $tr('contact.delete.multiple.error.text'),
-          });
-        }
-      },
     },
   });
 
+  const { event } = res;
+  if (event === 'confirm') {
+    try {
+      await deleteContacts(selectedContacts.value);
+      notification.$createNotice({
+        type: 'success',
+        content: $tr('contact.delete.multiple.success.text'),
+      });
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (err) {
+      notification.$createNotice({
+        type: 'error',
+        content: $tr('contact.delete.multiple.error.text'),
+      });
+    }
+  }
 
   clearSelectedList();
 }
 
-async function openContact(contact: PersonView & { displayName: string }) {
-  await goToContact(contact.id);
-}
-
 function createNewContact() {
   goToNew();
-}
-
-function getContactIconStyle(contact: PersonView) {
-  if (contact.avatarId && contact.avatarImage) {
-    return {
-      backgroundImage: `url(${contact.avatarImage})`,
-    }
-  }
-
-  return {};
 }
 </script>
 
@@ -195,6 +178,7 @@ function getContactIconStyle(contact: PersonView) {
 
     <ui3n-input
       v-model="searchText"
+      :placeholder="$tr('contacts.search.placeholder')"
       clearable
       icon="round-search"
       icon-color="var(--color-icon-control-secondary-default)"
@@ -205,44 +189,26 @@ function getContactIconStyle(contact: PersonView) {
     <div :class="$style.content">
       <ui3n-list
         :sticky="false"
-        :items="Object.values(contactListByLetters)"
+        :items="contactsInitialLetters"
       >
         <template #item="{ item }">
-          <ui3n-list :items="item.contacts">
+          <ui3n-list
+            :items="contactListByLetters[item.id]"
+            key-field="mail"
+          >
             <template #title>
               <div :class="$style.title">
-                {{ item.title.toUpperCase() }}
+                {{ item.label.toUpperCase() }}
               </div>
             </template>
 
             <template #item="{ item: contact }">
-              <div
-                :class="$style.item"
-                @click="openContact(contact)"
-              >
-                <div
-                  :class="[$style.icon, contact.avatarId && selectedContacts.includes(contact.id) && $style.iconSelected]"
-                  :style="getContactIconStyle(contact)"
-                  @click.stop.prevent="selectContact(contact)"
-                >
-                  <contact-icon
-                    v-if="!contact.avatarId"
-                    :name="contact.displayName"
-                    :size="32"
-                    :selected="selectedContacts.includes(contact.id)"
-                    :readonly="contact.mail === user"
-                  />
-
-                  <div
-                    v-if="contact.avatarId && selectedContacts.includes(contact.id)"
-                    :class="$style.iconSelectedIcon"
-                  />
-                </div>
-
-                <span :class="$style.name">
-                  {{ contact.displayName }}
-                </span>
-              </div>
+              <list-item
+                :item="contact"
+                :selected-contact-ids="selectedContacts"
+                is-mobile-form-factor
+                @select="() => selectContact(contact)"
+              />
             </template>
           </ui3n-list>
         </template>
@@ -262,6 +228,8 @@ function getContactIconStyle(contact: PersonView) {
 </template>
 
 <style lang="scss" module>
+@use '@main/common/assets/styles/_mixins' as mixins;
+
 .list {
   position: relative;
   width: 100%;
@@ -319,76 +287,6 @@ function getContactIconStyle(contact: PersonView) {
   font-size: var(--font-16);
   font-weight: 600;
   color: var(--color-text-block-accent-default);
-}
-
-.item {
-  position: relative;
-  width: 100%;
-  height: var(--spacing-xxl);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  column-gap: var(--spacing-s);
-  padding: 0 var(--spacing-m);
-  font-size: var(--font-14);
-  font-weight: 500;
-  color: var(--color-text-control-primary-default);
-  cursor: pointer;
-}
-
-.icon {
-  position: relative;
-  width: var(--spacing-l);
-  min-width: var(--spacing-l);
-  height: var(--spacing-l);
-  border-radius: 50%;
-  border: 1px solid var(--color-border-block-primary-default);
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: cover;
-}
-
-.iconSelected {
-  &::before {
-    content: '';
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    background-color: transparent;
-    box-sizing: border-box;
-    border-radius: 50%;
-    border: 4px solid var(--default-fill-default);
-  }
-
-  &::after {
-    content: '';
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    background-color: transparent;
-    box-sizing: border-box;
-    border-radius: 50%;
-    border: 2px solid var(--color-border-control-accent-default);
-  }
-
-  .iconSelectedIcon {
-    position: absolute;
-    width: 33.3%;
-    height: 33.3%;
-    border-radius: 50%;
-    background-color: var(--color-border-control-accent-default);
-    bottom: 0;
-    right: 0;
-    z-index: 1;
-  }
-}
-
-.name {
-  display: inline-block;
-  width: calc(100% - var(--spacing-xl));
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 .createBtn {

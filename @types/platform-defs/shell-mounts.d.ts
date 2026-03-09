@@ -1,45 +1,39 @@
 /*
- Copyright (C) 2019 3NSoft Inc.
- 
+ Copyright (C) 2026 3NSoft Inc.
+
  This program is free software: you can redistribute it and/or modify it under
  the terms of the GNU General Public License as published by the Free Software
  Foundation, either version 3 of the License, or (at your option) any later
  version.
- 
+
  This program is distributed in the hope that it will be useful, but
  WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  See the GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-import { defer } from "./deferred.js";
-import { sleep } from "./sleep.js";
 
+declare namespace web3n.shell.mounts {
 
-export function callWithTimeout<T>(
-	f: () => Promise<T>, timeout: number, timeoutErr: () => any
-): Promise<T> {
-	let isDone = false;
-	const deferred = defer<T>();
-	f().then(res => {
-		if (isDone) { return; }
-		isDone = true;
-		deferred.resolve(res);
-	}, err => {
-		if (isDone) { return; }
-		isDone = true;
-		deferred.reject(err);
-	});
-	sleep(timeout).then(() => {
-		if (isDone) { return; }
-		isDone = true;
-		const err = timeoutErr();
-		if (err) {
-			deferred.reject(err);
-		}
-	});
-	return deferred.promise;
+	interface MountsIntoOS {
+		mountFolder(path: string[], fs: web3n.files.FS): Promise<void>;
+		mountFile(path: string[], file: web3n.files.File): Promise<void>;
+		unmountPath(path: string[]): Promise<void>;
+		unmountFolder(fs: web3n.files.FS): Promise<void>;
+		unmountFile(file: web3n.files.File): Promise<void>;
+	}
+
+	interface MountException extends RuntimeException {
+		type: 'mount';
+		notMounted?: true;
+		cantMount?: true;
+		alreadyMounted?: true;
+		badPath?: true;
+		pathIsUsed?: true;
+		notFound?: true;
+	}
+
 }

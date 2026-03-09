@@ -16,7 +16,7 @@
 -->
 <script lang="ts" setup>
 import { onBeforeMount, onBeforeUnmount, ref } from 'vue';
-import { Ui3nButton } from '@v1nt1248/3nclient-lib';
+import { Ui3nButton, Ui3nProgressCircular, Ui3nProgressLinear } from '@v1nt1248/3nclient-lib';
 import { useAppView } from '@main/common/composables/useAppView';
 import AppMenu from '@main/mobile/components/app-menu.vue';
 
@@ -25,6 +25,8 @@ const {
   appVersion,
   connectivityStatusText,
   syncStatusText,
+  globalLoading,
+  isSyncRunning,
   appExit,
   doBeforeMount,
   doBeforeUnmount,
@@ -91,6 +93,13 @@ onBeforeUnmount(doBeforeUnmount);
             <b :class="!syncStatusText.includes($tr('app.status.unsynced')) && $style.ok" />
           </div>
         </div>
+
+        <div
+          v-if="isSyncRunning"
+          :class="$style.processing"
+        >
+          <ui3n-progress-linear indeterminate />
+        </div>
       </div>
 
       <div :class="$style.content">
@@ -99,6 +108,17 @@ onBeforeUnmount(doBeforeUnmount);
             <component :is="Component" />
           </transition>
         </router-view>
+
+        <div
+          v-if="globalLoading"
+          :class="$style.loader"
+        >
+          <ui3n-progress-circular
+            indeterminate
+            size="100"
+            width="4"
+          />
+        </div>
       </div>
     </div>
 
@@ -166,6 +186,13 @@ onBeforeUnmount(doBeforeUnmount);
   background-color: var(--color-bg-block-primary-default);
 }
 
+.processing {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  bottom: 0;
+}
+
 .item {
   display: flex;
   flex-direction: column;
@@ -190,6 +217,14 @@ onBeforeUnmount(doBeforeUnmount);
   position: relative;
   width: 100%;
   height: calc(100% - var(--main-toolbar-height) - 1px);
+}
+
+.loader {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .info {

@@ -16,7 +16,13 @@
 -->
 <script lang="ts" setup>
 import { onBeforeMount, onBeforeUnmount } from 'vue';
-import { Ui3nMenu, Ui3nRipple as vUi3nRipple } from '@v1nt1248/3nclient-lib';
+import {
+  Ui3nDialogProvider,
+  Ui3nMenu,
+  Ui3nProgressCircular,
+  Ui3nProgressLinear,
+  Ui3nRipple as vUi3nRipple,
+} from '@v1nt1248/3nclient-lib';
 import prLogo from '@main/common/assets/images/privacysafe-logo-new.svg';
 import { useAppView } from '@main/common/composables/useAppView';
 import ContactIcon from '@main/common/components/contact-icon.vue';
@@ -27,7 +33,9 @@ const {
   appElement,
   appVersion,
   connectivityStatusText,
+  isSyncRunning,
   syncStatusText,
+  globalLoading,
   appExit,
   doBeforeMount,
   doBeforeUnmount,
@@ -115,6 +123,13 @@ onBeforeUnmount(doBeforeUnmount);
           </template>
         </ui3n-menu>
       </div>
+
+      <div
+        v-if="isSyncRunning"
+        :class="$style.processing"
+      >
+        <ui3n-progress-linear indeterminate />
+      </div>
     </div>
 
     <div :class="$style.content">
@@ -123,7 +138,20 @@ onBeforeUnmount(doBeforeUnmount);
           <component :is="Component" />
         </transition>
       </router-view>
+
+      <div
+        v-if="globalLoading"
+        :class="$style.loader"
+      >
+        <ui3n-progress-circular
+          indeterminate
+          size="100"
+          width="4"
+        />
+      </div>
     </div>
+
+    <ui3n-dialog-provider />
   </div>
 </template>
 
@@ -131,7 +159,7 @@ onBeforeUnmount(doBeforeUnmount);
 @use '@main/common/assets/styles/_mixins' as mixins;
 
 .app {
-  --main-toolbar-height: calc(var(--spacing-ml) * 3);
+  --main-toolbar-height: 72px;
 
   position: fixed;
   inset: 0;
@@ -161,6 +189,13 @@ onBeforeUnmount(doBeforeUnmount);
   margin-right: var(--spacing-m);
   height: var(--spacing-m);
   cursor: pointer;
+}
+
+.processing {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  bottom: 0;
 }
 
 .delimiter {
@@ -249,7 +284,7 @@ onBeforeUnmount(doBeforeUnmount);
 
 .menuItem {
   position: relative;
-  width: 60px;
+  width: 80px;
   height: var(--spacing-l);
   padding: 0 var(--spacing-s);
   font-size: var(--font-13);
@@ -272,5 +307,13 @@ onBeforeUnmount(doBeforeUnmount);
   right: 0;
   top: calc(var(--main-toolbar-height) + 1px);
   bottom: 0;
+}
+
+.loader {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 </style>

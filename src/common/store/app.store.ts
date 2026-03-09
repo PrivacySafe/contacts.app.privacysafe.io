@@ -4,17 +4,17 @@ import { useSystemLevelAppConfig } from './app/system-level-app-config';
 import { useAppSize } from './app/app-size';
 
 export const useAppStore = defineStore('app', () => {
-  const syncStatus = ref<'synced' | 'unsynced'>('unsynced');
-
-  function setSyncStatus(val: 'synced' | 'unsynced') {
-    syncStatus.value = val;
-  }
+  const globalLoading = ref(false);
 
   const appSize = useAppSize();
   const { appElement } = appSize;
 
   const commonAppConfs = useSystemLevelAppConfig();
   const { appVersion, user, lang, colorTheme, customLogoSrc } = commonAppConfs;
+
+  function setGlobalLoading(value: boolean) {
+    globalLoading.value = value;
+  }
 
   async function initialize() {
     await commonAppConfs.initialize();
@@ -31,10 +31,10 @@ export const useAppStore = defineStore('app', () => {
     lang,
     colorTheme,
     customLogoSrc,
-    syncStatus,
     appElement,
+    globalLoading,
     initialize,
+    setGlobalLoading,
     stopWatching,
-    setSyncStatus,
   };
 });

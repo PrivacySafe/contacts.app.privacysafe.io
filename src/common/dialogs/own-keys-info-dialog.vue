@@ -17,10 +17,20 @@
 
 <script lang="ts" setup>
 import { onBeforeMount, ref } from 'vue';
-import { Ui3nButton, Ui3nProgressCircular, type Nullable } from '@v1nt1248/3nclient-lib';
+import {
+  Ui3nButton,
+  Ui3nDialog,
+  Ui3nProgressCircular,
+  type Nullable,
+  type Ui3nDialogComponentProps,
+} from '@v1nt1248/3nclient-lib';
 import PubkeyMaileridCert from '@main/common/components/pubkey-mailerid-cert.vue';
 
 type PKeyCertChain = web3n.keys.PKeyCertChain;
+
+defineProps<{
+  dialogProps?: Ui3nDialogComponentProps<boolean>;
+}>();
 
 const isLoading = ref(false);
 const keyOnServer = ref<Nullable<PKeyCertChain>>(null);
@@ -47,50 +57,53 @@ async function removeIntroKeyOnServer(): Promise<void> {
 onBeforeMount(async () => {
   keyOnServer.value = await w3n.keyrings!.introKeyOnASMailServer.getCurrent();
 });
-
 </script>
 
 <template>
-  <div :class="$style.overallContent">
-    <div v-if="keyOnServer">
-      <h4 :class="$style.title">
-        {{ $tr('keys-info.key-on-server.section') }}
-      </h4>
+  <ui3n-dialog v-bind="dialogProps">
+    <template #body>
+      <div :class="$style.overallContent">
+        <div v-if="keyOnServer">
+          <h4 :class="$style.title">
+            {{ $tr('keys-info.key-on-server.section') }}
+          </h4>
 
-      <div :class="$style.actions">
-        <ui3n-button @click.stop.prevent="makeNewIntroKeyAndPlaceOnServer">
-          {{ $tr('keys-info.key-on-server.update.btn') }}
-        </ui3n-button>
+          <div :class="$style.actions">
+            <ui3n-button @click.stop.prevent="makeNewIntroKeyAndPlaceOnServer">
+              {{ $tr('keys-info.key-on-server.update.btn') }}
+            </ui3n-button>
 
-        <ui3n-button @click.stop.prevent="removeIntroKeyOnServer">
-          {{ $tr('keys-info.key-on-server.remove.btn') }}
-        </ui3n-button>
+            <ui3n-button @click.stop.prevent="removeIntroKeyOnServer">
+              {{ $tr('keys-info.key-on-server.remove.btn') }}
+            </ui3n-button>
+          </div>
+
+          <pubkey-mailerid-cert :pkey-cert="keyOnServer" />
+        </div>
+
+        <div v-else>
+          <div>{{ $tr('keys-info.key-on-server.no-key.text') }}</div>
+
+          <ui3n-button
+            :class="$style.btn"
+            @click.stop.prevent="makeNewIntroKeyAndPlaceOnServer"
+          >
+            {{ $tr('keys-info.key-on-server.make-new.btn') }}
+          </ui3n-button>
+        </div>
+
+        <div
+          v-if="isLoading"
+          :class="$style.loader"
+        >
+          <ui3n-progress-circular
+            indeterminate
+            size="80"
+          />
+        </div>
       </div>
-
-      <pubkey-mailerid-cert :pkey-cert="keyOnServer" />
-    </div>
-
-    <div v-else>
-      <div>{{ $tr('keys-info.key-on-server.no-key.text') }}</div>
-
-      <ui3n-button
-        :class="$style.btn"
-        @click.stop.prevent="makeNewIntroKeyAndPlaceOnServer"
-      >
-        {{ $tr('keys-info.key-on-server.make-new.btn') }}
-      </ui3n-button>
-    </div>
-
-    <div
-      v-if="isLoading"
-      :class="$style.loader"
-    >
-      <ui3n-progress-circular
-        indeterminate
-        size="80"
-      />
-    </div>
-  </div>
+    </template>
+  </ui3n-dialog>
 </template>
 
 <style lang="scss" module>

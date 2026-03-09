@@ -15,25 +15,27 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 import { makeServiceCaller } from '@shared/ipc/ipc-service-caller';
-import type { ContactsService } from '@main/common/types';
+import type { ContactsDenoSrvInternal } from '../../../src-deno/contacts-deno-srv';
 
-export let appContactsSrvProxy: ContactsService;
+export let appContactsSrvProxy: ContactsDenoSrvInternal;
 
 export async function initializeServices() {
   try {
     const srvConn = await w3n.rpc!.thisApp!('AppContactsInternal');
-    appContactsSrvProxy = makeServiceCaller<ContactsService>(
+    appContactsSrvProxy = makeServiceCaller<ContactsDenoSrvInternal>(
       srvConn, [
-        'isThereContactWithTheMail',
-        'upsertContact',
-        'getContact',
-        'getContactList',
-        'deleteContact',
         'addImage',
+        'getImage',
         'deleteImage',
+
+        'getContact',
+        'upsertContact',
+        'deleteContact',
+        'getContactList',
         'removeUnnecessaryImageFiles',
+        'initialSyncProcess',
       ],
-    ) as ContactsService;
+    ) as ContactsDenoSrvInternal;
 
     console.info('<- SERVICES ARE INITIALIZED ->');
   } catch (e) {

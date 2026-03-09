@@ -8,7 +8,7 @@
  You should have received a copy of the GNU General Public License along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-import type { AppConfig, AvailableLanguage, AvailableColorTheme } from '@main/common/types';
+import type { AppConfig, AvailableLanguage, AvailableColorTheme } from '@main/types';
 import { SingleProc } from '@v1nt1248/3nclient-lib/utils';
 
 export interface AppConfigsInternal {

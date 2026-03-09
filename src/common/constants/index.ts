@@ -1,4 +1,4 @@
-import type { Person } from '@main/common/types';
+import type { Person } from '@main/types';
 
 export const chatApp = Object.freeze({
   domain: 'chat.app.privacysafe.io',

@@ -14,9 +14,9 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
-
 <script lang="ts" setup>
 import { computed, onBeforeMount, ref } from 'vue';
+import { Ui3nDialog, type Ui3nDialogComponentProps } from '@v1nt1248/3nclient-lib';
 import IntroSendingKeyPair from '@main/common/components/intro-key-pair-for-sending.vue';
 import SendingKeyPair from '@main/common/components/key-pair-for-sending.vue';
 import ReceivingKeyPair from '@main/common/components/key-pair-for-receiving.vue';
@@ -25,6 +25,7 @@ type CorrespondentKeysInfo = web3n.keys.CorrespondentKeysInfo;
 
 const props = defineProps<{
   contactAddr: string;
+  dialogProps?: Ui3nDialogComponentProps<boolean>;
 }>();
 
 const mailKeys = ref<CorrespondentKeysInfo | undefined>();
@@ -34,50 +35,53 @@ const sendingPair = computed(() => mailKeys.value?.sendingPair);
 onBeforeMount(async () => {
   mailKeys.value = await w3n.keyrings!.getCorrespondentKeys(props.contactAddr);
 });
-
 </script>
 
 <template>
-  <div :class="$style.content">
-    <fieldset v-if="sendingPair">
-      <legend>{{ $tr('keys-info.sending-key-pair') }}</legend>
+  <ui3n-dialog v-bind="dialogProps">
+    <template #body>
+      <div :class="$style.content">
+        <fieldset v-if="sendingPair">
+          <legend>{{ $tr('keys-info.sending-key-pair') }}</legend>
 
-      <intro-sending-key-pair
-        v-if="sendingPair.type === 'intro'"
-        :sending-pair="sendingPair"
-      />
+          <intro-sending-key-pair
+            v-if="sendingPair.type === 'intro'"
+            :sending-pair="sendingPair"
+          />
 
-      <sending-key-pair
-        v-else
-        :sending-pair="sendingPair"
-      />
-    </fieldset>
+          <sending-key-pair
+            v-else
+            :sending-pair="sendingPair"
+          />
+        </fieldset>
 
-    <fieldset v-if="receptionPairs?.inUse">
-      <legend>{{ $tr('keys-info.receiving-key-pair-in-use') }}</legend>
+        <fieldset v-if="receptionPairs?.inUse">
+          <legend>{{ $tr('keys-info.receiving-key-pair-in-use') }}</legend>
 
-      <receiving-key-pair :receiving-pair="receptionPairs.inUse" />
-    </fieldset>
+          <receiving-key-pair :receiving-pair="receptionPairs.inUse" />
+        </fieldset>
 
-    <fieldset v-if="receptionPairs?.suggested">
-      <legend>{{ $tr('keys-info.receiving-key-pair-suggested') }}</legend>
+        <fieldset v-if="receptionPairs?.suggested">
+          <legend>{{ $tr('keys-info.receiving-key-pair-suggested') }}</legend>
 
-      <receiving-key-pair :receiving-pair="receptionPairs.suggested" />
-    </fieldset>
+          <receiving-key-pair :receiving-pair="receptionPairs.suggested" />
+        </fieldset>
 
-    <fieldset v-if="receptionPairs?.old">
-      <legend>{{ $tr('keys-info.receiving-key-pair-old') }}</legend>
+        <fieldset v-if="receptionPairs?.old">
+          <legend>{{ $tr('keys-info.receiving-key-pair-old') }}</legend>
 
-      <receiving-key-pair :receiving-pair="receptionPairs.old" />
-    </fieldset>
+          <receiving-key-pair :receiving-pair="receptionPairs.old" />
+        </fieldset>
 
-    <div
-      v-if="!mailKeys"
-      :class="$style.noData"
-    >
-      {{ $tr('keys-info.no-contact-keys') }}
-    </div>
-  </div>
+        <div
+          v-if="!mailKeys"
+          :class="$style.noData"
+        >
+          {{ $tr('keys-info.no-contact-keys') }}
+        </div>
+      </div>
+    </template>
+  </ui3n-dialog>
 </template>
 
 <style lang="scss" module>

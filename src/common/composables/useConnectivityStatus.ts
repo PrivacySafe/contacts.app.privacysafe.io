@@ -15,7 +15,7 @@ You should have received a copy of the GNU General Public License along with
 this program. If not, see <http://www.gnu.org/licenses/>.
 */
 import { ref } from 'vue';
-import { ConnectivityStatus } from '@main/common/types';
+import { ConnectivityStatus } from '@main/types';
 
 export function useConnectivityStatus() {
   const connectivityStatus = ref<string>('offline');

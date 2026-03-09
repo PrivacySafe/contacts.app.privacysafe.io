@@ -19,7 +19,7 @@ import { computed, onBeforeMount, onBeforeUnmount, ref, watch, WatchHandle } fro
 import isEmpty from 'lodash/isEmpty';
 import get from 'lodash/get';
 import { Ui3nInput, Ui3nText } from '@v1nt1248/3nclient-lib';
-import type { ContactContent, Person } from '@main/common/types';
+import type { ContactContent, Person } from '@main/types';
 
 const props = defineProps<{
   contact: ContactContent | Person;

@@ -47,6 +47,7 @@ function onInput(ev: string) {
     <div :class="$style.search">
       <ui3n-input
         v-model="searchText"
+        :placeholder="$tr('contacts.search.placeholder')"
         clearable
         icon="round-search"
         icon-color="var(--color-icon-control-secondary-default)"

@@ -33,16 +33,16 @@ import {
   getFileExtension,
   mailReg,
   resizeImage,
-  schedulerYield, sleep,
+  schedulerYield,
+  sleep,
   transformWeb3nFileToFile,
 } from '@v1nt1248/3nclient-lib/utils';
 import type { Nullable } from '@v1nt1248/3nclient-lib';
 import { appContactsSrvProxy } from '@main/common/services/services-provider';
 import { useAppStore } from '@main/common/store/app.store';
 import { useContactsStore } from '@main/common/store/contacts.store';
-import { areAddressesEqual } from '@shared/address-utils';
 import { chatApp, EMPTY_CONTACT, inboxApp } from '@main/common/constants';
-import type { ContactContent, OpenChatCmdArg, OpenInboxCmdArg, Person } from '@main/common/types';
+import type { ContactContent, OpenChatCmdArg, OpenInboxCmdArg, Person } from '@main/types';
 import ConfirmationDialog from '@main/common/dialogs/confirmation-dialog.vue';
 import OwnKeysInfoDialog from '@main/common/dialogs/own-keys-info-dialog.vue';
 import ContactKeysInfoDialog from '@main/common/dialogs/contact-keys-info-dialog.vue';
@@ -57,18 +57,25 @@ export function useContact() {
 
   const { user } = storeToRefs(useAppStore());
   const contactsStore = useContactsStore();
-  const { getContact, fetchContacts, deleteContact, upsertContact, upsertContactListItem } = contactsStore;
+  const {
+    isMailAddressInUse,
+    getContact,
+    fetchContacts,
+    deleteContact,
+    upsertContact,
+    upsertContactListItem,
+  } = contactsStore;
 
   const contentEl = ref<HTMLDivElement | null>(null);
   const isLoading = ref(false);
-  const contact = ref<Nullable<Omit<Person, 'timestamp'> | undefined>>(null);
-  const initialContact = ref<Nullable<Omit<Person, 'timestamp'> | undefined>>(null);
+  const contact = ref<Nullable<Person> | undefined>(null);
+  const initialContact = ref<Nullable<Person> | undefined>(null);
   const contactValid = ref(contact.value?.id !== 'new');
   const imageProcessing = ref(false);
 
   const contactId = computed(() => route.params.id as string);
-  const isUserAddress = computed(() => !!contact.value?.mail && areAddressesEqual(contact.value.mail, user.value));
-  const contactDisplayName = computed(() => contact.value?.name || contact.value?.mail || ' ');
+  const isUserAddress = computed(() => contact.value?.id === user.value);
+  const contactDisplayName = computed(() => isUserAddress.value ? 'Me' : contact.value?.name || contact.value?.mail || ' ');
   const contactLetters = computed(() => (
     contactDisplayName.value.length > 1 ?
       `${contactDisplayName.value[0].toLocaleUpperCase()}${contactDisplayName.value[1].toLocaleLowerCase()}` :
@@ -105,7 +112,13 @@ export function useContact() {
     return mailReg.test(mail! as string) || $tr('validation.text.mail');
   }
 
-  const rules = { mail: [checkRequired, checkEmail] };
+  function checkUsage(mail?: unknown): boolean | string {
+    return isMailAddressInUse(mail as string, initialContact.value?.mail ? [initialContact.value.mail] : [])
+      ? $tr('validation.text.usage')
+      : true;
+  }
+
+  const rules = { mail: [checkRequired, checkEmail, checkUsage] };
 
   async function getContactData(): Promise<void> {
     if (!contactId?.value) {
@@ -127,6 +140,18 @@ export function useContact() {
           ...cloneDeep(EMPTY_CONTACT),
           ...data,
         };
+        if (isUserAddress.value) {
+          contact.value.name = 'Me';
+        }
+
+        if (contact.value.avatarId) {
+          appContactsSrvProxy.getImage(contact.value.avatarId)
+            .then(image => {
+              contact.value!.avatarImage = image;
+              initialContact.value!.avatarImage = image;
+            });
+        }
+
         initialContact.value = cloneDeep(contact.value);
       }
     } finally {
@@ -135,54 +160,61 @@ export function useContact() {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-  function delContact(doAfterDelete?: Function) {
-    dialog.$openDialog<typeof ConfirmationDialog>({
-      component: ConfirmationDialog,
-      componentProps: {
-        dialogText: $tr('confirmation.delete.text', { name: `<b>${contactDisplayName.value}</b>` }),
-      },
+  async function delContact(doAfterDelete?: Function) {
+    const res = await dialog.$openDialog(ConfirmationDialog, {
+      dialogText: $tr('confirmation.delete.text', { name: `<b>${contactDisplayName.value}</b>` }),
       dialogProps: {
         title: $tr('contact.delete.title'),
         width: 300,
         confirmButtonText: $tr('contact.delete.confirmBtn.text'),
         cancelButtonText: $tr('contact.delete.cancelBtn.text'),
-        onConfirm: async () => {
-          try {
-            isLoading.value = true;
-            await deleteContact(contact.value!.id);
-            notification.$createNotice({
-              type: 'success',
-              content: $tr('contact.delete.success.text'),
-            });
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          } catch (err) {
-            notification.$createNotice({
-              type: 'error',
-              content: $tr('contact.delete.error.text'),
-            });
-          } finally {
-            isLoading.value = false;
-            doAfterDelete && (typeof doAfterDelete === 'function') && doAfterDelete();
-            await cancel();
-          }
-        },
       },
     });
+
+    const { event } = res;
+    if (event === 'confirm') {
+      try {
+        isLoading.value = true;
+        await deleteContact(contact.value!.id);
+        notification.$createNotice({
+          type: 'success',
+          content: $tr('contact.delete.success.text'),
+        });
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (err) {
+        notification.$createNotice({
+          type: 'error',
+          content: $tr('contact.delete.error.text'),
+        });
+      } finally {
+        isLoading.value = false;
+        doAfterDelete && (typeof doAfterDelete === 'function') && doAfterDelete();
+        await cancel();
+      }
+    }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-  async function saveContact(data?: Omit<Person, 'timestamp'> | null, doAfterSave?: Function) {
-    if (!contact.value || !contactValid.value || !data) {
+  async function saveContact({ excludeAvatarImageField, doAfterSave }: {
+    excludeAvatarImageField?: boolean;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+    doAfterSave?: Function;
+  }): Promise<void> {
+    if (!contact.value || !contactValid.value) {
       return;
     }
 
-    const isContactNew = data.id === 'new';
+    const isContactNew = contact.value.id === 'new';
+    const savingData = omit(contact.value, ['timestamp']);
+    if (excludeAvatarImageField) {
+      savingData.avatarImage = '';
+    }
+
     try {
       isLoading.value = true;
 
-      const res = await upsertContact(contact.value);
+      const res = await upsertContact(savingData);
 
-      if (typeof res !== 'string' && res.errorType) {
+      if ('errorType' in res) {
         notification.$createNotice({
           type: 'error',
           content: res.errorMessage,
@@ -198,11 +230,11 @@ export function useContact() {
       });
 
       if (isContactNew) {
-        contact.value.id = res as string;
+        contact.value.id = res.id;
       }
+
       initialContact.value = cloneDeep(contact.value);
       doAfterSave && (typeof doAfterSave === 'function') && doAfterSave();
-      appContactsSrvProxy.removeUnnecessaryImageFiles();
       // isContactNew && await cancel();
       await cancel();
     } catch (e) {
@@ -247,8 +279,7 @@ export function useContact() {
   }
 
   async function showOwnKeysInfo() {
-    dialog.$openDialog<typeof OwnKeysInfoDialog>({
-      component: OwnKeysInfoDialog,
+    await dialog.$openDialog(OwnKeysInfoDialog, {
       dialogProps: {
         title: $tr('contact.dialog.title.own-keys'),
         confirmButton: false,
@@ -258,20 +289,16 @@ export function useContact() {
     });
   }
 
-  function showContactKeysInfo() {
-    const title = $tr('contact.dialog.title.contact-keys', {
-      contact: contact.value!.name ?? contact.value!.mail,
-    });
-    dialog.$openDialog<typeof ContactKeysInfoDialog>({
-      component: ContactKeysInfoDialog,
+  async function showContactKeysInfo() {
+    await dialog.$openDialog(ContactKeysInfoDialog, {
+      contactAddr: contact.value!.mail,
       dialogProps: {
-        title,
+        title: $tr('contact.dialog.title.contact-keys', {
+          contact: contact.value!.name ?? contact.value!.mail,
+        }),
         confirmButton: false,
         cancelButton: false,
         closeOnClickOverlay: true,
-      },
-      componentProps: {
-        contactAddr: contact.value!.mail,
       },
     });
   }
@@ -320,14 +347,16 @@ export function useContact() {
         id: `${imageMainFileId}-mini`,
         withUploadParentFolder: true,
       });
-      contact.value!.avatarImage = imageMain;
+      contact.value!.avatarImage = imageMini;
       contact.value!.avatarId = imageMainFileId;
 
-      await saveContact(omit(contact.value!, 'avatarImage'));
-      upsertContactListItem(contact.value!.id, {
-        avatarId: imageMainFileId,
-        avatarImage: imageMini,
-      });
+      if (contact.value?.id !== 'new') {
+        await saveContact({ excludeAvatarImageField: true });
+        upsertContactListItem(contact.value!.id, {
+          avatarId: imageMainFileId,
+          avatarImage: imageMini,
+        });
+      }
     } finally {
       imageProcessing.value = false;
     }
@@ -337,7 +366,11 @@ export function useContact() {
     const imageFileId = contact.value!.avatarId;
     contact.value!.avatarId = undefined;
     contact.value!.avatarImage = undefined;
-    await saveContact(contact.value!);
+
+    if (contact.value?.id !== 'new') {
+      await saveContact({});
+    }
+
     await appContactsSrvProxy.deleteImage(imageFileId!);
   }
 

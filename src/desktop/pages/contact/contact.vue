@@ -19,7 +19,7 @@ import { inject, onBeforeMount, onBeforeUnmount, watch, type WatchHandle } from 
 import { VUEBUS_KEY, type VueBusPlugin } from '@v1nt1248/3nclient-lib/plugins';
 import { Ui3nProgressCircular, Ui3nButton, Ui3nTooltip } from '@v1nt1248/3nclient-lib';
 import { useContact } from '@main/common/composables/useContact';
-import type { AppGlobalEvents } from '@main/common/types';
+import type { AppGlobalEvents } from '@main/types';
 import ContactBody from '@main/common/components/contact-content.vue';
 
 const { $emitter } = inject<VueBusPlugin<AppGlobalEvents>>(VUEBUS_KEY)!;
@@ -75,14 +75,14 @@ onBeforeUnmount(() => {
   <div :class="$style.contact">
     <div :class="$style.header">
       <ui3n-button
-        v-if="!isUserAddress"
+        v-if="!isUserAddress && contact?.id !== 'new'"
         type="icon"
         color="transparent"
         icon="outline-delete"
         icon-size="18"
         icon-color="var(--warning-content-default)"
         :class="$style.delBtn"
-        @click="delContact"
+        @click="() => delContact()"
       />
 
       <div
@@ -206,7 +206,7 @@ onBeforeUnmount(() => {
 
       <ui3n-button
         :disabled="!contactValid || !whetherContactChanged"
-        @click="saveContact(contact)"
+        @click="() => saveContact({})"
       >
         {{ $tr('app.btn.save') }}
       </ui3n-button>
@@ -218,7 +218,7 @@ onBeforeUnmount(() => {
     >
       <ui3n-progress-circular
         indeterminate
-        size="80"
+        size="40"
       />
     </div>
   </div>

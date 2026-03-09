@@ -162,7 +162,7 @@ onBeforeUnmount(() => {
             icon="round-done"
             icon-color="var(--success-content-default)"
             :disabled="!contactValid"
-            @click="saveContact"
+            @click="() => saveContact({})"
           />
 
           <ui3n-button
@@ -176,12 +176,12 @@ onBeforeUnmount(() => {
 
         <template v-else>
           <ui3n-button
-            v-if="!isUserAddress"
+            v-if="!isUserAddress && contact?.id !== 'new'"
             type="icon"
             color="var(--color-bg-block-primary-default)"
             icon="trash-can"
             icon-color="var(--warning-content-default)"
-            @click="delContact"
+            @click="() => delContact()"
           />
         </template>
       </div>
@@ -191,7 +191,7 @@ onBeforeUnmount(() => {
       :class="$style.avatar"
       :style="contactAvatarStyle"
     >
-      <span v-if="!contact?.avatarId">{{ contactLetters }}</span>
+      <span v-if="!contact?.avatarImage">{{ contactLetters }}</span>
 
       <div
         v-if="imageProcessing"
@@ -249,11 +249,25 @@ onBeforeUnmount(() => {
       </div>
 
       <div :class="$style.keysInfoBody">
-        <own-keys-info-dialog v-if="isOwnKeysInfoOpen" />
+        <own-keys-info-dialog
+          v-if="isOwnKeysInfoOpen"
+          :dialog-props="{
+            cssStyle: { maxWidth: '100%', width: '100%' },
+            confirmButton: false,
+            cancelButton: false,
+          }"
+          :class="$style.keyInfoDialog"
+        />
 
         <contact-keys-info-dialog
           v-if="isContactKeysInfoOpen"
           :contact-addr="contact!.mail"
+          :dialog-props="{
+            cssStyle: { maxWidth: '100%', width: '100%' },
+            confirmButton: false,
+            cancelButton: false,
+          }"
+          :class="$style.keyInfoDialog"
         />
       </div>
     </div>
@@ -385,6 +399,15 @@ onBeforeUnmount(() => {
 
   & > div {
     max-height: 100% !important;
+  }
+
+  .keyInfoDialog {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+
+    & > button {
+      display: none !important;
+    }
   }
 }
 </style>

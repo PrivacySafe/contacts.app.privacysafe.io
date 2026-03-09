@@ -32,7 +32,6 @@ function onInput(text: string) {
 function addNewContact() {
   router.push({ name: 'contact', params: { id: 'new'} });
 }
-
 </script>
 
 <template>

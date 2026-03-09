@@ -1,7 +1,7 @@
 {
   "name": "Contacts",
   "appDomain": "contacts.app.privacysafe.io",
-  "version": "0.8.7",
+  "version": "0.8.8",
   "description": "Private address book for your contact list.",
   "icon": "logo.png",
 
@@ -111,7 +111,8 @@
         },
         "storage": {
           "appFS": "default"
-        }
+        },
+        "connectivity": "check"
       }
     }
 

@@ -83,7 +83,7 @@ const onClick = (ev: MouseEvent): void => {
         icon="round-check"
         :width="innerSize / 3 - 2"
         :height="innerSize / 3 - 2"
-        color="var(--white-0)"
+        color="#fff"
       />
     </div>
   </div>
@@ -116,6 +116,8 @@ const onClick = (ev: MouseEvent): void => {
   &::before {
     content: "";
     position: absolute;
+    left: 0;
+    top: 0;
     width: 100%;
     height: 100%;
     background-color: transparent;
@@ -127,6 +129,8 @@ const onClick = (ev: MouseEvent): void => {
   &::after {
     content: "";
     position: absolute;
+    left: 0;
+    top: 0;
     width: 100%;
     height: 100%;
     background-color: transparent;

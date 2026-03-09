@@ -15,23 +15,28 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
 <script lang="ts" setup>
-import { Ui3nHtml } from '@v1nt1248/3nclient-lib';
+import { Ui3nHtml, Ui3nDialog, type Ui3nDialogComponentProps } from '@v1nt1248/3nclient-lib';
 
 defineProps<{
   dialogText: string;
   additionalDialogText?: string;
+  dialogProps?: Ui3nDialogComponentProps<boolean>;
 }>();
 
 const vUi3nHtml = Ui3nHtml;
 </script>
 
 <template>
-  <div :class="$style.confirmationDialog">
-    <div v-ui3n-html="dialogText" />
-    <div v-if="additionalDialogText">
-      {{ additionalDialogText }}
-    </div>
-  </div>
+  <ui3n-dialog v-bind="dialogProps">
+    <template #body>
+      <div :class="$style.confirmationDialog">
+        <div v-ui3n-html="dialogText" />
+        <div v-if="additionalDialogText">
+          {{ additionalDialogText }}
+        </div>
+      </div>
+    </template>
+  </ui3n-dialog>
 </template>
 
 <style lang="scss" module>

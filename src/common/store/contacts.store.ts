@@ -14,25 +14,56 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 import isEmpty from 'lodash/isEmpty';
-import { toRO } from '@main/common/utils/readonly';
+import difference from 'lodash/difference';
 import { appContactsSrvProxy } from '@main/common/services/services-provider';
 import { useAppStore } from '@main/common/store/app.store';
-import type { Person, PersonView } from '@main/common/types';
+import type { Person, PersonView, ContactListItem } from '@main/types';
 
-export type ContactsStore = ReturnType<typeof useContactsStore>;
+const contactFields: {
+  field: Exclude<keyof ContactListItem, 'id'>;
+  extraCheck?: boolean;
+}[] = [
+  { field: 'name' },
+  { field: 'mail' },
+  { field: 'avatarId' },
+  { field: 'avatarImage' },
+  { field: 'timestamp' },
+];
 
 export const useContactsStore = defineStore('contacts', () => {
   const appStore = useAppStore();
 
-  const contactList = ref<Record<string, PersonView>>({});
+  const contacts = ref<ContactListItem[]>([]);
 
-  async function upsertContact(contact: Omit<Person, 'timestamp'>): Promise<string | { errorType: string; errorMessage: string }> {
+  const currentContactIds = computed(() => contacts.value.map(c => c.id));
+
+  const contactList = computed(() => {
+    return contacts.value
+      .sort((a, b) => (a.displayName.toLocaleLowerCase() > b.displayName.toLocaleLowerCase() ? 1 : -1))
+      .reduce((res, item) => {
+        res[item.id] = item;
+        return res;
+      }, {} as Record<string, ContactListItem>);
+  });
+
+  const mailAddressesUsed = computed(() => Object.values(contactList.value).map(p => p.mail));
+
+  function isMailAddressInUse(mail: string, ignoredMailAddresses?: string[]): boolean {
+    const mailAddressesUsedFiltered = mailAddressesUsed.value
+      .filter(a => !(ignoredMailAddresses || []).includes(a));
+    return mailAddressesUsedFiltered.includes(mail);
+  }
+
+  async function upsertContact(contact: Omit<Person, 'timestamp'>): Promise<Person | {
+    errorType: string;
+    errorMessage: string
+  }> {
     const res = await appContactsSrvProxy.upsertContact(contact);
 
-    await fetchContacts();
+    await fetchContacts({});
     return res;
   }
 
@@ -40,38 +71,99 @@ export const useContactsStore = defineStore('contacts', () => {
     return appContactsSrvProxy.getContact(contactId);
   }
 
-  async function fetchContacts(withImage?: boolean): Promise<void> {
-    const lst = await appContactsSrvProxy.getContactList(withImage);
+  async function fetchContacts({ withImage, withFullOverload }: {
+    withImage?: boolean;
+    withFullOverload?: boolean;
+  }): Promise<ContactListItem[]> {
+    const list = await appContactsSrvProxy.getContactList(withImage);
 
-    if (!isEmpty(lst)) {
-      contactList.value = lst.reduce((res, item) => {
-        res[item.id] = item;
-        if (item.mail === appStore.user) {
-          item.name = 'Me';
-        }
-
-        return res;
-      }, {} as Record<string, PersonView>);
+    if (isEmpty(list)) {
+      contacts.value = [] as ContactListItem[];
+      return contacts.value;
     }
+
+    const { newIds, newContacts } = list.reduce((res, item) => {
+      const newContact: ContactListItem = {
+        id: item.id,
+        name: item.mail === appStore.user ? 'Me' : item.name,
+        displayName: item.mail === appStore.user ? 'Me' : item.name || item.mail,
+        mail: item.mail,
+        avatarId: item.avatarId || '',
+        avatarImage: item.avatarImage || '',
+        timestamp: item.timestamp || 0,
+      };
+
+      res.newIds.push(newContact.id);
+      res.newContacts.push(newContact);
+      return res;
+    }, { newIds: [] as string[], newContacts: [] as ContactListItem[] });
+
+    if (withFullOverload) {
+      contacts.value = newContacts;
+    } else {
+      const addIds = difference(newIds, currentContactIds.value);
+      const removeIds = difference(currentContactIds.value, newIds);
+
+      const removeIdsIndexes = contacts.value.reduce((res, contact, index) => {
+        if (removeIds.includes(contact.id)) {
+          res.push(index);
+        }
+        return res;
+      }, [] as number[]).sort().reverse();
+      for (let i = 0; i < removeIdsIndexes.length; i++) {
+        contacts.value.splice(i, 1);
+      }
+
+      for (const newContact of newContacts) {
+        const { id } = newContact;
+        if (addIds.includes(id)) {
+          contacts.value.push(newContact);
+        }
+      }
+
+      for (const item of contacts.value) {
+        const { id } = item;
+        const newContact = newContacts.find(c => c.id === id)!;
+
+        for (const f of contactFields) {
+          const { field, extraCheck } = f;
+          const newContactFieldValue: ContactListItem[keyof ContactListItem] = extraCheck
+            ? JSON.stringify(newContact[field])
+            : newContact[field];
+
+          const contactFieldValue: ContactListItem[keyof ContactListItem] = extraCheck
+            ? JSON.stringify(item[field])
+            : item[field];
+
+          if (contactFieldValue !== newContactFieldValue) {
+            (item[field] as ContactListItem[keyof ContactListItem]) = newContact[field];
+          }
+        }
+      }
+    }
+
+    return contacts.value;
   }
 
   function upsertContactListItem(id: string, data: Partial<PersonView>) {
-    if (contactList.value[id]) {
-      contactList.value[id] = {
-        ...contactList.value[id],
+    const index = contacts.value.findIndex(item => item.id === id);
+    if (index >= 0) {
+      contacts.value[index] = {
+        ...contacts.value[index],
         id,
         ...data,
       };
     } else {
-      contactList.value[id] = {
+      contacts.value.push({
         id,
-        avatarId: '',
-        avatarImage: '',
         mail: '',
         name: '',
+        displayName: '',
+        avatarId: '',
+        avatarImage: '',
         timestamp: 0,
         ...data,
-      };
+      });
     }
   }
 
@@ -97,7 +189,9 @@ export const useContactsStore = defineStore('contacts', () => {
   }
 
   return {
-    contactList: toRO(contactList),
+    contacts,
+    contactList,
+    isMailAddressInUse,
     upsertContactListItem,
     fetchContacts,
     getContact,
@@ -106,3 +200,5 @@ export const useContactsStore = defineStore('contacts', () => {
     deleteContacts,
   };
 });
+
+export type ContactsStore = ReturnType<typeof useContactsStore>;

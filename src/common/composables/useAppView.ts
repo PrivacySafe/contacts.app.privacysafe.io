@@ -17,6 +17,7 @@
 
 import { computed, inject, watch } from 'vue';
 import { storeToRefs } from 'pinia';
+import { useRoute, useRouter } from 'vue-router';
 import {
   I18nPlugin,
   I18N_KEY,
@@ -26,23 +27,36 @@ import {
   NOTIFICATIONS_KEY,
 } from '@v1nt1248/3nclient-lib/plugins';
 import { makeServiceCaller } from '@shared/ipc/ipc-service-caller';
-import { useAppStore } from '@main/common/store/app.store.ts';
-import { useContactsStore } from '@main/common/store/contacts.store.ts';
-import { useConnectivityStatus } from '@main/common/composables/useConnectivityStatus.ts';
-import type { AppContactsService, AppGlobalEvents } from '@main/common/types';
+import { appContactsSrvProxy } from '@main/common/services/services-provider';
+import { useAppStore } from '@main/common/store/app.store';
+import { useSyncStore } from '@main/common/store/sync.store';
+import { useContactsStore } from '@main/common/store/contacts.store';
+import { useConnectivityStatus } from '@main/common/composables/useConnectivityStatus';
+import type { AppGlobalEvents } from '@main/types';
+import type { ContactsDenoSrv } from '../../../src-deno/contacts-deno-srv';
+import { CONTACTS_DB_FILE } from '../../../src-deno/constants.ts';
 
 export type AppViewInstance = ReturnType<typeof useAppView>;
 
 export function useAppView() {
+  const route = useRoute();
+  const router = useRouter();
+
   const { $emitter } = inject<VueBusPlugin<AppGlobalEvents>>(VUEBUS_KEY)!;
   const { $tr } = inject<I18nPlugin>(I18N_KEY)!;
   const { $createNotice } = inject<NotificationsPlugin>(NOTIFICATIONS_KEY)!;
 
   const appStore = useAppStore();
-  const { user, syncStatus, appElement, appVersion, customLogoSrc } = storeToRefs(appStore);
-  const { setSyncStatus } = appStore;
+  const { user, appElement, appVersion, customLogoSrc, globalLoading } = storeToRefs(appStore);
+  const { setGlobalLoading } = appStore;
 
-  const { fetchContacts } = useContactsStore();
+  const syncStore = useSyncStore();
+  const { isSyncRunning } = storeToRefs(syncStore);
+  const { addToSyncList, removeFromSyncList } = syncStore;
+
+  const contactsStore = useContactsStore();
+  const { contacts } = storeToRefs(contactsStore);
+  const { fetchContacts } = contactsStore;
 
   const { connectivityStatus, stopWatchingConnectivityStatus } = useConnectivityStatus();
 
@@ -50,9 +64,10 @@ export function useAppView() {
     ? $tr('app.status.connected.online')
     : $tr('app.status.connected.offline'),
   );
-  const syncStatusText = computed(() => syncStatus.value === 'synced'
-    ? $tr('app.status.synced')
-    : $tr('app.status.unsynced'),
+
+  const syncStatusText = computed(() => isSyncRunning.value
+    ? $tr('app.status.unsynced')
+    : $tr('app.status.synced'),
   );
 
   async function appExit() {
@@ -74,54 +89,85 @@ export function useAppView() {
           content: $tr('app.info.for.offline.status'),
           duration: 4000,
         });
-        setSyncStatus('unsynced');
       }
     }, {
       immediate: true,
     },
   );
 
+  let tu: ReturnType<typeof setInterval> | null = null;
+
   async function doBeforeMount() {
+    setGlobalLoading(true);
     try {
-      await Promise.all([
-        appStore.initialize(),
-        fetchContacts(true),
-      ]);
-
       const contactsSrvConnection = await w3n.rpc!.thisApp!('AppContactsInternal');
-      const contactsSrv = makeServiceCaller(
+      const contactsDenoSrv = makeServiceCaller(
         contactsSrvConnection,
-        ['checkSyncStatus'],
-        ['watchContactList', 'watchEvent'],
-      ) as AppContactsService;
+        [],
+        ['watchEvent'],
+      ) as ContactsDenoSrv;
 
-      const sStatus = await contactsSrv.checkSyncStatus();
-      setSyncStatus(sStatus);
+      await appStore.initialize();
 
-      contactsSrv.watchContactList({
-        next: () => fetchContacts(true),
-        error: e => w3n.log('error', 'Error watching the contact list. ', e),
-        complete: () => contactsSrvConnection.close(),
-      });
+      contactsDenoSrv.watchEvent({
+        next: async evt => {
+          // console.log('🕐 EVENT FROM DENO => ', JSON.stringify(evt));
+          const { event, payload } = evt;
+          // eslint-disable-next-line default-case
+          switch (event) {
+            case 'sync:start': {
+              const { path } = payload;
+              addToSyncList(path || 'root');
+              break;
+            }
 
-      contactsSrv.watchEvent({
-        next: evt => {
-          if (evt.event === 'processing:end') {
-            $emitter.emit('contact-list:updated', void 0);
-            fetchContacts(true);
-          } else if (evt.event === 'syncstatus:change') {
-            setSyncStatus(evt.status);
+            case 'sync:end': {
+              const { path } = payload;
+              removeFromSyncList(path || 'root');
+              if (path === CONTACTS_DB_FILE) {
+                $emitter.emit('contact-list:updated', void 0);
+                await fetchContacts({});
+              }
+              break;
+            }
+
+            case 'update:contact-list': {
+              await fetchContacts({});
+              const { name } = route;
+              if (name === 'contact') {
+                const contactId = route.params.id as string;
+                const contactIds = contacts.value.map(c => c.id);
+                if (!contactIds.includes(contactId)) {
+                  await router.push({ name: 'contacts' });
+                }
+              }
+              break;
+            }
           }
         },
-        error: e => w3n.log('error', 'Error watching contact events. ', e),
+        error: (e: unknown) => w3n.log('error', 'Error watching contact events. ', e),
         complete: () => contactsSrvConnection.close(),
       });
+
+      await appContactsSrvProxy.initialSyncProcess();
+      await fetchContacts({ withFullOverload: true });
+
+      tu = setInterval(() => {
+        appContactsSrvProxy.removeUnnecessaryImageFiles();
+      }, 86400000); // every 24 hours
     } catch (e) {
       console.error('Error while the app mounting: ', e);
+    } finally {
+      setGlobalLoading(false);
     }
   }
 
   function doBeforeUnmount() {
+    if (tu) {
+      clearInterval(tu);
+      tu = null;
+    }
+
     appStore.stopWatching();
     stopWatchingConnectivityStatus();
   }
@@ -132,7 +178,9 @@ export function useAppView() {
     appElement,
     appVersion,
     connectivityStatusText,
+    isSyncRunning,
     syncStatusText,
+    globalLoading,
     appExit,
     doBeforeMount,
     doBeforeUnmount,
