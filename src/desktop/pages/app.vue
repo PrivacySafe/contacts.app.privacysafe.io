@@ -16,6 +16,7 @@
 -->
 <script lang="ts" setup>
 import { onBeforeMount, onBeforeUnmount } from 'vue';
+import { useI18n } from 'vue-i18n';
 import {
   Ui3nDialogProvider,
   Ui3nMenu,
@@ -26,6 +27,8 @@ import {
 import prLogo from '@main/common/assets/images/privacysafe-logo-new.svg';
 import { useAppView } from '@main/common/composables/useAppView';
 import ContactIcon from '@main/common/components/contact-icon.vue';
+
+const { t } = useI18n();
 
 const {
   user,
@@ -66,7 +69,7 @@ onBeforeUnmount(doBeforeUnmount);
           /
         </div>
         <div :class="$style.info">
-          {{ $tr('app.title') }}
+          {{ t('app.title') }}
           <div :class="$style.version">
             v {{ appVersion }}
           </div>
@@ -80,17 +83,17 @@ onBeforeUnmount(doBeforeUnmount);
           </span>
 
           <div :class="$style.status">
-            <span>{{ $tr('app.status') }}</span>
+            <span>{{ t('app.status.label') }}</span>
 
-            <b :class="connectivityStatusText.includes($tr('app.status.connected.online')) && $style.ok">
+            <b :class="connectivityStatusText.includes(t('app.status.connected.online')) && $style.ok">
               {{ connectivityStatusText }}
             </b>
           </div>
 
           <div :class="$style.status">
-            <span>{{ $tr('app.sync.status') }}</span>
+            <span>{{ t('app.sync.status') }}</span>
 
-            <b :class="!syncStatusText.includes($tr('app.status.unsynced')) && $style.ok">
+            <b :class="!syncStatusText.includes(t('app.status.unsynced')) && $style.ok">
               {{ syncStatusText }}
             </b>
           </div>
@@ -117,7 +120,7 @@ onBeforeUnmount(doBeforeUnmount);
                 :class="$style.menuItem"
                 @click="appExit"
               >
-                {{ $tr('app.exit') }}
+                {{ t('app.exit') }}
               </div>
             </div>
           </template>

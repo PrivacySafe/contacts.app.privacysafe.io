@@ -17,6 +17,7 @@
 
 <script lang="ts" setup>
 import { onBeforeMount, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import {
   Ui3nButton,
   Ui3nDialog,
@@ -31,6 +32,8 @@ type PKeyCertChain = web3n.keys.PKeyCertChain;
 defineProps<{
   dialogProps?: Ui3nDialogComponentProps<boolean>;
 }>();
+
+const { t } = useI18n();
 
 const isLoading = ref(false);
 const keyOnServer = ref<Nullable<PKeyCertChain>>(null);
@@ -65,16 +68,16 @@ onBeforeMount(async () => {
       <div :class="$style.overallContent">
         <div v-if="keyOnServer">
           <h4 :class="$style.title">
-            {{ $tr('keys-info.key-on-server.section') }}
+            {{ t('keys-info.key-on-server.section') }}
           </h4>
 
           <div :class="$style.actions">
             <ui3n-button @click.stop.prevent="makeNewIntroKeyAndPlaceOnServer">
-              {{ $tr('keys-info.key-on-server.update.btn') }}
+              {{ t('keys-info.key-on-server.btn.update') }}
             </ui3n-button>
 
             <ui3n-button @click.stop.prevent="removeIntroKeyOnServer">
-              {{ $tr('keys-info.key-on-server.remove.btn') }}
+              {{ t('keys-info.key-on-server.btn.remove') }}
             </ui3n-button>
           </div>
 
@@ -82,13 +85,13 @@ onBeforeMount(async () => {
         </div>
 
         <div v-else>
-          <div>{{ $tr('keys-info.key-on-server.no-key.text') }}</div>
+          <div>{{ t('keys-info.key-on-server.no-key') }}</div>
 
           <ui3n-button
             :class="$style.btn"
             @click.stop.prevent="makeNewIntroKeyAndPlaceOnServer"
           >
-            {{ $tr('keys-info.key-on-server.make-new.btn') }}
+            {{ t('keys-info.key-on-server.btn.make-new') }}
           </ui3n-button>
         </div>
 

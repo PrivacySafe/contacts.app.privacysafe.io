@@ -43,24 +43,31 @@ export const useContactsStore = defineStore('contacts', () => {
   const contactList = computed(() => {
     return contacts.value
       .sort((a, b) => (a.displayName.toLocaleLowerCase() > b.displayName.toLocaleLowerCase() ? 1 : -1))
-      .reduce((res, item) => {
-        res[item.id] = item;
-        return res;
-      }, {} as Record<string, ContactListItem>);
+      .reduce(
+        (res, item) => {
+          res[item.id] = item;
+          return res;
+        },
+        {} as Record<string, ContactListItem>,
+      );
   });
 
   const mailAddressesUsed = computed(() => Object.values(contactList.value).map(p => p.mail));
 
   function isMailAddressInUse(mail: string, ignoredMailAddresses?: string[]): boolean {
-    const mailAddressesUsedFiltered = mailAddressesUsed.value
-      .filter(a => !(ignoredMailAddresses || []).includes(a));
+    const mailAddressesUsedFiltered = mailAddressesUsed.value.filter(
+      a => !(ignoredMailAddresses || []).includes(a),
+    );
     return mailAddressesUsedFiltered.includes(mail);
   }
 
-  async function upsertContact(contact: Omit<Person, 'timestamp'>): Promise<Person | {
-    errorType: string;
-    errorMessage: string
-  }> {
+  async function upsertContact(contact: Omit<Person, 'timestamp'>): Promise<
+    | Person
+    | {
+        errorType: string;
+        errorMessage: string;
+      }
+  > {
     const res = await appContactsSrvProxy.upsertContact(contact);
 
     await fetchContacts({});
@@ -71,7 +78,10 @@ export const useContactsStore = defineStore('contacts', () => {
     return appContactsSrvProxy.getContact(contactId);
   }
 
-  async function fetchContacts({ withImage, withFullOverload }: {
+  async function fetchContacts({
+    withImage,
+    withFullOverload,
+  }: {
     withImage?: boolean;
     withFullOverload?: boolean;
   }): Promise<ContactListItem[]> {
@@ -82,21 +92,24 @@ export const useContactsStore = defineStore('contacts', () => {
       return contacts.value;
     }
 
-    const { newIds, newContacts } = list.reduce((res, item) => {
-      const newContact: ContactListItem = {
-        id: item.id,
-        name: item.mail === appStore.user ? 'Me' : item.name,
-        displayName: item.mail === appStore.user ? 'Me' : item.name || item.mail,
-        mail: item.mail,
-        avatarId: item.avatarId || '',
-        avatarImage: item.avatarImage || '',
-        timestamp: item.timestamp || 0,
-      };
+    const { newIds, newContacts } = list.reduce(
+      (res, item) => {
+        const newContact: ContactListItem = {
+          id: item.id,
+          name: item.mail === appStore.user ? 'Me' : item.name,
+          displayName: item.mail === appStore.user ? 'Me' : item.name || item.mail,
+          mail: item.mail,
+          avatarId: item.avatarId || '',
+          avatarImage: item.avatarImage || '',
+          timestamp: item.timestamp || 0,
+        };
 
-      res.newIds.push(newContact.id);
-      res.newContacts.push(newContact);
-      return res;
-    }, { newIds: [] as string[], newContacts: [] as ContactListItem[] });
+        res.newIds.push(newContact.id);
+        res.newContacts.push(newContact);
+        return res;
+      },
+      { newIds: [] as string[], newContacts: [] as ContactListItem[] },
+    );
 
     if (withFullOverload) {
       contacts.value = newContacts;
@@ -104,12 +117,15 @@ export const useContactsStore = defineStore('contacts', () => {
       const addIds = difference(newIds, currentContactIds.value);
       const removeIds = difference(currentContactIds.value, newIds);
 
-      const removeIdsIndexes = contacts.value.reduce((res, contact, index) => {
-        if (removeIds.includes(contact.id)) {
-          res.push(index);
-        }
-        return res;
-      }, [] as number[]).sort().reverse();
+      const removeIdsIndexes = contacts.value
+        .reduce((res, contact, index) => {
+          if (removeIds.includes(contact.id)) {
+            res.push(index);
+          }
+          return res;
+        }, [] as number[])
+        .sort()
+        .reverse();
       for (let i = 0; i < removeIdsIndexes.length; i++) {
         contacts.value.splice(i, 1);
       }

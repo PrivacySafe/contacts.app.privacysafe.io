@@ -16,9 +16,12 @@
 -->
 <script lang="ts" setup>
 import { onBeforeMount, onBeforeUnmount, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Ui3nButton, Ui3nProgressCircular, Ui3nProgressLinear } from '@v1nt1248/3nclient-lib';
 import { useAppView } from '@main/common/composables/useAppView';
 import AppMenu from '@main/mobile/components/app-menu.vue';
+
+const { t } = useI18n();
 
 const {
   user,
@@ -72,7 +75,7 @@ onBeforeUnmount(doBeforeUnmount);
 
         <div :class="$style.item">
           <span :class="$style.itemName">
-            {{ $tr('app.title') }}
+            {{ t('app.title') }}
           </span>
 
           <span :class="$style.version">
@@ -82,15 +85,15 @@ onBeforeUnmount(doBeforeUnmount);
 
         <div :class="$style.info">
           <div :class="$style.status">
-            <span>{{ $tr('app.status') }}</span>
+            <span>{{ t('app.status.label') }}</span>
 
-            <b :class="connectivityStatusText.includes($tr('app.status.connected.online')) && $style.ok" />
+            <b :class="connectivityStatusText.includes(t('app.status.connected.online')) && $style.ok" />
           </div>
 
           <div :class="$style.status">
-            <span>{{ $tr('app.sync.status') }}</span>
+            <span>{{ t('app.sync.status') }}</span>
 
-            <b :class="!syncStatusText.includes($tr('app.status.unsynced')) && $style.ok" />
+            <b :class="!syncStatusText.includes(t('app.status.unsynced')) && $style.ok" />
           </div>
         </div>
 

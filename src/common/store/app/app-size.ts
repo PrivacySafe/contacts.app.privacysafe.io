@@ -15,7 +15,7 @@ You should have received a copy of the GNU General Public License along with
 this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-import { ref, shallowRef, watch } from "vue";
+import { ref, shallowRef, watch } from 'vue';
 
 export interface AppWindowSize {
   width: number;
@@ -23,7 +23,6 @@ export interface AppWindowSize {
 }
 
 export function useAppSize() {
-
   const appElement = shallowRef<HTMLElement>();
 
   const appWindowSize = ref<AppWindowSize>({
@@ -39,7 +38,7 @@ export function useAppSize() {
     };
   }
 
-  const resizeObserver = new ResizeObserver((entries) => {
+  const resizeObserver = new ResizeObserver(entries => {
     for (const entry of entries) {
       const { contentRect, target } = entry;
       const { className } = target;
@@ -51,7 +50,7 @@ export function useAppSize() {
     }
   });
 
-  const appElemWatching = watch(appElement, (elem) => {
+  const appElemWatching = watch(appElement, elem => {
     if (elem) {
       const { width, height } = elem.getBoundingClientRect();
       setAppWindowSize({ width, height });
@@ -66,6 +65,6 @@ export function useAppSize() {
   return {
     appElement,
 
-    stopWatching
+    stopWatching,
   };
 }

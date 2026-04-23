@@ -17,11 +17,14 @@
 
 <script lang="ts" setup>
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { algToHumanString } from '@main/common/utils/keys-info';
 
 const props = defineProps<{
   receivingPair: web3n.keys.ReceptionPairInfo;
 }>();
+
+const { t } = useI18n();
 
 const msgsCounts = computed(() => {
   if (props.receivingPair.receivedMsgs) {
@@ -35,27 +38,27 @@ const msgsCounts = computed(() => {
 <template>
   <div>
     <div :class="$style.row">
-      <b>{{ $tr(receivingPair.isSenderIntroKey ? 'keys-info.contact-intro-key-id' : 'keys-info.contact-key-id') }}:</b>
+      <b>{{ t(receivingPair.isSenderIntroKey ? 'keys-info.contact-intro-key-id' : 'keys-info.contact-key-id') }}:</b>
       {{ receivingPair.senderKId }}
     </div>
 
     <div :class="$style.row">
-      <b>{{ $tr('keys-info.your-key-id') }}:</b> {{ receivingPair.recipientKId }}
+      <b>{{ t('keys-info.your-key-id') }}:</b> {{ receivingPair.recipientKId }}
     </div>
 
     <div :class="$style.row">
-      <b>{{ $tr('keys-info.alg') }}:</b> {{ algToHumanString(receivingPair.alg) }}
+      <b>{{ t('keys-info.alg') }}:</b> {{ algToHumanString(receivingPair.alg) }}
     </div>
 
     <div :class="$style.row">
-      <b>{{ $tr('keys-info.timestamp') }}:</b> {{ new Date(receivingPair.timestamp).toLocaleString() }}
+      <b>{{ t('keys-info.timestamp') }}:</b> {{ new Date(receivingPair.timestamp).toLocaleString() }}
     </div>
 
     <div
       v-if="receivingPair.receivedMsgs"
       :class="$style.row"
     >
-      <b>{{ $tr('keys-info.last-msg-ts') }}:</b>
+      <b>{{ t('keys-info.last-msg-ts') }}:</b>
       {{ new Date(receivingPair.receivedMsgs?.lastTS).toLocaleString() }}
     </div>
 
@@ -63,11 +66,11 @@ const msgsCounts = computed(() => {
       v-if="receivingPair.receivedMsgs"
       :class="$style.row"
     >
-      <b>{{ $tr('keys-info.received-msgs') }}:</b> {{ msgsCounts }}
+      <b>{{ t('keys-info.received-msgs') }}:</b> {{ msgsCounts }}
     </div>
 
     <div :class="$style.row">
-      <b>{{ $tr('keys-info.random-pids') }}:</b> {{ receivingPair.pids.join(', ') }}
+      <b>{{ t('keys-info.random-pids') }}:</b> {{ receivingPair.pids.join(', ') }}
     </div>
   </div>
 </template>

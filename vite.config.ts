@@ -2,7 +2,6 @@ import { resolve } from 'node:path';
 import { UserConfig, defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import vueDevTools from 'vite-plugin-vue-devtools';
-import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 function _resolve(dir: string) {
   return resolve(__dirname, dir);
@@ -20,9 +19,6 @@ export const makeConfig = ({ mode }: UserConfig) => {
 
   const plugins = [
     vue(),
-    nodePolyfills({
-      include: ['timers', 'timers/promises', 'path', 'url', 'fs'],
-    }),
     vueDevTools(),
   ];
 

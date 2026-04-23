@@ -16,6 +16,7 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 */
 import { computed, inject, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { storeToRefs } from 'pinia';
 import cloneDeep from 'lodash/cloneDeep';
 import omit from 'lodash/omit';
@@ -23,8 +24,6 @@ import pick from 'lodash/pick';
 import {
   DIALOGS_KEY,
   DialogsPlugin,
-  I18N_KEY,
-  I18nPlugin,
   NOTIFICATIONS_KEY,
   NotificationsPlugin,
 } from '@v1nt1248/3nclient-lib/plugins';
@@ -43,15 +42,15 @@ import { useAppStore } from '@main/common/store/app.store';
 import { useContactsStore } from '@main/common/store/contacts.store';
 import { chatApp, EMPTY_CONTACT, inboxApp } from '@main/common/constants';
 import type { ContactContent, OpenChatCmdArg, OpenInboxCmdArg, Person } from '@main/types';
-import ConfirmationDialog from '@main/common/dialogs/confirmation-dialog.vue';
-import OwnKeysInfoDialog from '@main/common/dialogs/own-keys-info-dialog.vue';
-import ContactKeysInfoDialog from '@main/common/dialogs/contact-keys-info-dialog.vue';
+import ConfirmationDialog from '@main/common/components/dialogs/confirmation-dialog.vue';
+import OwnKeysInfoDialog from '@main/common/components/dialogs/own-keys-info-dialog.vue';
+import ContactKeysInfoDialog from '@main/common/components/dialogs/contact-keys-info-dialog.vue';
 
 export function useContact() {
   const route = useRoute();
   const router = useRouter();
 
-  const { $tr } = inject<I18nPlugin>(I18N_KEY)!;
+  const { t } = useI18n();
   const notification = inject<NotificationsPlugin>(NOTIFICATIONS_KEY)!;
   const dialog = inject<DialogsPlugin>(DIALOGS_KEY)!;
 
@@ -105,16 +104,16 @@ export function useContact() {
   });
 
   function checkRequired(mail?: unknown): boolean | string {
-    return !!mail || $tr('validation.text.required');
+    return !!mail || t('validation.text.required');
   }
 
   function checkEmail(mail?: unknown): boolean | string {
-    return mailReg.test(mail! as string) || $tr('validation.text.mail');
+    return mailReg.test(mail! as string) || t('validation.text.mail');
   }
 
   function checkUsage(mail?: unknown): boolean | string {
     return isMailAddressInUse(mail as string, initialContact.value?.mail ? [initialContact.value.mail] : [])
-      ? $tr('validation.text.usage')
+      ? t('validation.text.usage')
       : true;
   }
 
@@ -162,12 +161,12 @@ export function useContact() {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   async function delContact(doAfterDelete?: Function) {
     const res = await dialog.$openDialog(ConfirmationDialog, {
-      dialogText: $tr('confirmation.delete.text', { name: `<b>${contactDisplayName.value}</b>` }),
+      dialogText: t('confirmation.delete.one', { name: `<b>${contactDisplayName.value}</b>` }),
       dialogProps: {
-        title: $tr('contact.delete.title'),
+        title: t('contact.delete.title', 1),
         width: 300,
-        confirmButtonText: $tr('contact.delete.confirmBtn.text'),
-        cancelButtonText: $tr('contact.delete.cancelBtn.text'),
+        confirmButtonText: t('contact.delete.confirmBtn'),
+        cancelButtonText: t('contact.delete.cancelBtn'),
       },
     });
 
@@ -178,13 +177,13 @@ export function useContact() {
         await deleteContact(contact.value!.id);
         notification.$createNotice({
           type: 'success',
-          content: $tr('contact.delete.success.text'),
+          content: t('contact.delete.success', 1),
         });
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (err) {
         notification.$createNotice({
           type: 'error',
-          content: $tr('contact.delete.error.text'),
+          content: t('contact.delete.error', 1),
         });
       } finally {
         isLoading.value = false;
@@ -226,7 +225,7 @@ export function useContact() {
 
       notification.$createNotice({
         type: 'success',
-        content: $tr('contact.upsert.success.text'),
+        content: t('contact.upsert.success'),
       });
 
       if (isContactNew) {
@@ -242,7 +241,7 @@ export function useContact() {
 
       notification.$createNotice({
         type: 'error',
-        content: $tr('contact.upsert.error.text'),
+        content: t('contact.upsert.error'),
       });
     } finally {
       isLoading.value = false;
@@ -281,7 +280,7 @@ export function useContact() {
   async function showOwnKeysInfo() {
     await dialog.$openDialog(OwnKeysInfoDialog, {
       dialogProps: {
-        title: $tr('contact.dialog.title.own-keys'),
+        title: t('contact.dialog.title.own-keys'),
         confirmButton: false,
         cancelButton: false,
         closeOnClickOverlay: true,
@@ -293,7 +292,7 @@ export function useContact() {
     await dialog.$openDialog(ContactKeysInfoDialog, {
       contactAddr: contact.value!.mail,
       dialogProps: {
-        title: $tr('contact.dialog.title.contact-keys', {
+        title: t('contact.dialog.title.contact-keys', {
           contact: contact.value!.name ?? contact.value!.mail,
         }),
         confirmButton: false,
@@ -375,7 +374,6 @@ export function useContact() {
   }
 
   return {
-    $tr,
     route,
     router,
     notification,

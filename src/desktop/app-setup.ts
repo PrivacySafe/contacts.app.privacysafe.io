@@ -14,13 +14,12 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
-
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
-import { router } from './router.ts';
-import { i18n, I18nOptions, dialogs, notifications, vueBus } from '@v1nt1248/3nclient-lib/plugins';
+import { router } from './router';
+import { dialogs, notifications, vueBus } from '@v1nt1248/3nclient-lib/plugins';
 
-import en from '../common/data/i18/en.json';
+import i18n from '@main/common/data/i18';
 
 import App from '@main/desktop/pages/app.vue';
 
@@ -37,7 +36,7 @@ export function setupMainApp() {
 
   app
   .use(pinia)
-  .use<I18nOptions>(i18n, { lang: 'en', messages: { en } })
+  .use(i18n)
   .use(vueBus)
   .use(dialogs)
   .use(notifications)

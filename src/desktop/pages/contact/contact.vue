@@ -16,12 +16,14 @@
 -->
 <script setup lang="ts">
 import { inject, onBeforeMount, onBeforeUnmount, watch, type WatchHandle } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { VUEBUS_KEY, type VueBusPlugin } from '@v1nt1248/3nclient-lib/plugins';
 import { Ui3nProgressCircular, Ui3nButton, Ui3nTooltip } from '@v1nt1248/3nclient-lib';
 import { useContact } from '@main/common/composables/useContact';
 import type { AppGlobalEvents } from '@main/types';
 import ContactBody from '@main/common/components/contact-content.vue';
 
+const { t } = useI18n();
 const { $emitter } = inject<VueBusPlugin<AppGlobalEvents>>(VUEBUS_KEY)!;
 
 const {
@@ -93,7 +95,7 @@ onBeforeUnmount(() => {
 
         <ui3n-tooltip
           v-if="!imageProcessing"
-          :content="contact?.avatarId ? $tr('contact.avatar.delete') : $tr('contact.avatar.upload')"
+          :content="contact?.avatarId ? t('contact.avatar.delete') : t('contact.avatar.upload')"
           position-strategy="fixed"
           placement="top"
         >
@@ -121,7 +123,7 @@ onBeforeUnmount(() => {
       <div :class="$style.headerActions">
         <ui3n-tooltip
           v-if="!isUserAddress"
-          :content="$tr('action.open.chat.tooltip')"
+          :content="t('action.open.chat.tooltip')"
           position-strategy="fixed"
           placement="top"
         >
@@ -136,7 +138,7 @@ onBeforeUnmount(() => {
 
         <ui3n-tooltip
           v-if="!isUserAddress"
-          :content="$tr('action.open.mail.tooltip')"
+          :content="t('action.open.mail.tooltip')"
           position-strategy="fixed"
           placement="top"
         >
@@ -151,7 +153,7 @@ onBeforeUnmount(() => {
 
         <ui3n-tooltip
           v-if="isUserAddress"
-          :content="$tr('action.show.own.keys')"
+          :content="t('action.show.keys.own')"
           position-strategy="fixed"
           placement="top"
         >
@@ -166,7 +168,7 @@ onBeforeUnmount(() => {
 
         <ui3n-tooltip
           v-if="!isUserAddress"
-          :content="$tr('action.show.contact.keys')"
+          :content="t('action.show.keys.contact')"
           position-strategy="fixed"
           placement="top"
         >
@@ -201,14 +203,14 @@ onBeforeUnmount(() => {
         type="secondary"
         @click="cancel"
       >
-        {{ $tr('app.btn.cancel') }}
+        {{ t('app.btn.cancel') }}
       </ui3n-button>
 
       <ui3n-button
         :disabled="!contactValid || !whetherContactChanged"
         @click="() => saveContact({})"
       >
-        {{ $tr('app.btn.save') }}
+        {{ t('app.btn.save') }}
       </ui3n-button>
     </div>
 

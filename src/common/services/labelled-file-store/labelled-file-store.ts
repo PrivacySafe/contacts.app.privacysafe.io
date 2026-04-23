@@ -377,7 +377,7 @@ function noop() {
 }
 
 async function newBucketTree(dataFS: WritableFS): Promise<string> {
-  let path = '';
+  let path;
   do {
     path = randomStr(FOLDER_NAME_LEN);
   } while (await dataFS.checkFolderPresence(path));

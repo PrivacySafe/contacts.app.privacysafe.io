@@ -16,13 +16,16 @@
 -->
 <script lang="ts" setup>
 import { computed, onBeforeUnmount, ref, watch, type WatchHandle } from 'vue';
+import { useI18n } from 'vue-i18n';
 import cloneDeep from 'lodash/cloneDeep';
 import { Ui3nButton, Ui3nProgressCircular } from '@v1nt1248/3nclient-lib';
 import { useContact } from '@main/common/composables/useContact';
 import { useRouting } from '@main/mobile/composables/useRouting';
 import ContactBody from '@main/common/components/contact-content.vue';
-import OwnKeysInfoDialog from '@main/common/dialogs/own-keys-info-dialog.vue';
-import ContactKeysInfoDialog from '@main/common/dialogs/contact-keys-info-dialog.vue';
+import OwnKeysInfoDialog from '@main/common/components/dialogs/own-keys-info-dialog.vue';
+import ContactKeysInfoDialog from '@main/common/components/dialogs/contact-keys-info-dialog.vue';
+
+const { t } = useI18n();
 
 const { goToList, goToContact, getEditStateFromRoute } = useRouting();
 
@@ -243,8 +246,8 @@ onBeforeUnmount(() => {
           @click="closeKeysInfo"
         />
 
-        <span v-if="isOwnKeysInfoOpen">{{ $tr('contact.dialog.title.own-keys') }}</span>
-        <span v-if="isContactKeysInfoOpen">{{ $tr('contact.dialog.title.contact-keys', { contact: contactDisplayName })
+        <span v-if="isOwnKeysInfoOpen">{{ t('contact.dialog.title.own-keys') }}</span>
+        <span v-if="isContactKeysInfoOpen">{{ t('contact.dialog.title.contact-keys', { contact: contactDisplayName })
         }}</span>
       </div>
 

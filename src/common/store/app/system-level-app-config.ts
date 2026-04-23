@@ -80,7 +80,6 @@ export function useSystemLevelAppConfig() {
 
   async function initialize(): Promise<void> {
     await Promise.all([
-
       w3n.myVersion().then(v => {
         appVersion.value = v;
       }),

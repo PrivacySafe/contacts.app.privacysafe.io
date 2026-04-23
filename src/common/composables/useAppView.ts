@@ -17,15 +17,9 @@
 
 import { computed, inject, watch } from 'vue';
 import { storeToRefs } from 'pinia';
+import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
-import {
-  I18nPlugin,
-  I18N_KEY,
-  VueBusPlugin,
-  VUEBUS_KEY,
-  NotificationsPlugin,
-  NOTIFICATIONS_KEY,
-} from '@v1nt1248/3nclient-lib/plugins';
+import { VueBusPlugin, VUEBUS_KEY, NotificationsPlugin, NOTIFICATIONS_KEY } from '@v1nt1248/3nclient-lib/plugins';
 import { makeServiceCaller } from '@shared/ipc/ipc-service-caller';
 import { appContactsSrvProxy } from '@main/common/services/services-provider';
 import { useAppStore } from '@main/common/store/app.store';
@@ -34,17 +28,19 @@ import { useContactsStore } from '@main/common/store/contacts.store';
 import { useConnectivityStatus } from '@main/common/composables/useConnectivityStatus';
 import type { AppGlobalEvents } from '@main/types';
 import type { ContactsDenoSrv } from '../../../src-deno/contacts-deno-srv';
-import { CONTACTS_DB_FILE } from '../../../src-deno/constants.ts';
+import { CONTACTS_DB_FILE } from '../../../src-deno/constants';
 
 export type AppViewInstance = ReturnType<typeof useAppView>;
 
 export function useAppView() {
+  const { t } = useI18n();
   const route = useRoute();
   const router = useRouter();
 
   const { $emitter } = inject<VueBusPlugin<AppGlobalEvents>>(VUEBUS_KEY)!;
-  const { $tr } = inject<I18nPlugin>(I18N_KEY)!;
   const { $createNotice } = inject<NotificationsPlugin>(NOTIFICATIONS_KEY)!;
+
+  const { connectivityStatus } = useConnectivityStatus();
 
   const appStore = useAppStore();
   const { user, appElement, appVersion, customLogoSrc, globalLoading } = storeToRefs(appStore);
@@ -58,17 +54,11 @@ export function useAppView() {
   const { contacts } = storeToRefs(contactsStore);
   const { fetchContacts } = contactsStore;
 
-  const { connectivityStatus, stopWatchingConnectivityStatus } = useConnectivityStatus();
-
-  const connectivityStatusText = computed(() => connectivityStatus.value === 'online'
-    ? $tr('app.status.connected.online')
-    : $tr('app.status.connected.offline'),
+  const connectivityStatusText = computed(() =>
+    connectivityStatus.value === 'online' ? t('app.status.connected.online') : t('app.status.connected.offline'),
   );
 
-  const syncStatusText = computed(() => isSyncRunning.value
-    ? $tr('app.status.unsynced')
-    : $tr('app.status.synced'),
-  );
+  const syncStatusText = computed(() => (isSyncRunning.value ? t('app.status.unsynced') : t('app.status.synced')));
 
   async function appExit() {
     w3n.closeSelf!();
@@ -80,17 +70,18 @@ export function useAppView() {
       if (val === 'online' && oVal === 'offline') {
         $createNotice({
           type: 'info',
-          content: $tr('app.info.for.online.status'),
+          content: t('app.info.status.online'),
           duration: 4000,
         });
       } else if (val === 'offline' && oVal === 'online') {
         $createNotice({
           type: 'warning',
-          content: $tr('app.info.for.offline.status'),
+          content: t('app.info.status.offline'),
           duration: 4000,
         });
       }
-    }, {
+    },
+    {
       immediate: true,
     },
   );
@@ -101,11 +92,7 @@ export function useAppView() {
     setGlobalLoading(true);
     try {
       const contactsSrvConnection = await w3n.rpc!.thisApp!('AppContactsInternal');
-      const contactsDenoSrv = makeServiceCaller(
-        contactsSrvConnection,
-        [],
-        ['watchEvent'],
-      ) as ContactsDenoSrv;
+      const contactsDenoSrv = makeServiceCaller(contactsSrvConnection, [], ['watchEvent']) as ContactsDenoSrv;
 
       await appStore.initialize();
 
@@ -169,10 +156,10 @@ export function useAppView() {
     }
 
     appStore.stopWatching();
-    stopWatchingConnectivityStatus();
   }
 
   return {
+    t,
     user,
     customLogoSrc,
     appElement,

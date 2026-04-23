@@ -29,8 +29,9 @@ function onInput(text: string) {
   searchText.value = text;
 }
 
-function addNewContact() {
-  router.push({ name: 'contact', params: { id: 'new'} });
+async function addNewContact() {
+  await router.push({ name: 'contacts' });
+  setTimeout(() => router.push({ name: 'contact', params: { id: 'new'} }), 250);
 }
 </script>
 

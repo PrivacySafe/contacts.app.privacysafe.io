@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { useI18n } from 'vue-i18n';
 import { Ui3nButton } from '@v1nt1248/3nclient-lib';
 import ContactIcon from '@main/common/components/contact-icon.vue';
 
@@ -6,6 +7,8 @@ defineProps<{
   user: string;
   appExit?: () => void;
 }>();
+
+const { t } = useI18n();
 </script>
 
 <template>
@@ -29,7 +32,7 @@ defineProps<{
         :class="$style.logout"
         @click="() => appExit && appExit()"
       >
-        {{ $tr('app.exit') }}
+        {{ t('app.exit') }}
       </ui3n-button>
     </div>
   </div>

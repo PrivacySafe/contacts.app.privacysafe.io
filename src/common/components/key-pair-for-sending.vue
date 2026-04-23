@@ -16,47 +16,50 @@
 -->
 
 <script lang="ts" setup>
+import { useI18n } from 'vue-i18n';
 import { algToHumanString } from '@main/common/utils/keys-info';
 
 defineProps<{
   sendingPair: web3n.keys.RatchetedSendingPairInfo;
 }>();
+
+const { t } = useI18n();
 </script>
 
 <template>
   <div>
     <div :class="$style.row">
-      <b>{{ $tr('keys-info.your-key-id') }}:</b> {{ sendingPair.senderKId }}
+      <b>{{ t('keys-info.your-key-id') }}:</b> {{ sendingPair.senderKId }}
     </div>
 
     <div :class="$style.row">
-      <b>{{ $tr('keys-info.contact-key-id') }}:</b> {{ sendingPair.recipientKId }}
+      <b>{{ t('keys-info.contact-key-id') }}:</b> {{ sendingPair.recipientKId }}
     </div>
 
     <div :class="$style.row">
-      <b>{{ $tr('keys-info.alg') }}:</b> {{ algToHumanString(sendingPair.alg) }}
+      <b>{{ t('keys-info.alg') }}:</b> {{ algToHumanString(sendingPair.alg) }}
     </div>
 
     <div :class="$style.row">
-      <b>{{ $tr('keys-info.timestamp') }}:</b> {{ new Date(sendingPair.timestamp).toLocaleString() }}
+      <b>{{ t('keys-info.timestamp') }}:</b> {{ new Date(sendingPair.timestamp).toLocaleString() }}
     </div>
 
     <div
       v-if="sendingPair.sentMsgs"
       :class="$style.row"
     >
-      <b>{{ $tr('keys-info.last-msg-ts') }}:</b> {{ new Date(sendingPair.sentMsgs!.lastTS)?.toLocaleString() }}
+      <b>{{ t('keys-info.last-msg-ts') }}:</b> {{ new Date(sendingPair.sentMsgs!.lastTS)?.toLocaleString() }}
     </div>
 
     <div
       v-if="sendingPair.sentMsgs"
       :class="$style.row"
     >
-      <b>{{ $tr('keys-info.num-of-sent-msgs') }}:</b> {{ sendingPair.sentMsgs!.count || 0 }}
+      <b>{{ t('keys-info.num-of-sent-msgs') }}:</b> {{ sendingPair.sentMsgs!.count || 0 }}
     </div>
 
     <div :class="$style.row">
-      <b>{{ $tr('keys-info.random-pids') }}:</b> {{ sendingPair.pids.join(', ') }}
+      <b>{{ t('keys-info.random-pids') }}:</b> {{ sendingPair.pids.join(', ') }}
     </div>
   </div>
 </template>

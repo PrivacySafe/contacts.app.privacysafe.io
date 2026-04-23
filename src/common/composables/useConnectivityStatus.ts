@@ -18,32 +18,16 @@ import { ref } from 'vue';
 import { ConnectivityStatus } from '@main/types';
 
 export function useConnectivityStatus() {
-  const connectivityStatus = ref<string>('offline');
-  const connectivityTimerId = ref<ReturnType<typeof setInterval>>();
+  const connectivityStatus = ref<ConnectivityStatus>('offline');
 
-  async function fetchConnectivityStatus() {
-    const status = await w3n.connectivity!.isOnline();
-
-    if (status) {
-      const parsedStatus = status.split('_');
-      connectivityStatus.value = parsedStatus[0] as ConnectivityStatus;
-    }
-  }
-
-  async function watchConnectivityStatus() {
-    await fetchConnectivityStatus();
-
-    connectivityTimerId.value = setInterval(fetchConnectivityStatus, 60000);
-  }
-
-  function stopWatchingConnectivityStatus() {
-    connectivityTimerId.value && clearInterval(connectivityTimerId.value!);
-  }
-
-  watchConnectivityStatus();
+  w3n.connectivity?.watch({
+    next: value => {
+      const { isOnline } = value;
+      connectivityStatus.value = isOnline ? 'online' : 'offline';
+    },
+  });
 
   return {
     connectivityStatus,
-    stopWatchingConnectivityStatus,
   };
 }

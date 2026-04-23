@@ -14,7 +14,11 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
-<script lang="ts" setup></script>
+<script lang="ts" setup>
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
+</script>
 
 <template>
   <div :class="$style.contactEmpty">
@@ -24,7 +28,7 @@
       <div :class="[$style.circle, $style.circle3]" />
     </div>
     <div :class="$style.text">
-      {{ $tr('contact.placeholder.text') }}
+      {{ t('contact.placeholder') }}
     </div>
   </div>
 </template>

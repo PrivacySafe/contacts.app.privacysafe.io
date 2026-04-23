@@ -22,6 +22,7 @@
     "skipLibCheck": true,
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": [
+      "vue-i18n",
       "vite/client",
       "@types/node",
       "@types/lodash",
@@ -32,14 +33,13 @@
       "@main/*": ["src/*"],
       "@shared/*": ["shared-libs/*"],
       "@tests/*": ["tests-app/src/*"]
-    },
-    "plugins": [{
-      "name": "@vuedx/typescript-plugin-vue"
-    }]
+    }
   },
   "include": [
     "vite.config.ts",
-    "src/**/*",
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "src/**/*.vue",
     "shared-libs/**/*",
     "src-deno/**/*",
     "@types/**/*",

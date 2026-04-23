@@ -1,7 +1,6 @@
 import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 
-
 export const useSyncStore = defineStore('sync', () => {
   const inSynchronizationProcess = ref<Map<string, boolean>>(new Map());
 

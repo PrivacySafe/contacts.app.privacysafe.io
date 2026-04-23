@@ -16,21 +16,24 @@
 -->
 
 <script lang="ts" setup>
+import { useI18n } from 'vue-i18n';
 import { algToHumanString } from '@main/common/utils/keys-info';
 
 defineProps<{
   sendingPair: web3n.keys.IntroductorySendingPairInfo;
 }>();
+
+const { t } = useI18n();
 </script>
 
 <template>
   <div>
     <div :class="$style.row">
-      <b>{{ $tr('keys-info.contact-intro-key-id') }}:</b> {{ sendingPair.recipientKId }}
+      <b>{{ t('keys-info.contact-intro-key-id') }}:</b> {{ sendingPair.recipientKId }}
     </div>
 
     <div :class="$style.row">
-      <b>{{ $tr('keys-info.alg') }}:</b> {{ algToHumanString(sendingPair.alg) }}
+      <b>{{ t('keys-info.alg') }}:</b> {{ algToHumanString(sendingPair.alg) }}
     </div>
   </div>
 </template>

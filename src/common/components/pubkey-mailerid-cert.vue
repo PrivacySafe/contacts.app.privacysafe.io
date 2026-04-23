@@ -15,8 +15,8 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
 <script lang="ts" setup>
-import { computed, inject } from 'vue';
-import { I18N_KEY, I18nPlugin } from '@v1nt1248/3nclient-lib/plugins';
+import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { getKeyCert } from '@shared/jwkeys';
 import { algToHumanString } from '@main/common/utils/keys-info';
 
@@ -26,7 +26,7 @@ const props = defineProps<{
   pkeyCert: PKeyCertChain;
 }>();
 
-const { $tr } = inject<I18nPlugin>(I18N_KEY)!;
+const { t } = useI18n();
 
 const pkey = computed(() => getKeyCert(props.pkeyCert.pkeyCert));
 const expiry = computed(() => new Date(pkey.value.expiresAt * 1000));
@@ -37,19 +37,19 @@ const publicKey = computed(() => pkey.value.cert.publicKey);
 <template>
   <div>
     <div :class="$style.row">
-      <b>{{ $tr('keys-info.key-id') }}:</b> {{ publicKey.kid }}
+      <b>{{ t('keys-info.key-id') }}:</b> {{ publicKey.kid }}
     </div>
 
     <div :class="$style.row">
-      <b>{{ $tr('keys-info.expiry') }}:</b> {{ expiry.toLocaleString() }}
+      <b>{{ t('keys-info.expiry') }}:</b> {{ expiry.toLocaleString() }}
     </div>
 
     <div :class="$style.row">
-      <b>{{ $tr('keys-info.alg') }}:</b> {{ algToHumanString(publicKey.alg) }}
+      <b>{{ t('keys-info.alg') }}:</b> {{ algToHumanString(publicKey.alg) }}
     </div>
 
     <div :class="$style.row">
-      <b>{{ $tr('keys-info.mid-certifier') }}:</b> {{ providerPKey.issuer }}
+      <b>{{ t('keys-info.mid-certifier') }}:</b> {{ providerPKey.issuer }}
     </div>
   </div>
 </template>

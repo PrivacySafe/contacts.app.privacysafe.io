@@ -16,6 +16,7 @@
 -->
 <script lang="ts" setup>
 import { computed, onBeforeMount, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Ui3nDialog, type Ui3nDialogComponentProps } from '@v1nt1248/3nclient-lib';
 import IntroSendingKeyPair from '@main/common/components/intro-key-pair-for-sending.vue';
 import SendingKeyPair from '@main/common/components/key-pair-for-sending.vue';
@@ -27,6 +28,8 @@ const props = defineProps<{
   contactAddr: string;
   dialogProps?: Ui3nDialogComponentProps<boolean>;
 }>();
+
+const { t } = useI18n();
 
 const mailKeys = ref<CorrespondentKeysInfo | undefined>();
 const receptionPairs = computed(() => mailKeys.value?.receptionPairs);
@@ -42,7 +45,7 @@ onBeforeMount(async () => {
     <template #body>
       <div :class="$style.content">
         <fieldset v-if="sendingPair">
-          <legend>{{ $tr('keys-info.sending-key-pair') }}</legend>
+          <legend>{{ t('keys-info.sending-key-pair') }}</legend>
 
           <intro-sending-key-pair
             v-if="sendingPair.type === 'intro'"
@@ -56,19 +59,19 @@ onBeforeMount(async () => {
         </fieldset>
 
         <fieldset v-if="receptionPairs?.inUse">
-          <legend>{{ $tr('keys-info.receiving-key-pair-in-use') }}</legend>
+          <legend>{{ t('keys-info.receiving-key-pair-in-use') }}</legend>
 
           <receiving-key-pair :receiving-pair="receptionPairs.inUse" />
         </fieldset>
 
         <fieldset v-if="receptionPairs?.suggested">
-          <legend>{{ $tr('keys-info.receiving-key-pair-suggested') }}</legend>
+          <legend>{{ t('keys-info.receiving-key-pair-suggested') }}</legend>
 
           <receiving-key-pair :receiving-pair="receptionPairs.suggested" />
         </fieldset>
 
         <fieldset v-if="receptionPairs?.old">
-          <legend>{{ $tr('keys-info.receiving-key-pair-old') }}</legend>
+          <legend>{{ t('keys-info.receiving-key-pair-old') }}</legend>
 
           <receiving-key-pair :receiving-pair="receptionPairs.old" />
         </fieldset>
@@ -77,7 +80,7 @@ onBeforeMount(async () => {
           v-if="!mailKeys"
           :class="$style.noData"
         >
-          {{ $tr('keys-info.no-contact-keys') }}
+          {{ t('keys-info.no-contact-keys') }}
         </div>
       </div>
     </template>

@@ -16,7 +16,7 @@
 */
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
-import { dialogs, i18n, I18nOptions, notifications, vueBus } from '@v1nt1248/3nclient-lib/plugins';
+import { dialogs, notifications, vueBus } from '@v1nt1248/3nclient-lib/plugins';
 import { piniaRouter } from '@main/common/plugins/pinia-router';
 import { router } from './router';
 import { initializeServices } from '@main/common/services/services-provider';
@@ -25,7 +25,7 @@ import '@v1nt1248/3nclient-lib/style.css';
 import '@v1nt1248/3nclient-lib/variables.css';
 import '@main/common/assets/styles/main.css';
 
-import en from '@main/common/data/i18/en.json';
+import i18n from '@main/common/data/i18';
 
 import App from '@main/mobile/pages/app.vue';
 
@@ -42,7 +42,7 @@ initializeServices()
 
     app
       .use(pinia)
-      .use<I18nOptions>(i18n, { lang: 'en', messages: { en } })
+      .use(i18n)
       .use(vueBus)
       .use(dialogs)
       .use(notifications)

@@ -16,12 +16,15 @@
 -->
 <script lang="ts" setup>
 import { ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Ui3nButton, Ui3nInput } from '@v1nt1248/3nclient-lib';
 
-const props = defineProps<{
+defineProps<{
   disabled?: boolean;
 }>();
 const emit = defineEmits(['add', 'input']);
+
+const { t } = useI18n();
 
 const searchText = ref<string>('');
 
@@ -38,20 +41,20 @@ function onInput(ev: string) {
   <div :class="$style.contactsToolbar">
     <ui3n-button
       :class="$style.addBtn"
-      :disabled="props.disabled"
+      :disabled="disabled"
       @click="addNewContact"
     >
-      + {{ $tr('app.btn.add') }}
+      + {{ t('app.btn.add') }}
     </ui3n-button>
 
     <div :class="$style.search">
       <ui3n-input
         v-model="searchText"
-        :placeholder="$tr('contacts.search.placeholder')"
+        :placeholder="t('contacts.search.placeholder')"
         clearable
         icon="round-search"
         icon-color="var(--color-icon-control-secondary-default)"
-        :disabled="props.disabled"
+        :disabled="disabled"
         @input="onInput"
         @clear="onInput('')"
       />

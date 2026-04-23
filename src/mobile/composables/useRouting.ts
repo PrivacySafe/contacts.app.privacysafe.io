@@ -22,14 +22,14 @@ export function useRouting() {
   const route = useRoute();
   const router = useRouter();
 
-  function goToList() {
+  async function goToList() {
     const r: ListRoute = {
       name: 'contacts'
     };
     return router.push(r);
   }
 
-  function goToContact(id: string, opts?: { edit?: boolean; }) {
+  async function goToContact(id: string, opts?: { edit?: boolean; }) {
     const r: ContactRoute = {
       name: 'contact',
       params: { id },
@@ -41,7 +41,7 @@ export function useRouting() {
     return router.push(r);
   }
 
-  function goToNew() {
+  async function goToNew() {
     const r: NewContactRoute = {
       name: 'contact',
       params: { id: 'new' },

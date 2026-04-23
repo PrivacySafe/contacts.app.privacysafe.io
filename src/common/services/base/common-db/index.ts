@@ -76,7 +76,7 @@ export class Db implements DbCommon {
       return new DbCollection<T>(collectionFs, optionsData);
     } catch (e) {
       console.error(e);
-      throw new Error(`Error initialization DB collection '${name}'.`);
+      throw new Error(`Error initialization DB collection '${name}'. `, e as ErrorOptions);
     }
   }
 

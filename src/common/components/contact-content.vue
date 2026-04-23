@@ -16,6 +16,7 @@
 -->
 <script lang="ts" setup>
 import { computed, onBeforeMount, onBeforeUnmount, ref, watch, WatchHandle } from 'vue';
+import { useI18n } from 'vue-i18n';
 import isEmpty from 'lodash/isEmpty';
 import get from 'lodash/get';
 import { Ui3nInput, Ui3nText } from '@v1nt1248/3nclient-lib';
@@ -32,6 +33,8 @@ const emits = defineEmits<{
   (event: 'update:valid', value: boolean): void;
   (event: 'update:field', value: { field: keyof (ContactContent | Person), val: string }): void;
 }>();
+
+const { t } = useI18n();
 
 const isValid = ref<Record<keyof Pick<ContactContent, 'mail' | 'name' | 'phone' | 'notice'>, boolean>>({
   name: fieldValidate('name'),
@@ -95,7 +98,7 @@ onBeforeUnmount(() => {
     <div :class="$style.field">
       <ui3n-input
         :model-value="contact.mail"
-        :label="`${$tr('contact.content.mail')}*`"
+        :label="`${t('contact.content.identity')}*`"
         :rules="getRules('mail')"
         :disabled="disabled"
         @input="onInput($event, 'mail')"
@@ -105,7 +108,7 @@ onBeforeUnmount(() => {
     <div :class="$style.field">
       <ui3n-input
         :model-value="contact.name!"
-        :label="$tr('contact.content.name')"
+        :label="t('contact.content.name')"
         :rules="getRules('name')"
         :disabled="disabled"
         @input="onInput($event, 'name')"
@@ -115,7 +118,7 @@ onBeforeUnmount(() => {
     <div :class="$style.field">
       <ui3n-input
         :model-value="contact.phone!"
-        :label="$tr('contact.content.phone')"
+        :label="t('contact.content.phone')"
         :rules="getRules('phone')"
         :disabled="disabled"
         @input="onInput($event, 'phone')"
@@ -124,8 +127,8 @@ onBeforeUnmount(() => {
 
     <div :class="$style.field">
       <ui3n-text
-        :text="contact.notice!"
-        :label="$tr('contact.content.note')"
+        :model-value="contact.notice!"
+        :label="t('contact.content.note')"
         :rows="6"
         :max-rows="6"
         :rules="getRules('notice')"

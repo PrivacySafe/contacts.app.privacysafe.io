@@ -16,21 +16,22 @@
 -->
 <script lang="ts" setup>
 import { computed, inject, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { storeToRefs } from 'pinia';
 import size from 'lodash/size';
-import { DIALOGS_KEY, DialogsPlugin, I18N_KEY, I18nPlugin, NOTIFICATIONS_KEY, NotificationsPlugin } from '@v1nt1248/3nclient-lib/plugins';
+import { DIALOGS_KEY, DialogsPlugin, NOTIFICATIONS_KEY, NotificationsPlugin } from '@v1nt1248/3nclient-lib/plugins';
 import { Ui3nButton, Ui3nCheckbox, type Ui3nCheckboxValue, Ui3nInput, Ui3nList } from '@v1nt1248/3nclient-lib';
 import { useRouting } from '../composables/useRouting';
 import { useAppStore } from '@main/common/store/app.store';
 import { useContactsStore } from '@main/common/store/contacts.store';
 import type { ContactListItem, PersonView } from '@main/types';
-import ConfirmationDialog from '@main/common/dialogs/confirmation-dialog.vue';
+import ConfirmationDialog from '@main/common/components/dialogs/confirmation-dialog.vue';
 import ListItem from '@main/common/components/contact-list-item.vue';
 
-const { $tr } = inject<I18nPlugin>(I18N_KEY)!;
 const dialogs = inject<DialogsPlugin>(DIALOGS_KEY)!;
 const notification = inject<NotificationsPlugin>(NOTIFICATIONS_KEY)!;
 
+const { t } = useI18n();
 const { goToNew } = useRouting();
 
 const { user } = storeToRefs(useAppStore());
@@ -102,15 +103,15 @@ function toggleSelectedAll(value: Ui3nCheckboxValue) {
 async function deleteSelectedContacts() {
   const res = await dialogs.$openDialog(ConfirmationDialog, {
     component: ConfirmationDialog,
-    dialogText: $tr(
-      'confirmation.delete.multiple.text',
+    dialogText: t(
+      'confirmation.delete.multiple',
       { count: `<b>${size(selectedContacts.value)}</b>` },
     ),
     dialogProps: {
-      title: $tr('contact.delete.multiple.title'),
+      title: t('contact.delete.title', 2),
       width: 300,
-      confirmButtonText: $tr('contact.delete.confirmBtn.text'),
-      cancelButtonText: $tr('contact.delete.cancelBtn.text'),
+      confirmButtonText: t('contact.delete.confirmBtn'),
+      cancelButtonText: t('contact.delete.cancelBtn'),
     },
   });
 
@@ -120,13 +121,13 @@ async function deleteSelectedContacts() {
       await deleteContacts(selectedContacts.value);
       notification.$createNotice({
         type: 'success',
-        content: $tr('contact.delete.multiple.success.text'),
+        content: t('contact.delete.success', 2),
       });
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err) {
       notification.$createNotice({
         type: 'error',
-        content: $tr('contact.delete.multiple.error.text'),
+        content: t('contact.delete.error', 2),
       });
     }
   }
@@ -163,7 +164,7 @@ function createNewContact() {
         />
 
         <span :class="$style.info">
-          {{ areAllFilteredContactsSelected ? $tr('action.deselect.all') : $tr('action.select.all') }}
+          {{ areAllFilteredContactsSelected ? t('action.deselect.all') : t('action.select.all') }}
         </span>
       </div>
 
@@ -178,7 +179,7 @@ function createNewContact() {
 
     <ui3n-input
       v-model="searchText"
-      :placeholder="$tr('contacts.search.placeholder')"
+      :placeholder="t('contacts.search.placeholder')"
       clearable
       icon="round-search"
       icon-color="var(--color-icon-control-secondary-default)"
