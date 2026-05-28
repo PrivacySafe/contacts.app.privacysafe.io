@@ -25,7 +25,7 @@ export function useSystemLevelAppConfig() {
   const appVersion = ref<string>('');
   const user = ref<string>('');
   const lang = ref<AvailableLanguage>('en');
-  const colorTheme = ref<AvailableColorTheme>('default');
+  const colorTheme = ref<AvailableColorTheme>('dark2');
   const customLogoSrc = ref<string>();
 
   function setLang(value: AvailableLanguage) {

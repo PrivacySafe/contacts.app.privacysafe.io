@@ -17,7 +17,7 @@
 
 export type AvailableLanguage = 'en';
 
-export type AvailableColorTheme = 'default' | 'dark';
+export type AvailableColorTheme = 'default' | 'dark' | 'dark2';
 
 export interface AppConfig {
   lang: AvailableLanguage;
