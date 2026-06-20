@@ -38,7 +38,9 @@ export function useSystemLevelAppConfig() {
     const curColorThemeCssClass = `${colorTheme.value}-theme`;
 
     const htmlEl = document.querySelector('html');
-    if (!htmlEl) return;
+    if (!htmlEl) {
+      return;
+    }
     htmlEl.classList.remove(prevColorThemeCssClass);
     htmlEl.classList.add(curColorThemeCssClass);
   }

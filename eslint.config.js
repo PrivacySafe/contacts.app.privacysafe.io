@@ -8,14 +8,15 @@ import globals from 'globals';
 export default [
   {
     ignores: [
-      '**/@types/**/*.*',
-      '**/app/**/*.*',
-      '**/ci/**/*.*',
-      '**/doc/**/*.*',
-      '**/public/**/*.*',
-      '**/tests-app/**/*.*',
-      './shared-libs/ipc/**/*.js',
-      './shared-libs/sqlite-on-3nstorage/index.js',
+      './@types/**/*.*',
+      './app/**/*.*',
+      './ci/**/*.*',
+      './doc/**/*.*',
+      './public/**/*.*',
+      './src/**/*.js',
+      './src-deno/**/*.js',
+      './shared/**/*.js',
+      'push-to-github.sh',
     ],
   },
 
@@ -62,7 +63,7 @@ export default [
       'no-param-reassign': 'off',
       'no-return-assign': 'off',
       'arrow-parens': ['error', 'as-needed'],
-      'curly': 'error',
+      curly: 'error',
       'object-curly-newline': [
         'error',
         {
@@ -153,6 +154,18 @@ export default [
           allowCoexistStyle: true,
         },
       ],
+      'vue/html-self-closing': [
+        'error',
+        {
+          html: {
+            void: 'always',
+            normal: 'always',
+            component: 'always',
+          },
+          svg: 'always',
+          math: 'always',
+        },
+      ],
     },
   },
 
@@ -172,17 +185,5 @@ export default [
         ...globals.jest,
       },
     },
-  },
-
-  {
-    ignores: [
-      '/app/**/*.*',
-      '/doc/**/*.*',
-      '/shared-libs/**/*.js',
-      '/src-background-instance/**/*.js',
-      '/src-main/**/*.js',
-      '/src-video/**/*.js',
-      '/tests-app/**/*.js',
-    ],
   },
 ];

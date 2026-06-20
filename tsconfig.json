@@ -21,29 +21,18 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "types": [
-      "vue-i18n",
-      "vite/client",
-      "@types/node",
-      "@types/lodash",
-      "@types/jasmine"
-    ],
     "baseUrl": ".",
     "paths": {
-      "@main/*": ["src/*"],
-      "@shared/*": ["shared-libs/*"],
-      "@tests/*": ["tests-app/src/*"]
+      "@main/*": ["./src/*"],
+      "@shared/*": ["./shared-libs/*"],
     }
   },
   "include": [
     "vite.config.ts",
-    "src/**/*.ts",
-    "src/**/*.d.ts",
-    "src/**/*.vue",
+    "src/**/*",
     "shared-libs/**/*",
     "src-deno/**/*",
     "@types/**/*",
-    "tests-app/src/**/*"
   ],
   "exclude": [
     "node_modules",

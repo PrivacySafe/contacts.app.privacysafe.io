@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { resolve } from 'node:path';
-import { UserConfig, defineConfig } from 'vite';
+import { defineConfig, type UserConfig, type ConfigEnv } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import vueDevTools from 'vite-plugin-vue-devtools';
 
@@ -7,59 +8,51 @@ function _resolve(dir: string) {
   return resolve(__dirname, dir);
 }
 
-export const makeConfig = ({ mode }: UserConfig) => {
+export const makeConfig = ({ mode }: ConfigEnv): UserConfig => {
   const isDev = mode === 'development';
   // const isProd = mode === 'production'
 
   const server = {
-    port: '3030',
+    port: 3030,
     cors: { origin: '*' },
   };
-  const define = { 'process.env': {} };
 
-  const plugins = [
-    vue(),
-    vueDevTools(),
-  ];
+  const css = {
+    preprocessorOptions: {
+      scss: {
+        api: 'modern-compiler',
+      } as any,
+    },
+  };
 
-  let optimizeDeps = {};
-  if (isDev) {
-    optimizeDeps = {
-      include: ['vue', 'vue-router', 'pinia', 'lodash'],
-    };
-  }
+  const define = {
+    'process.env.NODE_ENV': JSON.stringify(mode),
+    global: 'globalThis',
+  };
+
+  const plugins = [vue(), isDev && vueDevTools()].filter(Boolean);
+
+  const build = {
+    outDir: 'app',
+    rolldownOptions: {
+      input: {
+        main: _resolve('./index.html'),
+        'main-mobile': _resolve('./index-mobile.html'),
+      },
+      output: {
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]',
+      },
+    },
+  };
 
   return {
     server,
-    css: {
-      preprocessorOptions: {
-        scss: {
-          api: 'modern-compiler',
-        },
-      },
-    },
-    build: {
-      // reference: https://rollupjs.org/configuration-options/
-      rollupOptions: {
-        input: {
-          main: _resolve('./index.html'),
-          'main-mobile': _resolve('./index-mobile.html'),
-        },
-        output: [
-          {
-            name: 'main',
-            dir: 'app',
-          },
-          {
-            name: 'main-mobile',
-            dir: 'app',
-          },
-        ],
-      },
-    },
+    css,
+    build,
     define,
     plugins,
-    optimizeDeps,
     resolve: {
       alias: {
         vue: 'vue/dist/vue.esm-bundler.js',
@@ -68,8 +61,6 @@ export const makeConfig = ({ mode }: UserConfig) => {
       },
     },
   };
-}
+};
 
-// https://vitejs.dev/config/
-// @ts-ignore
 export default defineConfig(makeConfig);

@@ -64,7 +64,7 @@ onBeforeUnmount(doBeforeUnmount);
           alt="logo"
           :class="$style.toolbarLogo"
           @click="openDashboard"
-        >
+        />
         <div :class="$style.delimiter">
           /
         </div>

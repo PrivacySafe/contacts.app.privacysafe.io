@@ -23,22 +23,34 @@ const props = defineProps<{
   size?: number;
   name?: string;
   photo?: string;
-  isGroup?: boolean;
   selected?: boolean;
   readonly?: boolean;
 }>();
-const emit = defineEmits(['click']);
+const emit = defineEmits<{
+  (e: 'click', event: MouseEvent): void;
+}>();
 
 const letters = computed<string>(() => {
-  if (props.name && !props.photo) {
-    return props.name.length === 1
-      ? props.name.toLocaleUpperCase()
-      : `${props.name[0].toLocaleUpperCase()}${props.name[1].toLocaleLowerCase()}`;
+  if (!props.name || props.photo) return '';
+
+  const trimmed = props.name.trim();
+  if (!trimmed) return '';
+
+  if (trimmed.length === 1) {
+    return trimmed.toLocaleUpperCase();
   }
-  return '';
+
+  const words = trimmed.split(/\s+/);
+  if (words.length >= 2 && words[0][0] && words[1][0]) {
+    return `${words[0][0].toLocaleUpperCase()}${words[1][0].toLocaleUpperCase()}`;
+  }
+
+  return `${trimmed[0].toLocaleUpperCase()}${trimmed[1]?.toLocaleLowerCase() ?? ''}`;
 });
 
 const innerSize = computed<number>(() => props.size || 24);
+const checkIconSize = computed<number>(() => Math.max(8, Math.floor(innerSize.value / 3) - 2));
+
 const mainStyle = computed<Record<string, string>>(() => {
   const styles: Record<string, string> = {
     minWidth: `${innerSize.value}px`,
@@ -47,17 +59,22 @@ const mainStyle = computed<Record<string, string>>(() => {
     height: `${innerSize.value}px`,
     backgroundColor: generateColor(props.name || '?'),
   };
-  return props.photo
-    ? {
-      ...styles,
-      backgroundImage: `url(${props.photo})`,
-    }
-    : styles;
+
+  if (props.photo) {
+    styles.backgroundImage = `url(${props.photo})`;
+  }
+
+  return styles;
 });
-const nameStyle = computed<Record<string, string>>(() => ({ fontSize: `${Math.floor(innerSize.value * 0.6) - 6}px` }));
+
+const nameStyle = computed<Record<string, string>>(() => ({
+  fontSize: `${Math.max(8, Math.floor(innerSize.value * 0.6) - 6)}px`,
+}));
 
 const onClick = (ev: MouseEvent): void => {
-  emit('click', ev);
+  if (!props.readonly) {
+    emit('click', ev);
+  }
 };
 </script>
 
@@ -65,7 +82,7 @@ const onClick = (ev: MouseEvent): void => {
   <div
     :class="[$style.contactIcon, selected && $style.contactIconSelected]"
     :style="mainStyle"
-    v-on="readonly ? {} : { 'click': onClick }"
+    @click="onClick"
   >
     <div
       v-if="!photo"
@@ -81,8 +98,8 @@ const onClick = (ev: MouseEvent): void => {
     >
       <ui3n-icon
         icon="round-check"
-        :width="innerSize / 3 - 2"
-        :height="innerSize / 3 - 2"
+        :width="checkIconSize"
+        :height="checkIconSize"
         color="#fff"
       />
     </div>

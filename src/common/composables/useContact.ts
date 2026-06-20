@@ -28,7 +28,7 @@ import {
   NotificationsPlugin,
 } from '@v1nt1248/3nclient-lib/plugins';
 import {
-  getElementColor,
+  generateColor,
   getFileExtension,
   mailReg,
   resizeImage,
@@ -56,14 +56,8 @@ export function useContact() {
 
   const { user } = storeToRefs(useAppStore());
   const contactsStore = useContactsStore();
-  const {
-    isMailAddressInUse,
-    getContact,
-    fetchContacts,
-    deleteContact,
-    upsertContact,
-    upsertContactListItem,
-  } = contactsStore;
+  const { isMailAddressInUse, getContact, fetchContacts, deleteContact, upsertContact, upsertContactListItem } =
+    contactsStore;
 
   const contentEl = ref<HTMLDivElement | null>(null);
   const isLoading = ref(false);
@@ -74,19 +68,22 @@ export function useContact() {
 
   const contactId = computed(() => route.params.id as string);
   const isUserAddress = computed(() => contact.value?.id === user.value || contact.value?.mail === user.value);
-  const contactDisplayName = computed(() => isUserAddress.value ? 'Me' : contact.value?.name || contact.value?.mail || ' ');
-  const contactLetters = computed(() => (
-    contactDisplayName.value.length > 1 ?
-      `${contactDisplayName.value[0].toLocaleUpperCase()}${contactDisplayName.value[1].toLocaleLowerCase()}` :
-      contactDisplayName.value[0].toLocaleUpperCase()
-  ));
+  const contactDisplayName = computed(() =>
+    isUserAddress.value ? 'Me' : contact.value?.name || contact.value?.mail || ' ',
+  );
+  const contactLetters = computed(() =>
+    contactDisplayName.value.length > 1
+      ? `${contactDisplayName.value[0].toLocaleUpperCase()}${contactDisplayName.value[1].toLocaleLowerCase()}`
+      : contactDisplayName.value[0].toLocaleUpperCase(),
+  );
 
   const contactAvatarStyle = computed<Record<string, string>>(() => ({
-    ...(contact.value?.avatarId && contact.value?.avatarImage && {
-      backgroundImage: `url(${contact.value!.avatarImage})`,
-    }),
+    ...(contact.value?.avatarId &&
+      contact.value?.avatarImage && {
+        backgroundImage: `url(${contact.value!.avatarImage})`,
+      }),
     ...((!contact.value?.avatarId || !contact.value.avatarImage) && {
-      backgroundColor: getElementColor(contactLetters.value),
+      backgroundColor: generateColor(contactLetters.value),
     }),
   }));
 
@@ -95,12 +92,11 @@ export function useContact() {
       return false;
     }
 
-    return Object.keys(pick(contact.value, ['mail', 'name', 'avatarId', 'phone', 'notice']))
-      .some(field => {
-        const oldFieldValue = initialContact.value![field as keyof Omit<Person, 'timestamp'>];
-        const fieldValue = contact.value![field as keyof Omit<Person, 'timestamp'>];
-        return fieldValue !== oldFieldValue;
-      });
+    return Object.keys(pick(contact.value, ['mail', 'name', 'avatarId', 'phone', 'notice'])).some(field => {
+      const oldFieldValue = initialContact.value![field as keyof Omit<Person, 'timestamp'>];
+      const fieldValue = contact.value![field as keyof Omit<Person, 'timestamp'>];
+      return fieldValue !== oldFieldValue;
+    });
   });
 
   function checkRequired(mail?: unknown): boolean | string {
@@ -144,11 +140,10 @@ export function useContact() {
         }
 
         if (contact.value.avatarId) {
-          appContactsSrvProxy.getImage(contact.value.avatarId)
-            .then(image => {
-              contact.value!.avatarImage = image;
-              initialContact.value!.avatarImage = image;
-            });
+          appContactsSrvProxy.getImage(contact.value.avatarId).then(image => {
+            contact.value!.avatarImage = image;
+            initialContact.value!.avatarImage = image;
+          });
         }
 
         initialContact.value = cloneDeep(contact.value);
@@ -187,13 +182,16 @@ export function useContact() {
         });
       } finally {
         isLoading.value = false;
-        doAfterDelete && (typeof doAfterDelete === 'function') && doAfterDelete();
+        doAfterDelete && typeof doAfterDelete === 'function' && doAfterDelete();
         await cancel();
       }
     }
   }
 
-  async function saveContact({ excludeAvatarImageField, doAfterSave }: {
+  async function saveContact({
+    excludeAvatarImageField,
+    doAfterSave,
+  }: {
     excludeAvatarImageField?: boolean;
     // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
     doAfterSave?: Function;
@@ -233,7 +231,7 @@ export function useContact() {
       }
 
       initialContact.value = cloneDeep(contact.value);
-      doAfterSave && (typeof doAfterSave === 'function') && doAfterSave();
+      doAfterSave && typeof doAfterSave === 'function' && doAfterSave();
       // isContactNew && await cancel();
       await cancel();
     } catch (e) {
@@ -251,7 +249,7 @@ export function useContact() {
   async function cancel() {
     if (
       (!contact.value?.avatarId && !initialContact.value?.avatarId) ||
-      (contact.value?.avatarId === initialContact.value?.avatarId)
+      contact.value?.avatarId === initialContact.value?.avatarId
     ) {
       await router.push({ name: 'contacts' });
     } else {
@@ -260,21 +258,15 @@ export function useContact() {
   }
 
   async function openChat() {
-    await w3n.shell!.startAppWithParams!(
-      chatApp.domain, chatApp.openCmd,
-      {
-        peerAddress: contact.value!.mail,
-      } as OpenChatCmdArg,
-    );
+    await w3n.shell!.startAppWithParams!(chatApp.domain, chatApp.openCmd, {
+      peerAddress: contact.value!.mail,
+    } as OpenChatCmdArg);
   }
 
   async function openInbox() {
-    await w3n.shell!.startAppWithParams!(
-      inboxApp.domain, inboxApp.openCmd,
-      {
-        peerAddress: contact.value!.mail,
-      } as OpenInboxCmdArg,
-    );
+    await w3n.shell!.startAppWithParams!(inboxApp.domain, inboxApp.openCmd, {
+      peerAddress: contact.value!.mail,
+    } as OpenInboxCmdArg);
   }
 
   async function showOwnKeysInfo() {
@@ -302,25 +294,25 @@ export function useContact() {
     });
   }
 
-  async function onFieldUpdate(
-    { field, val }: {
-      field: keyof (ContactContent | Omit<Person, 'timestamp'>);
-      val: string;
-    }) {
+  async function onFieldUpdate({
+    field,
+    val,
+  }: {
+    field: keyof (ContactContent | Omit<Person, 'timestamp'>);
+    val: string;
+  }) {
     contact.value![field] = val;
   }
 
   async function uploadImage() {
     const imagesExtensions = ['jpeg', 'jpg', 'png', 'gif'];
 
-    const files = await w3n.shell!.fileDialogs!.openFileDialog!(
-      'Open',
-      '',
-      false,
-      [{
-        name: 'Images', extensions: imagesExtensions,
-      }],
-    );
+    const files = await w3n.shell!.fileDialogs!.openFileDialog!('Open', '', false, [
+      {
+        name: 'Images',
+        extensions: imagesExtensions,
+      },
+    ]);
 
     if (!files) {
       return;
