@@ -15,85 +15,76 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
 <script lang="ts" setup>
-import { computed } from 'vue';
-import { useRoute } from 'vue-router';
-import { storeToRefs } from 'pinia';
-import { Ui3nList } from '@v1nt1248/3nclient-lib';
-import { useContactsStore } from '@main/common/store/contacts.store';
-import type { ContactListItem } from '@main/types';
-import ListItem from '@main/common/components/contact-list-item.vue';
+  import { computed } from 'vue';
+  import { useRoute } from 'vue-router';
+  import { storeToRefs } from 'pinia';
+  import { Ui3nList } from '@v1nt1248/3nclient-lib';
+  import { useContactsStore } from '@main/common/store/contacts.store';
+  import {
+    filterContacts,
+    groupByFirstLetter,
+    initialLetters,
+  } from '@main/common/utils/contact-list-view';
+  import ListItem from '@main/common/components/contact-list-item.vue';
+  import CustomScrollBar from '@main/common/components/custom-scroll-bar.vue';
 
-const props = defineProps<{
-  searchText?: string;
-}>();
+  const props = defineProps<{
+    searchText?: string;
+  }>();
 
-const route = useRoute();
+  const route = useRoute();
 
-const contactsStore = useContactsStore();
-const { contacts } = storeToRefs(contactsStore);
+  const contactsStore = useContactsStore();
+  const { contacts } = storeToRefs(contactsStore);
 
-const selectedContactId = computed(() => route.params.id as string);
-const text = computed<string>(() => (props.searchText || '').toLocaleLowerCase());
+  const selectedContactId = computed(() => route.params.id as string);
 
-const filteredList = computed(() => contacts.value
-  .filter(c => c.displayName.toLocaleLowerCase().includes(text.value)
-    || c.mail.toLocaleLowerCase().includes(text.value)),
-);
+  const filteredList = computed(() => filterContacts(contacts.value, props.searchText));
+  const contactListByLetters = computed(() => groupByFirstLetter(filteredList.value));
+  const contactsInitialLetters = computed(() => initialLetters(contactListByLetters.value));
 
-const contactListByLetters = computed(() =>
-  filteredList.value.reduce((res, item) => {
-    const firstLetter = item.displayName[0].toLowerCase();
-    if (!res[firstLetter]) {
-      res[firstLetter] = [];
-    }
-
-    res[firstLetter].push(item);
-    return res;
-  }, {} as Record<string, ContactListItem[]>),
-);
-
-const contactsInitialLetters = computed(() => Object.keys(contactListByLetters.value)
-  .sort((a, b) => a > b ? 1 : -1)
-  .map(l => ({ id: l, label: l })));
+  const isDataLoaded = computed(() => contactsInitialLetters.value.length > 0);
 </script>
 
 <template>
-  <ui3n-list
-    :sticky="false"
-    :items="contactsInitialLetters"
-  >
-    <template #item="{ item }">
-      <ui3n-list
-        :items="contactListByLetters[item.id]"
-        key-field="mail"
-      >
-        <template #title>
-          <div :class="$style.title">
-            {{ item.label.toUpperCase() }}
-          </div>
-        </template>
+  <custom-scroll-bar v-if="isDataLoaded">
+    <ui3n-list
+      :sticky="false"
+      :items="contactsInitialLetters"
+    >
+      <template #item="{ item }">
+        <ui3n-list
+          :items="contactListByLetters[item.id]"
+          key-field="mail"
+        >
+          <template #title>
+            <div :class="$style.title">
+              {{ item.label.toUpperCase() }}
+            </div>
+          </template>
 
-        <template #item="{ item: contact }">
-          <list-item
-            :item="contact"
-            :selected-contact-ids="selectedContactId ? [selectedContactId] : []"
-          />
-        </template>
-      </ui3n-list>
-    </template>
-  </ui3n-list>
+          <template #item="{ item: contact }">
+            <list-item
+              :item="contact"
+              :selected-contact-ids="selectedContactId ? [selectedContactId] : []"
+            />
+          </template>
+        </ui3n-list>
+      </template>
+    </ui3n-list>
+  </custom-scroll-bar>
 </template>
 
 <style lang="scss" module>
-@use '@main/common/assets/styles/_mixins' as mixins;
+  @use '@main/common/assets/styles/_mixins' as mixins;
 
-.title {
-  position: relative;
-  width: var(--spacing-l);
-  text-align: center;
-  padding-left: calc(var(--spacing-s) * 1.5);
-  font-size: var(--font-16);
-  font-weight: 600;
-  color: var(--color-text-block-accent-default);
-}
+  .title {
+    position: relative;
+    width: var(--spacing-l);
+    text-align: center;
+    padding-left: calc(var(--spacing-s) * 1.5);
+    font-size: var(--font-16);
+    font-weight: 600;
+    color: var(--color-text-block-accent-default);
+  }
 </style>

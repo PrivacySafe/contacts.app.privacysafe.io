@@ -5,7 +5,7 @@ import vue from '@vitejs/plugin-vue';
 import vueDevTools from 'vite-plugin-vue-devtools';
 
 function _resolve(dir: string) {
-  return resolve(__dirname, dir);
+  return resolve(import.meta.dirname, dir);
 }
 
 export const makeConfig = ({ mode }: ConfigEnv): UserConfig => {
@@ -40,9 +40,12 @@ export const makeConfig = ({ mode }: ConfigEnv): UserConfig => {
         'main-mobile': _resolve('./index-mobile.html'),
       },
       output: {
-        entryFileNames: 'assets/[name]-[hash].js',
-        chunkFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash].[ext]',
+        entryFileNames: 'assets/[name].js',
+        chunkFileNames: 'assets/[name].js',
+        assetFileNames: 'assets/[name].[ext]',
+      },
+      treeshake: {
+        manualPureFunctions: ['console.log'],
       },
     },
   };
@@ -58,6 +61,7 @@ export const makeConfig = ({ mode }: ConfigEnv): UserConfig => {
         vue: 'vue/dist/vue.esm-bundler.js',
         '@main': _resolve('./src'),
         '@shared': _resolve('./shared-libs'),
+        '@deno': _resolve('./src-deno'),
       },
     },
   };

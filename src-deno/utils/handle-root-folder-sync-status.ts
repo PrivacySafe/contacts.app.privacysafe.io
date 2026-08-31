@@ -14,21 +14,20 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import type { ContactEvent } from '../../src/types/index.ts';
 import { SQLiteOn3NStorage } from '../../shared-libs/sqlite-on-3nstorage';
 import { syncUpload } from '../utils/sync-upload.ts';
 import { syncAdopt } from '../utils/sync-adopt.ts';
+import { resolveRootFolderConflict } from '../utils/resolve-root-folder-conflict.ts';
 import { ContactDB } from '../dataset/contacts-db.ts';
 
-export async function handleRootFolderSyncStatus(
-  fs: web3n.files.WritableFS,
-  sqlite: SQLiteOn3NStorage,
-  emitStorageEvent: (event: ContactEvent) => void,
-  contactDbSrv: ContactDB,
-) {
+export async function handleRootFolderSyncStatus({ fs, sqlite, contactDbSrv, emitStorageEvent }: {
+  fs: web3n.files.WritableFS;
+  sqlite: SQLiteOn3NStorage;
+  contactDbSrv: ContactDB;
+  emitStorageEvent: (event: ContactEvent) => void;
+}) {
   const folderSyncStatus = await fs.v?.sync?.status('');
-  // console.log('🔔 handleRootFolderSyncStatus => ', folderSyncStatus ? JSON.stringify(folderSyncStatus) : '👎');
   if (folderSyncStatus) {
     // eslint-disable-next-line default-case
     switch (folderSyncStatus.state) {
@@ -53,8 +52,15 @@ export async function handleRootFolderSyncStatus(
       }
 
       case 'conflicting': {
-        const diff = await fs.v?.sync?.diffCurrentAndRemoteFolderVersions('', folderSyncStatus.remote!.latest!)
-        console.log('🔔 ROOT FOLDER CONFLICT. ', JSON.stringify(diff, null, 2));
+        // Merged rather than adopted: adoptRemote('') on a conflicting root
+        // discards the local branch together with the locally created
+        // contacts-db. See resolveRootFolderConflict.
+        try {
+          await resolveRootFolderConflict({ fs, sqlite, contactDbSrv, emitStorageEvent });
+        } catch (err) {
+          await w3n.log('error', 'Could not resolve the root folder conflict', err);
+          throw err;
+        }
         break;
       }
     }

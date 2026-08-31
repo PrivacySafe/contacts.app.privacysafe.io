@@ -15,8 +15,9 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-import { useRoute, useRouter } from "vue-router";
-import type { ListRoute, ContactRoute, NewContactRoute } from "../router";
+import { useRoute, useRouter } from 'vue-router';
+import type { ListRoute, ContactRoute, NewContactRoute } from '../router';
+import { NEW_EMPTY_CONTACT_ID } from '@main/common/constants';
 
 export function useRouting() {
   const route = useRoute();
@@ -24,12 +25,12 @@ export function useRouting() {
 
   async function goToList() {
     const r: ListRoute = {
-      name: 'contacts'
+      name: 'contacts',
     };
     return router.push(r);
   }
 
-  async function goToContact(id: string, opts?: { edit?: boolean; }) {
+  async function goToContact(id: string, opts?: { edit?: boolean }) {
     const r: ContactRoute = {
       name: 'contact',
       params: { id },
@@ -44,22 +45,24 @@ export function useRouting() {
   async function goToNew() {
     const r: NewContactRoute = {
       name: 'contact',
-      params: { id: 'new' },
-      query: { editMode: 'on' }
+      params: { id: NEW_EMPTY_CONTACT_ID },
+      query: { editMode: 'on' },
     };
     return router.push(r);
   }
 
-  function getContactIdFromRoute(
-    params?: ContactRoute['params']
-  ): string|undefined {
-    const { id } = params ?? route.params as ContactRoute['params'];
+  function getContactIdFromRoute(params?: ContactRoute['params']): string | undefined {
+    const { id } = params ?? (route.params as ContactRoute['params']);
     return id;
   }
 
   function getEditStateFromRoute(query?: ContactRoute['query']): boolean {
-   const { editMode } = query ?? route.query as NonNullable<ContactRoute['query']>;
-   return (editMode === 'on');
+    const { editMode } = query ?? (route.query as NonNullable<ContactRoute['query']>);
+    return editMode === 'on';
+  }
+
+  function goBack() {
+    router.back();
   }
 
   return {
@@ -69,6 +72,7 @@ export function useRouting() {
     goToNew,
     goToContact,
     getContactIdFromRoute,
-    getEditStateFromRoute
+    getEditStateFromRoute,
+    goBack,
   };
 }

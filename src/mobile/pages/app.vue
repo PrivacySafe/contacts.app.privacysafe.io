@@ -15,34 +15,41 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
 <script lang="ts" setup>
-import { onBeforeMount, onBeforeUnmount, ref } from 'vue';
-import { useI18n } from 'vue-i18n';
-import { Ui3nButton, Ui3nProgressCircular, Ui3nProgressLinear } from '@v1nt1248/3nclient-lib';
-import { useAppView } from '@main/common/composables/useAppView';
-import AppMenu from '@main/mobile/components/app-menu.vue';
+  import { onBeforeMount, onBeforeUnmount, ref } from 'vue';
+  import { useI18n } from 'vue-i18n';
+  import {
+    Ui3nButton,
+    Ui3nProgressCircular,
+    Ui3nProgressLinear,
+    Ui3nDialogProvider,
+    Ui3nIcon,
+  } from '@v1nt1248/3nclient-lib';
+  import { useAppView } from '@main/common/composables/useAppView';
+  import AppMenu from '@main/mobile/components/app-menu.vue';
 
-const { t } = useI18n();
+  const { t } = useI18n();
 
-const {
-  user,
-  appVersion,
-  connectivityStatusText,
-  syncStatusText,
-  globalLoading,
-  isSyncRunning,
-  appExit,
-  doBeforeMount,
-  doBeforeUnmount,
-} = useAppView();
+  const {
+    user,
+    appVersion,
+    connectivityStatusText,
+    syncStatusText,
+    persistentWarning,
+    globalLoading,
+    isSyncRunning,
+    appExit,
+    doBeforeMount,
+    doBeforeUnmount,
+  } = useAppView();
 
-const isMenuOpen = ref(false);
+  const isMenuOpen = ref(false);
 
-function toggleMenu() {
-  isMenuOpen.value = !isMenuOpen.value;
-}
+  function toggleMenu() {
+    isMenuOpen.value = !isMenuOpen.value;
+  }
 
-onBeforeMount(doBeforeMount);
-onBeforeUnmount(doBeforeUnmount);
+  onBeforeMount(doBeforeMount);
+  onBeforeUnmount(doBeforeUnmount);
 </script>
 
 <template>
@@ -65,10 +72,14 @@ onBeforeUnmount(doBeforeUnmount);
         <transition>
           <ui3n-button
             type="icon"
+            size="large"
             :color="isMenuOpen ? 'transparent' : 'var(--color-bg-block-primary-default)'"
             :icon="isMenuOpen ? 'round-close' : 'round-menu'"
-            :icon-color="isMenuOpen ? 'var(--color-icon-block-secondary-default)' : 'var(--color-icon-block-primary-default)'"
-            icon-size="20"
+            :icon-color="
+              isMenuOpen ? 'var(--color-icon-block-secondary-default)' : 'var(--color-icon-block-primary-default)'
+            "
+            icon-size="32"
+            :class="$style.menuBtn"
             @click="toggleMenu"
           />
         </transition>
@@ -105,7 +116,20 @@ onBeforeUnmount(doBeforeUnmount);
         </div>
       </div>
 
-      <div :class="$style.content">
+      <div
+        v-if="persistentWarning"
+        :class="$style.warning"
+      >
+        <ui3n-icon
+          icon="round-warning"
+          width="16"
+          height="16"
+          color="var(--warning-content-default)"
+        />
+        <span>{{ persistentWarning }}</span>
+      </div>
+
+      <div :class="[$style.content, persistentWarning && $style.contentUnderWarning]">
         <router-view v-slot="{ Component }">
           <transition>
             <component :is="Component" />
@@ -126,166 +150,195 @@ onBeforeUnmount(doBeforeUnmount);
     </div>
 
     <div id="notification" />
+    <ui3n-dialog-provider />
   </div>
 </template>
 
 <style lang="scss" module>
-.app {
-  --main-toolbar-height: 48px;
+  .app {
+    --main-toolbar-height: 64px;
+    --warning-bar-height: 40px;
 
-  position: fixed;
-  inset: 0;
-  display: flex;
-  justify-content: flex-start;
-  align-items: stretch;
-  overflow: hidden;
-}
+    position: fixed;
+    inset: 0;
+    display: flex;
+    justify-content: flex-start;
+    align-items: stretch;
+    overflow: hidden;
+  }
 
-.menu {
-  position: relative;
-  min-width: 80%;
-  width: 80%;
-  height: 100%;
-  z-index: 1;
-}
+  .menu {
+    position: relative;
+    min-width: 80%;
+    width: 80%;
+    height: 100%;
+    z-index: 1;
+  }
 
-.body {
-  position: relative;
-  min-width: 100%;
-  width: 100%;
-  height: 100%;
+  .body {
+    position: relative;
+    min-width: 100%;
+    width: 100%;
+    height: 100%;
 
-  &.bodyDisabled {
-    background-color: var(--files-darker);
-
-    .toolbar {
-      border-bottom: none !important;
+    &.bodyDisabled {
       background-color: var(--files-darker);
-    }
 
-    .content {
-      pointer-events: none;
-
-      &::after {
-        position: absolute;
-        content: '';
-        inset: 0;
-        z-index: 5;
+      .toolbar {
+        border-bottom: none !important;
         background-color: var(--files-darker);
+      }
+
+      .content {
+        pointer-events: none;
+
+        &::after {
+          position: absolute;
+          content: '';
+          inset: 0;
+          z-index: 5;
+          background-color: var(--files-darker);
+        }
       }
     }
   }
-}
 
-.toolbar {
-  position: relative;
-  width: 100%;
-  height: var(--main-toolbar-height);
-  padding: 0 var(--spacing-m) 0 var(--spacing-s);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid var(--color-border-block-primary-default);
-  background-color: var(--color-bg-block-primary-default);
-}
-
-.processing {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  bottom: 0;
-}
-
-.item {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  column-gap: var(--spacing-s);
-}
-
-.itemName {
-  font-size: var(--font-16);
-  font-weight: 700;
-  color: var(--color-text-block-primary-default);
-}
-
-.version {
-  font-size: var(--font-11);
-  line-height: var(--font-12);
-  color: var(--color-text-block-secondary-default);
-}
-
-.content {
-  position: relative;
-  width: 100%;
-  height: calc(100% - var(--main-toolbar-height) - 1px);
-}
-
-.loader {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.info {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-end;
-  color: var(--color-text-control-primary-default);
-  line-height: 1.4;
-}
-
-.status {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  column-gap: var(--spacing-s);
-  font-size: var(--font-11);
-  font-weight: 500;
-
-  b {
+  .toolbar {
     position: relative;
-    width: 12px;
-    min-width: 12px;
-    height: 12px;
-    min-height: 12px;
-    border-radius: 50%;
-    background-color: var(--warning-content-default);
+    width: 100%;
+    height: var(--main-toolbar-height);
+    padding: 0 var(--spacing-m) 0 var(--spacing-s);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--color-border-block-primary-default);
+    background-color: var(--color-bg-block-primary-default);
+
+    .menuBtn {
+      --ui3n-button-height: 40px !important;
+      --ui3n-button-icon-large: 40px !important;
+    }
   }
 
-  .ok {
-    background-color: var(--success-content-default);
+  .processing {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    bottom: 0;
   }
-}
 
-#notification {
-  position: fixed;
-  bottom: var(--spacing-xs);
-  left: var(--spacing-m);
-  right: var(--spacing-m);
-  z-index: 5000;
-  height: auto;
-  display: flex;
-  justify-content: center;
-  align-content: flex-end;
-}
+  .item {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    column-gap: var(--spacing-s);
+    user-select: none;
+  }
+
+  .itemName {
+    font-size: var(--font-18);
+    font-weight: 700;
+    color: var(--color-text-block-primary-default);
+  }
+
+  .version {
+    font-size: var(--font-12);
+    line-height: var(--font-18);
+    color: var(--color-text-block-secondary-default);
+  }
+
+  .warning {
+    position: relative;
+    width: 100%;
+    min-height: var(--warning-bar-height);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-s);
+    background-color: var(--warning-fill-default);
+    color: var(--warning-content-default);
+    font-size: var(--font-12);
+    line-height: var(--font-16);
+    user-select: none;
+  }
+
+  .content {
+    position: relative;
+    width: 100%;
+    height: calc(100% - var(--main-toolbar-height) - 1px);
+  }
+
+  /* The height above is a calc, so the banner has to be subtracted from it. */
+  .contentUnderWarning {
+    height: calc(100% - var(--main-toolbar-height) - 1px - var(--warning-bar-height));
+  }
+
+  .loader {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-end;
+    color: var(--color-text-control-primary-default);
+    line-height: 1.4;
+    user-select: none;
+  }
+
+  .status {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    column-gap: var(--spacing-s);
+    font-size: var(--font-11);
+    font-weight: 500;
+
+    b {
+      position: relative;
+      width: 12px;
+      min-width: 12px;
+      height: 12px;
+      min-height: 12px;
+      border-radius: 50%;
+      background-color: var(--warning-content-default);
+    }
+
+    .ok {
+      background-color: var(--success-content-default);
+    }
+  }
+
+  #notification {
+    position: fixed;
+    bottom: var(--spacing-xs);
+    left: var(--spacing-m);
+    right: var(--spacing-m);
+    z-index: 5000;
+    height: auto;
+    display: flex;
+    justify-content: center;
+    align-content: flex-end;
+  }
 </style>
 
 <style lang="scss">
-.slide-fade-enter-active {
-  transition: all 0.2s ease-out;
-}
+  .slide-fade-enter-active {
+    transition: all 0.2s ease-out;
+  }
 
-.slide-fade-leave-active {
-  transition: all 0.2s cubic-bezier(1, 0.5, 0.8, 1);
-}
+  .slide-fade-leave-active {
+    transition: all 0.2s cubic-bezier(1, 0.5, 0.8, 1);
+  }
 
-.slide-fade-enter-from,
-.slide-fade-leave-to {
-  opacity: 0;
-}
+  .slide-fade-enter-from,
+  .slide-fade-leave-to {
+    opacity: 0;
+  }
 </style>

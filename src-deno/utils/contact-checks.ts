@@ -15,17 +15,11 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 import { toCanonicalAddress } from '../../shared-libs/address-utils.ts';
-import { makeContactsException } from './exceptions.ts';
+import type { AddressCheckResult } from '../../src/types/index.ts';
 
 type ASMailSendException = web3n.asmail.ASMailSendException;
 type ServLocException = web3n.ServLocException;
 type ConnectException = web3n.ConnectException;
-
-export type AddressCheckResult =
-  'found'
-  | 'found-but-access-restricted'
-  | 'not-present-at-domain'
-  | 'no-service-for-domain';
 
 export async function checkAddressExistenceForASMail(
   addr: string,
@@ -53,12 +47,5 @@ export async function checkAddressExistenceForASMail(
     } else {
       throw err;
     }
-  }
-}
-
-export async function ensureASMailAddressExists(addr: string): Promise<void> {
-  const check = await checkAddressExistenceForASMail(addr);
-  if (check !== 'found') {
-    throw makeContactsException({ failASMailCheck: true });
   }
 }

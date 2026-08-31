@@ -29,6 +29,27 @@ export interface ContactSyncEndEvent {
   };
 }
 
+export interface ContactSyncCleanEvent {
+  event: 'sync:clean';
+  payload: {
+    reason?: string;
+  };
+}
+
+/**
+ * Synchronisation cannot be resumed although the device reports being online.
+ * Unlike sync:clean this is a STATE, not a one-off notice: it stays until
+ * `isStuck` arrives as false, so the ui can keep telling the user that what
+ * they see is not reaching the server.
+ */
+export interface ContactSyncStuckEvent {
+  event: 'sync:stuck';
+  payload: {
+    isStuck: boolean;
+    reason?: string;
+  };
+}
+
 export interface ContactListUpdate {
   event: 'update:contact-list';
   payload?: {
@@ -57,8 +78,11 @@ export interface ContactUpdateEvent {
   };
 }
 
-export type ContactEvent = ContactSyncStartEvent
+export type ContactEvent =
+  | ContactSyncStartEvent
   | ContactSyncEndEvent
+  | ContactSyncCleanEvent
+  | ContactSyncStuckEvent
   | ContactListUpdate
   | ContactAddEvent
   | ContactRemoveEvent
@@ -76,8 +100,13 @@ export interface PersonView {
 export interface Person extends PersonView {
   notice?: string;
   phone?: string;
-  activities?: string[];
-  settings?: unknown;
+  activities?: string[] | null;
+  settings?: unknown | null;
+}
+
+export interface RawPerson extends Omit<Person, 'activities' | 'settings' | 'avatarImage'> {
+  activities?: string | null;
+  settings?: string | null;
 }
 
 export type ContactListItem = PersonView & { displayName: string };
@@ -89,9 +118,20 @@ export interface PersonActivity {
   timestamp: number;
 }
 
+/**
+ * Outcome of asking ASMail whether an address can receive at all.
+ * Shared, because the check runs in the deno component - only it is granted
+ * `mail: { preflightsTo }` - while the decision is made in the GUI.
+ */
+export type AddressCheckResult =
+  'found'
+  | 'found-but-access-restricted'
+  | 'not-present-at-domain'
+  | 'no-service-for-domain';
+
 export interface ContactsException extends web3n.RuntimeException {
   type: 'contacts';
   contactAlreadyExists?: true;
+  contactNotFound?: true;
   invalidValue?: true;
-  failASMailCheck?: true;
 }

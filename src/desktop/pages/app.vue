@@ -19,6 +19,7 @@ import { onBeforeMount, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   Ui3nDialogProvider,
+  Ui3nIcon,
   Ui3nMenu,
   Ui3nProgressCircular,
   Ui3nProgressLinear,
@@ -38,6 +39,7 @@ const {
   connectivityStatusText,
   isSyncRunning,
   syncStatusText,
+  persistentWarning,
   globalLoading,
   appExit,
   doBeforeMount,
@@ -135,7 +137,20 @@ onBeforeUnmount(doBeforeUnmount);
       </div>
     </div>
 
-    <div :class="$style.content">
+    <div
+      v-if="persistentWarning"
+      :class="$style.warning"
+    >
+      <ui3n-icon
+        icon="round-warning"
+        width="16"
+        height="16"
+        color="var(--warning-content-default)"
+      />
+      <span>{{ persistentWarning }}</span>
+    </div>
+
+    <div :class="[$style.content, persistentWarning && $style.contentUnderWarning]">
       <router-view v-slot="{ Component }">
         <transition>
           <component :is="Component" />
@@ -163,6 +178,7 @@ onBeforeUnmount(doBeforeUnmount);
 
 .app {
   --main-toolbar-height: 72px;
+  --warning-bar-height: 32px;
 
   position: fixed;
   inset: 0;
@@ -178,6 +194,7 @@ onBeforeUnmount(doBeforeUnmount);
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid var(--color-border-block-primary-default);
+  user-select: none;
 }
 
 .toolbarTitle {
@@ -304,12 +321,37 @@ onBeforeUnmount(doBeforeUnmount);
   }
 }
 
+/*
+ * Sits between the toolbar and the content, but has to be positioned rather
+ * than flow: .content below is fixed, so it would not be pushed down.
+ */
+.warning {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: calc(var(--main-toolbar-height) + 1px);
+  height: var(--warning-bar-height);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: 0 var(--spacing-m);
+  background-color: var(--warning-fill-default);
+  color: var(--warning-content-default);
+  font-size: var(--font-12);
+  line-height: var(--font-16);
+  user-select: none;
+}
+
 .content {
   position: fixed;
   left: 0;
   right: 0;
   top: calc(var(--main-toolbar-height) + 1px);
   bottom: 0;
+}
+
+.contentUnderWarning {
+  top: calc(var(--main-toolbar-height) + 1px + var(--warning-bar-height));
 }
 
 .loader {

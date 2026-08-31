@@ -30,7 +30,6 @@ import {
 import {
   generateColor,
   getFileExtension,
-  mailReg,
   resizeImage,
   schedulerYield,
   sleep,
@@ -40,13 +39,25 @@ import type { Nullable } from '@v1nt1248/3nclient-lib';
 import { appContactsSrvProxy } from '@main/common/services/services-provider';
 import { useAppStore } from '@main/common/store/app.store';
 import { useContactsStore } from '@main/common/store/contacts.store';
-import { chatApp, EMPTY_CONTACT, inboxApp } from '@main/common/constants';
+import { useConnectivityStatus } from '@main/common/composables/useConnectivityStatus';
+import { verdictForAddressCheck } from '@main/common/utils/contact-reachability';
+import { makeMailRules } from '@main/common/utils/contact-validation';
+import {
+  chatApp,
+  EMPTY_CONTACT,
+  inboxApp,
+  isNewContactId,
+  NEW_EMPTY_CONTACT_ID,
+  NEW_POPULATED_CONTACT_ID,
+} from '@main/common/constants';
 import type { ContactContent, OpenChatCmdArg, OpenInboxCmdArg, Person } from '@main/types';
 import ConfirmationDialog from '@main/common/components/dialogs/confirmation-dialog.vue';
 import OwnKeysInfoDialog from '@main/common/components/dialogs/own-keys-info-dialog.vue';
 import ContactKeysInfoDialog from '@main/common/components/dialogs/contact-keys-info-dialog.vue';
+import ShareQrDialog from '@main/common/components/dialogs/share-qr-code-dialog.vue';
 
 export function useContact() {
+
   const route = useRoute();
   const router = useRouter();
 
@@ -58,18 +69,58 @@ export function useContact() {
   const contactsStore = useContactsStore();
   const { isMailAddressInUse, getContact, fetchContacts, deleteContact, upsertContact, upsertContactListItem } =
     contactsStore;
+  const { contactDataFromCmd } = storeToRefs(contactsStore);
 
   const contentEl = ref<HTMLDivElement | null>(null);
   const isLoading = ref(false);
   const contact = ref<Nullable<Person> | undefined>(null);
   const initialContact = ref<Nullable<Person> | undefined>(null);
-  const contactValid = ref(contact.value?.id !== 'new');
+  const contactValid = ref(isNewContactId(contact.value?.id));
   const imageProcessing = ref(false);
 
-  const contactId = computed(() => route.params.id as string);
+  const isContactNew = computed(() => isNewContactId(contact.value?.id));
+  // XXX can this be a constant?
+  const contactIdFromURL = computed(() => route.params.id as string);
   const isUserAddress = computed(() => contact.value?.id === user.value || contact.value?.mail === user.value);
+
+  const { connectivityStatus } = useConnectivityStatus();
+
+  /**
+   * Whether handing this contact to the chat or the inbox app makes sense.
+   * Both need the network, and so does the address check in front of them, so
+   * offline the buttons are disabled rather than left to fail.
+   *
+   * A contact that is not saved yet is excluded too: the form fills `mail` as
+   * the user types, which used to be enough to enable the buttons for something
+   * the other apps have no record of.
+   */
+  const canReachOtherApps = computed(() => (
+    (connectivityStatus.value === 'online')
+    && !!contact.value?.mail
+    && !isUserAddress.value
+    && !isContactNew.value
+  ));
+
+  /**
+   * Keys are looked up for an existing correspondent, so there is nothing to
+   * show for a contact that has not been saved. Unlike the two above this needs
+   * no network: what is displayed comes from the keyring.
+   */
+  const canShowContactKeys = computed(() => (
+    !isUserAddress.value && !isContactNew.value
+  ));
+
+  /**
+   * Why an action that needs a real correspondent is disabled. Both reasons
+   * look the same to the eye - a greyed out button - so the tooltip has to say
+   * which one it is; saying "available when online" to someone who simply has
+   * not saved the contact yet sends them looking for a network problem.
+   */
+  const disabledActionReason = computed(() => (
+    isContactNew.value ? t('reachability.contact-not-saved') : t('reachability.offline')
+  ));
   const contactDisplayName = computed(() =>
-    isUserAddress.value ? 'Me' : contact.value?.name || contact.value?.mail || ' ',
+    isUserAddress.value ? t('contact.myself.name') : contact.value?.name || contact.value?.mail || ' ',
   );
   const contactLetters = computed(() =>
     contactDisplayName.value.length > 1
@@ -99,29 +150,26 @@ export function useContact() {
     });
   });
 
-  function checkRequired(mail?: unknown): boolean | string {
-    return !!mail || t('validation.text.required');
-  }
-
-  function checkEmail(mail?: unknown): boolean | string {
-    return mailReg.test(mail! as string) || t('validation.text.mail');
-  }
-
-  function checkUsage(mail?: unknown): boolean | string {
-    return isMailAddressInUse(mail as string, initialContact.value?.mail ? [initialContact.value.mail] : [])
-      ? t('validation.text.usage')
-      : true;
-  }
-
-  const rules = { mail: [checkRequired, checkEmail, checkUsage] };
+  const rules = {
+    mail: makeMailRules({
+      t,
+      isMailAddressInUse,
+      ignoredAddresses: () => (initialContact.value?.mail ? [initialContact.value.mail] : []),
+    }),
+  };
 
   async function getContactData(): Promise<void> {
-    if (!contactId?.value) {
+    if (!contactIdFromURL.value) {
       return;
     }
 
-    if (contactId?.value === 'new') {
+    if (contactIdFromURL.value === NEW_EMPTY_CONTACT_ID) {
       contact.value = cloneDeep(EMPTY_CONTACT);
+      initialContact.value = cloneDeep(EMPTY_CONTACT);
+      return;
+    } else if (contactIdFromURL.value === NEW_POPULATED_CONTACT_ID) {
+      contact.value = cloneDeep(contactDataFromCmd.value);
+      contactDataFromCmd.value = cloneDeep(EMPTY_CONTACT);
       initialContact.value = cloneDeep(EMPTY_CONTACT);
       return;
     }
@@ -129,14 +177,14 @@ export function useContact() {
     try {
       isLoading.value = true;
 
-      const data = await getContact(contactId.value);
+      const data = await getContact(contactIdFromURL.value);
       if (data) {
         contact.value = {
           ...cloneDeep(EMPTY_CONTACT),
           ...data,
         };
         if (isUserAddress.value) {
-          contact.value.name = 'Me';
+          contact.value.name = t('contact.myself.name');
         }
 
         if (contact.value.avatarId) {
@@ -200,7 +248,6 @@ export function useContact() {
       return;
     }
 
-    const isContactNew = contact.value.id === 'new';
     const savingData = omit(contact.value, ['timestamp']);
     if (excludeAvatarImageField) {
       savingData.avatarImage = '';
@@ -226,7 +273,7 @@ export function useContact() {
         content: t('contact.upsert.success'),
       });
 
-      if (isContactNew) {
+      if (isContactNew.value) {
         contact.value.id = res.id;
       }
 
@@ -257,16 +304,44 @@ export function useContact() {
     }
   }
 
+  /**
+   * Asks ASMail whether the address can receive before handing the contact to
+   * another app, and reports what came back.
+   *
+   * The check runs in the deno component, because only it is granted
+   * `mail: { preflightsTo }`. It is a hint, not a gate on our own ability to
+   * check: when the answer cannot be obtained, the handover proceeds.
+   */
+  async function withReachabilityCheck(handOver: () => Promise<void>): Promise<void> {
+    const result = await appContactsSrvProxy.checkAddressReachability(contact.value!.mail);
+    const { proceed, noticeKey, noticeType } = verdictForAddressCheck(result);
+
+    if (noticeKey) {
+      notification.$createNotice({
+        type: noticeType ?? 'warning',
+        content: t(noticeKey, { mail: contact.value!.mail }),
+        duration: 5000,
+      });
+    }
+    if (proceed) {
+      await handOver();
+    }
+  }
+
   async function openChat() {
-    await w3n.shell!.startAppWithParams!(chatApp.domain, chatApp.openCmd, {
-      peerAddress: contact.value!.mail,
-    } as OpenChatCmdArg);
+    await withReachabilityCheck(() => w3n.shell!.startAppWithParams!(
+      chatApp.domain, chatApp.openCmd, {
+        peerAddress: contact.value!.mail,
+      } as OpenChatCmdArg,
+    ));
   }
 
   async function openInbox() {
-    await w3n.shell!.startAppWithParams!(inboxApp.domain, inboxApp.openCmd, {
-      peerAddress: contact.value!.mail,
-    } as OpenInboxCmdArg);
+    await withReachabilityCheck(() => w3n.shell!.startAppWithParams!(
+      inboxApp.domain, inboxApp.openCmd, {
+        peerAddress: contact.value!.mail,
+      } as OpenInboxCmdArg,
+    ));
   }
 
   async function showOwnKeysInfo() {
@@ -294,6 +369,19 @@ export function useContact() {
     });
   }
 
+  async function showQRcode(id: string) {
+    const contactData = await getContact(id);
+    await dialog.$openDialog(ShareQrDialog, {
+      contactData: contactData,
+      dialogProps: {
+        title: 'Sharing',
+        confirmButton: false,
+        cancelButton: false,
+        closeOnClickOverlay: true,
+      },
+    });
+  }
+
   async function onFieldUpdate({
     field,
     val,
@@ -307,12 +395,24 @@ export function useContact() {
   async function uploadImage() {
     const imagesExtensions = ['jpeg', 'jpg', 'png', 'gif'];
 
-    const files = await w3n.shell!.fileDialogs!.openFileDialog!('Open', '', false, [
-      {
-        name: 'Images',
-        extensions: imagesExtensions,
-      },
-    ]);
+    // The dialog is served over RPC by the files app, so it can fail on its own
+    // - seen as rpc/connectionClosed when that app was not reachable. It sits
+    // ahead of the try below, whose finally only clears imageProcessing, so the
+    // rejection used to surface as an unhandled one with a Vue warning on top.
+    let files: web3n.files.ReadonlyFile[] | undefined;
+    try {
+      files = await w3n.shell!.fileDialogs!.openFileDialog!('Open', '', false, {
+        filters: [
+          {
+            name: 'Images',
+            extensions: imagesExtensions,
+          },
+        ],
+      });
+    } catch (err) {
+      w3n.log('error', 'Could not open the dialog to pick an avatar file', err);
+      return;
+    }
 
     if (!files) {
       return;
@@ -341,7 +441,7 @@ export function useContact() {
       contact.value!.avatarImage = imageMini;
       contact.value!.avatarId = imageMainFileId;
 
-      if (contact.value?.id !== 'new') {
+      if (isContactNew.value) {
         await saveContact({ excludeAvatarImageField: true });
         upsertContactListItem(contact.value!.id, {
           avatarId: imageMainFileId,
@@ -358,7 +458,7 @@ export function useContact() {
     contact.value!.avatarId = undefined;
     contact.value!.avatarImage = undefined;
 
-    if (contact.value?.id !== 'new') {
+    if (isContactNew.value) {
       await saveContact({});
     }
 
@@ -373,10 +473,14 @@ export function useContact() {
     user,
     contentEl,
     isLoading,
-    contactId,
+    contactIdFromURL,
     contact,
     initialContact,
+    isContactNew,
     isUserAddress,
+    canReachOtherApps,
+    canShowContactKeys,
+    disabledActionReason,
     whetherContactChanged,
     contactValid,
     contactDisplayName,
@@ -397,5 +501,6 @@ export function useContact() {
     onFieldUpdate,
     uploadImage,
     deleteImage,
+    showQRcode,
   };
 }

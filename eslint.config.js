@@ -179,10 +179,19 @@ export default [
   },
 
   {
-    files: ['**/__tests__/*.{j,t}s?(x)', '**/tests/unit/**/*.spec.{j,t}s?(x)'],
+    files: ['tests/unit/**/*.{j,t}s?(x)'],
     languageOptions: {
       globals: {
-        ...globals.jest,
+        ...globals.vitest,
+      },
+    },
+  },
+
+  {
+    files: ['tests/app/src/**/*.{j,t}s?(x)'],
+    languageOptions: {
+      globals: {
+        ...globals.jasmine,
       },
     },
   },

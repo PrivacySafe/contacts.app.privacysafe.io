@@ -1,5 +1,5 @@
 <!--
- Copyright (C) 2020 - 2024 3NSoft Inc.
+ Copyright (C) 2020 - 2026 3NSoft Inc.
 
  This program is free software: you can redistribute it and/or modify it under
  the terms of the GNU General Public License as published by the Free Software
@@ -15,24 +15,26 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
 <script lang="ts" setup>
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
-import ContactsToolbar from '@main/common/components/contacts-toolbar.vue';
-import ContactList from '@main/desktop/components/contacts/contact-list.vue';
-import ContactPlaceholder from '@main/desktop/components/contacts/contact-placeholder.vue';
+  import { ref } from 'vue';
+  import { useRouter } from 'vue-router';
+  import ContactsToolbar from '@main/common/components/contacts-toolbar.vue';
+  import ContactList from '@main/desktop/components/contacts/contact-list.vue';
+  import ContactPlaceholder from '@main/desktop/components/contacts/contact-placeholder.vue';
+  import { NEW_EMPTY_CONTACT_ID } from '@main/common/constants';
 
-const router = useRouter();
+  const router = useRouter();
 
-const searchText = ref<string>('');
+  const searchText = ref<string>('');
 
-function onInput(text: string) {
-  searchText.value = text;
-}
+  function onInput(text: string) {
+    searchText.value = text;
+  }
 
-async function addNewContact() {
-  await router.push({ name: 'contacts' });
-  setTimeout(() => router.push({ name: 'contact', params: { id: 'new'} }), 250);
-}
+  async function addNewContact() {
+    await router.push({ name: 'contacts' });
+    setTimeout(() => router.push({ name: 'contact', params: { id: NEW_EMPTY_CONTACT_ID } }), 250);
+  }
+
 </script>
 
 <template>
@@ -42,6 +44,7 @@ async function addNewContact() {
         @add="addNewContact"
         @input="onInput"
       />
+      <!-- <button @click="addContactModal(testContact)">Open Modal</button> -->
       <div :class="$style.asideBody">
         <contact-list :search-text="searchText" />
       </div>
@@ -63,35 +66,34 @@ async function addNewContact() {
 </template>
 
 <style lang="scss" module>
-.contacts {
-  --contacts-aside-width: calc(var(--column-size) * 4);
+  .contacts {
+    --contacts-aside-width: calc(var(--column-size) * 4);
 
-  position: relative;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: stretch;
-}
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: stretch;
+  }
 
-.aside {
-  position: relative;
-  width: var(--contacts-aside-width);
-  border-right: 1px solid var(--color-border-block-primary-default);
-}
+  .aside {
+    position: relative;
+    width: var(--contacts-aside-width);
+    border-right: 1px solid var(--color-border-block-primary-default);
+  }
 
-.asideBody {
-  position: relative;
-  width: 100%;
-  height: calc(100% - 112px);
-  padding: var(--spacing-xs) 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-}
+  .asideBody {
+    position: relative;
+    width: 100%;
+    height: calc(100% - 112px);
+    padding: var(--spacing-xs) 0;
+    user-select: none;
+  }
 
-.content {
-  position: relative;
-  width: calc(100% - var(--contacts-aside-width));
-  height: 100%;
-}
+  .content {
+    position: relative;
+    width: calc(100% - var(--contacts-aside-width));
+    height: 100%;
+  }
 </style>

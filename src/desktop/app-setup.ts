@@ -14,7 +14,7 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
-import { createApp } from 'vue';
+import { createApp, type Component } from 'vue';
 import { createPinia } from 'pinia';
 import { router } from './router';
 import { dialogs, notifications, vueBus } from '@v1nt1248/3nclient-lib/plugins';
@@ -23,11 +23,15 @@ import i18n from '@main/common/data/i18';
 
 import App from '@main/desktop/pages/app.vue';
 
-export function setupMainApp() {
+/**
+ * @param rootComponent lets the test harness mount a probe root with the app's
+ * real plugin wiring, instead of the whole UI. Defaults to the app itself.
+ */
+export function setupMainApp(rootComponent: Component = App) {
 
   const pinia = createPinia();
 
-  const app = createApp(App);
+  const app = createApp(rootComponent);
 
   app.config.globalProperties.$router = router;
   app.config.compilerOptions.isCustomElement = tag => {

@@ -1,5 +1,5 @@
 /*
- Copyright (C) 2020 - 2025 3NSoft Inc.
+ Copyright (C) 2020 - 2026 3NSoft Inc.
 
  This program is free software: you can redistribute it and/or modify it under
  the terms of the GNU General Public License as published by the Free Software
@@ -15,7 +15,7 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-import { computed, inject, watch } from 'vue';
+import { computed, inject, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
@@ -27,8 +27,9 @@ import { useSyncStore } from '@main/common/store/sync.store';
 import { useContactsStore } from '@main/common/store/contacts.store';
 import { useConnectivityStatus } from '@main/common/composables/useConnectivityStatus';
 import type { AppGlobalEvents } from '@main/types';
-import type { ContactsDenoSrv } from '../../../src-deno/contacts-deno-srv';
-import { CONTACTS_DB_FILE } from '../../../src-deno/constants';
+import type { ContactsDenoSrv } from '@deno/types';
+import { useCommandHandler } from '@main/common/composables/useCommandHandler';
+import { makeContactEventHandler } from '@main/common/composables/contact-event-handler';
 
 export type AppViewInstance = ReturnType<typeof useAppView>;
 
@@ -48,7 +49,7 @@ export function useAppView() {
 
   const syncStore = useSyncStore();
   const { isSyncRunning } = storeToRefs(syncStore);
-  const { addToSyncList, removeFromSyncList } = syncStore;
+  const { addToSyncList, removeFromSyncList, cleanSyncList } = syncStore;
 
   const contactsStore = useContactsStore();
   const { contacts } = storeToRefs(contactsStore);
@@ -60,9 +61,58 @@ export function useAppView() {
 
   const syncStatusText = computed(() => (isSyncRunning.value ? t('app.status.unsynced') : t('app.status.synced')));
 
+  /**
+   * Standing warning about a state the status line above cannot express: the
+   * app is online, yet what the user sees is not reaching the server. Kept as a
+   * message rather than a flag, because there are two different reasons for it
+   * and the user can only act on one of them.
+   */
+  const persistentWarning = ref<string | undefined>(undefined);
+
+  function setSyncStuck(isStuck: boolean) {
+    persistentWarning.value = isStuck ? t('app.warning.sync-stuck') : undefined;
+  }
+
+  /**
+   * Tells the one failure the user CAN act on - the app's storage has never
+   * been opened on this device, and the platform can only create it with the
+   * server reachable - apart from any other reason the service did not start.
+   *
+   * Asked here rather than in the service, because the service does not expose
+   * its ipc until it has that storage: in this very state the window gets a
+   * connection timeout and nothing else. This call goes to the same core, so it
+   * fails the same way, and the window can finally say something useful.
+   */
+  async function reportWhyServiceIsUnavailable(err: unknown) {
+    let isFirstRunWithoutNetwork = false;
+    try {
+      await w3n.storage!.getAppSyncedFS!();
+    } catch (storageErr) {
+      isFirstRunWithoutNetwork = ((storageErr as web3n.ConnectException).type === 'connect');
+    }
+
+    persistentWarning.value = isFirstRunWithoutNetwork
+      ? t('app.warning.first-run-needs-network')
+      : t('app.warning.service-unavailable');
+
+    // The level follows the cause. A first run without the network is expected
+    // and already explained to the user by the warning above, so logging it as
+    // an error would be the same crying wolf that was just cleaned out of these
+    // logs. Anything else is a real failure and keeps the exception with it.
+    if (isFirstRunWithoutNetwork) {
+      await w3n.log(
+        'info', 'App storage is not reachable: the first run of this app needs the network',
+      );
+    } else {
+      await w3n.log('error', 'Contacts service is unavailable', err);
+    }
+  }
+
   async function appExit() {
     w3n.closeSelf!();
   }
+
+  const { start: startHandlingCommands } = useCommandHandler();
 
   watch(
     connectivityStatus,
@@ -86,6 +136,19 @@ export function useAppView() {
     },
   );
 
+  const handleContactEvent = makeContactEventHandler({
+    addToSyncList,
+    removeFromSyncList,
+    cleanSyncList,
+    setSyncStuck,
+    emitContactListUpdated: () => $emitter.emit('contact-list:updated', void 0),
+    fetchContacts: () => fetchContacts({}),
+    currentRouteName: () => route.name as string | undefined,
+    openContactId: () => route.params.id as string | undefined,
+    listedContactIds: () => contacts.value.map(c => c.id),
+    goToContactList: () => router.push({ name: 'contacts' }),
+  });
+
   let tu: ReturnType<typeof setInterval> | null = null;
 
   async function doBeforeMount() {
@@ -97,53 +160,29 @@ export function useAppView() {
       await appStore.initialize();
 
       contactsDenoSrv.watchEvent({
-        next: async evt => {
-          // console.log('🕐 EVENT FROM DENO => ', JSON.stringify(evt));
-          const { event, payload } = evt;
-          // eslint-disable-next-line default-case
-          switch (event) {
-            case 'sync:start': {
-              const { path } = payload;
-              addToSyncList(path || 'root');
-              break;
-            }
-
-            case 'sync:end': {
-              const { path } = payload;
-              removeFromSyncList(path || 'root');
-              if (path === CONTACTS_DB_FILE) {
-                $emitter.emit('contact-list:updated', void 0);
-                await fetchContacts({});
-              }
-              break;
-            }
-
-            case 'update:contact-list': {
-              await fetchContacts({});
-              const { name } = route;
-              if (name === 'contact') {
-                const contactId = route.params.id as string;
-                const contactIds = contacts.value.map(c => c.id);
-                if (!contactIds.includes(contactId)) {
-                  await router.push({ name: 'contacts' });
-                }
-              }
-              break;
-            }
+        next: handleContactEvent,
+        error: (e: unknown) => {
+          // A closed connection is what a normal shutdown looks like from here:
+          // the service goes away and this observable errors. Logged as an
+          // error it buried real failures under one such entry per app close.
+          if ((e as web3n.rpc.RPCException).connectionClosed) {
+            return;
           }
+
+          w3n.log('error', 'Error watching contact events. ', e);
         },
-        error: (e: unknown) => w3n.log('error', 'Error watching contact events. ', e),
         complete: () => contactsSrvConnection.close(),
       });
 
-      await appContactsSrvProxy.initialSyncProcess();
       await fetchContacts({ withFullOverload: true });
 
       tu = setInterval(() => {
         appContactsSrvProxy.removeUnnecessaryImageFiles();
       }, 86400000); // every 24 hours
+
+      await startHandlingCommands();
     } catch (e) {
-      console.error('Error while the app mounting: ', e);
+      await reportWhyServiceIsUnavailable(e);
     } finally {
       setGlobalLoading(false);
     }
@@ -167,6 +206,7 @@ export function useAppView() {
     connectivityStatusText,
     isSyncRunning,
     syncStatusText,
+    persistentWarning,
     globalLoading,
     appExit,
     doBeforeMount,

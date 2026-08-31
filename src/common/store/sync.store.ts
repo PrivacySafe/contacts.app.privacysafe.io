@@ -16,10 +16,15 @@ export const useSyncStore = defineStore('sync', () => {
     }
   }
 
+  function cleanSyncList() {
+    inSynchronizationProcess.value.clear();
+  }
+
   return {
     inSynchronizationProcess,
     isSyncRunning,
     addToSyncList,
     removeFromSyncList,
+    cleanSyncList,
   };
 });

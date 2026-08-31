@@ -68,6 +68,10 @@ function onInput(ev: string) {
   width: 100%;
   height: 104px;
   padding: var(--spacing-m) var(--spacing-m) var(--spacing-s);
+
+  input {
+    user-select: none;
+  }
 }
 
 .addBtn {

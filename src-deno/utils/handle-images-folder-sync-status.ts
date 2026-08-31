@@ -20,10 +20,12 @@ import { syncUpload } from '../utils/sync-upload.ts';
 import { syncDownload } from '../utils/sync-download.ts';
 import { syncAdopt } from '../utils/sync-adopt.ts';
 
+/** @return whether any image file was actually downloaded. */
 async function downloadImagesIfItNeed(
   fs: web3n.files.WritableFS,
   emitStorageEvent: (event: ContactEvent) => void,
-) {
+): Promise<boolean> {
+  let wasAnythingDownloaded = false;
   const imagesFolderList = await fs.listFolder(IMAGES_FOLDER);
   for (const image of imagesFolderList) {
     const imageFilePath = `${IMAGES_FOLDER}/${image.name}`;
@@ -41,18 +43,27 @@ async function downloadImagesIfItNeed(
           version: imageFileSyncStatus!.synced!.latest!,
           emitStorageEvent,
         });
+        wasAnythingDownloaded = true;
       }
     }
   }
+  return wasAnythingDownloaded;
 }
 
-export async function handleImagesFolderSyncStatus(
-  fs: web3n.files.WritableFS,
-  emitStorageEvent: (event: ContactEvent) => void,
-) {
+export async function handleImagesFolderSyncStatus({ fs, emitStorageEvent }: {
+  fs: web3n.files.WritableFS;
+  emitStorageEvent: (event: ContactEvent) => void;
+}) {
   const imagesFolderSyncStatus = await fs.v?.sync?.status(IMAGES_FOLDER);
-  // console.log('🔔 handleImagesFolderSyncStatus => ', imagesFolderSyncStatus ? JSON.stringify(imagesFolderSyncStatus) : '👎');
   if (imagesFolderSyncStatus) {
+    /**
+     * Avatars that have just landed are not on screen yet: while their bytes
+     * were missing, getImage answered '[error]', and the list item retries that
+     * only a few times before giving up. So a download is reported, and the ui
+     * asks for the list again.
+     */
+    let wasAnythingDownloaded = false;
+
     // eslint-disable-next-line default-case
     switch (imagesFolderSyncStatus.state) {
       case 'unsynced': {
@@ -88,6 +99,7 @@ export async function handleImagesFolderSyncStatus(
                 version: imageFileSyncStatus.remote!.latest!,
                 emitStorageEvent,
               })
+              wasAnythingDownloaded = true;
               break;
             }
 
@@ -103,7 +115,9 @@ export async function handleImagesFolderSyncStatus(
                   version: imageFileSyncStatus.synced!.latest!,
                   emitStorageEvent,
                 });
+                wasAnythingDownloaded = true;
               }
+              break;
             }
           }
         }
@@ -123,7 +137,9 @@ export async function handleImagesFolderSyncStatus(
           path: IMAGES_FOLDER,
           opts: { remoteVersion: imagesFolderSyncStatus.remote!.latest },
           emitStorageEvent,
-          actionIfSuccess: () => downloadImagesIfItNeed(fs, emitStorageEvent),
+          actionIfSuccess: async () => {
+            wasAnythingDownloaded = await downloadImagesIfItNeed(fs, emitStorageEvent);
+          },
         });
         break;
       }
@@ -134,13 +150,17 @@ export async function handleImagesFolderSyncStatus(
           payload: { path: IMAGES_FOLDER },
         });
         await fs.v?.sync?.absorbRemoteFolderChanges(IMAGES_FOLDER, { postfixForNameOverlaps: '_[ keep ]' });
-        await downloadImagesIfItNeed(fs, emitStorageEvent);
+        wasAnythingDownloaded = await downloadImagesIfItNeed(fs, emitStorageEvent);
         emitStorageEvent({
           event: 'sync:end',
           payload: { path: IMAGES_FOLDER },
         });
         break;
       }
+    }
+
+    if (wasAnythingDownloaded) {
+      emitStorageEvent({ event: 'update:contact-list' });
     }
   }
 }

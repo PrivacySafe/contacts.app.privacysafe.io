@@ -19,60 +19,117 @@ import { ObserversSet } from '../shared-libs/observer-utils.ts';
 import { SQLiteOn3NStorage } from '../shared-libs/sqlite-on-3nstorage/index.js';
 import { setupGlobalReportingOfUnhandledErrors } from '../shared-libs/error-handling.ts';
 import { sleep } from '../shared-libs/processes/sleep.ts';
+import { SingleProc } from '../shared-libs/processes/single.ts';
 import { filesStoreService } from './file-store-service/files-store-service.ts';
 import { contactDb } from './dataset/contacts-db.ts';
 import { checkServerConnection } from './utils/check-server-connection.ts';
-import {
-  removeUnnecessaryImageFiles as _removeUnnecessaryImageFiles,
-} from './utils/remove-unnecessary-image-files.ts';
+import { checkAddressExistenceForASMail } from './utils/contact-checks.ts';
+import { removeUnnecessaryImageFiles as _removeUnnecessaryImageFiles } from './utils/remove-unnecessary-image-files.ts';
 import { handleRootFolderSyncStatus } from './utils/handle-root-folder-sync-status.ts';
 import { handleImagesFolderSyncStatus } from './utils/handle-images-folder-sync-status.ts';
 import { handleDbFileSyncStatus } from './utils/handle-db-file-sync-status.ts';
+import { prepareSyncedRoot } from './utils/prepare-synced-root.ts';
+import { resolveRootFolderConflict } from './utils/resolve-root-folder-conflict.ts';
+import { waitForOnline, watchStorageReconnection } from './utils/storage-connection.ts';
 import { randomStr } from '../src/common/services/base/random.ts';
+import { isNewContactId } from '../src/common/constants/index.ts';
 import { syncUpload } from './utils/sync-upload.ts';
 import { CONTACTS_DB_FILE, IMAGES_FOLDER } from './constants.ts';
-import type { ContactEvent, Person } from '../src/types/index.ts';
+import type { AddressCheckResult, ContactEvent, Person, RawPerson } from '../src/types/index.ts';
+import type { ContactsDenoSrv, ContactsDenoSrvInternal, ContactsDenoSrvExternal } from './types.ts';
 
-export interface ContactsDenoSrv {
-  fs: web3n.files.WritableFS;
-  emitStorageEvent: (event: ContactEvent) => void;
-  watchEvent: (obs: web3n.Observer<ContactEvent>) => () => void;
+/** How many times the db file is opened again while its bytes are missing. */
+const DB_OPEN_ATTEMPTS = 3;
 
-  addImage: (
-    { base64, id, withUploadParentFolder }:
-    { base64: string; id?: string; withUploadParentFolder?: boolean },
-  ) => Promise<string>;
-  getImage: (id: string) => Promise<string>;
-  deleteImage: (id: string, withoutUpload?: boolean) => Promise<void>;
+/** Cap on a single wait for the connection, so that a retry always happens. */
+const CONNECTION_WAIT_MS = 60000;
 
-  addContact: (contact: Omit<Person, 'timestamp'>) => Promise<Person | {
-    errorType: string;
-    errorMessage: string;
-  }>;
-  updateContact: (contact: Person | Omit<Person, 'timestamp'>) => Promise<Person>;
-  upsertContact: (contact: Person | Omit<Person, 'timestamp'>) => Promise<Person | {
-    errorType: string;
-    errorMessage: string
-  }>;
-  deleteContact: (id: string, withoutParentUpload?: boolean) => Promise<void>;
-  getContactList: (withImage?: boolean) => Promise<Person[]>;
-  getContact: (id: string) => Promise<Person | undefined>;
-  getContactByMail: (mail: string) => Promise<Person | undefined>;
+/**
+ * How many verifications may fail WHILE the device reports being online before
+ * the user is told that synchronisation is stuck. At the platform's 30s
+ * connectivity tick this is about a minute and a half of trying.
+ */
+const STUCK_AFTER_ONLINE_ATTEMPTS = 3;
 
-  removeUnnecessaryImageFiles: () => Promise<void>;
-  initialSyncProcess: () => Promise<void>;
+/**
+ * Opens the app's synced storage, waiting for the connection instead of giving
+ * up when the platform cannot reach the server.
+ *
+ * The platform needs the network for this call whenever this app's folder is not
+ * on the device yet: it resolves the storage service through a DNS TXT lookup of
+ * the user's domain, and caches that nowhere on disk. The failure used to fall
+ * through to the startup catch, which closes the service - so the app stayed
+ * dead until the platform was restarted by hand, even after the network was
+ * back. Retrying here at least removes the manual restart.
+ *
+ * It does NOT make the app usable offline in that state: with no data on disk
+ * there is nothing to serve. That an already registered user cannot start an app
+ * offline on a fresh device is a platform limitation, reported to its authors and
+ * not something this app can work around.
+ *
+ * Note the IPC service is only exposed after this resolves, so while the retries
+ * run the windows get "Timeout in connecting to service AppContactsInternal" and
+ * have to be reopened once the service is up.
+ */
+async function openSyncedRoot(): Promise<web3n.files.WritableFS> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await w3n.storage!.getAppSyncedFS();
+    } catch (err) {
+      if ((err as web3n.ConnectException).type !== 'connect') {
+        throw err;
+      }
+
+      await w3n.log(
+        'info',
+        `App synced storage is not reachable yet, awaiting a connection (attempt ${attempt})`,
+        err,
+      );
+      await waitForOnline({ timeoutMs: CONNECTION_WAIT_MS });
+    }
+  }
+}
+
+/**
+ * Opens the contacts db, awaiting the connection while the file exists but its
+ * content is not on disk yet.
+ *
+ * On a second device the file IS in the folder listing while its bytes still
+ * live only on the server, and readBytes() offline throws `connect` - which
+ * sqlite-on-3nstorage does not catch, as it tolerates `notFound` only. The
+ * failure used to reach the startup catch and close the service. Coming up with
+ * an EMPTY db instead would be worse than not starting: the empty table would
+ * be saved and published over the existing remote file.
+ */
+async function openContactsDb(fs: web3n.files.WritableFS): Promise<SQLiteOn3NStorage> {
+  // Only meaningful once the root has been reconciled: checkFilePresence reads
+  // the current version of the folder, never the remote branch.
+  const isDbFileKnown = await fs.checkFilePresence(CONTACTS_DB_FILE);
+  const file = await fs.writableFile(CONTACTS_DB_FILE);
+
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await SQLiteOn3NStorage.makeAndStart(file);
+    } catch (err) {
+      const isConnectErr = ((err as web3n.ConnectException).type === 'connect');
+      if (!isConnectErr || !isDbFileKnown || (attempt >= DB_OPEN_ATTEMPTS)) {
+        throw err;
+      }
+
+      await w3n.log(
+        'info',
+        `Content of ${CONTACTS_DB_FILE} is not on disk yet, awaiting a connection (attempt ${attempt})`,
+      );
+      // Not whenConnected(): that latch can stay unset for the life of the
+      // process, turning this retry into an endless wait. See waitForOnline.
+      await waitForOnline({ timeoutMs: CONNECTION_WAIT_MS });
+    }
+  }
 }
 
 async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
-  const fs = await w3n.storage!.getAppSyncedFS();
-  const file = await fs.writableFile(CONTACTS_DB_FILE);
-  const imagesFolder = await fs.writableSubRoot(IMAGES_FOLDER);
-
-  const filesSrv = await filesStoreService(imagesFolder);
-  const sqlite = await SQLiteOn3NStorage.makeAndStart(file);
-  const contactDbSrv = await contactDb(sqlite);
-  await sqlite.saveToFile({ skipUpload: true });
-
+  // Set up before anything touches storage: the root reconciliation below
+  // already reports its progress through emitStorageEvent.
   const updateEventsObservers = new ObserversSet<ContactEvent>();
 
   setupGlobalReportingOfUnhandledErrors(true);
@@ -86,9 +143,108 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
     return () => updateEventsObservers.delete(obs);
   }
 
+  const fs = await openSyncedRoot();
+
+  /**
+   * First phase of bringing the root in line with the server. It MUST precede
+   * the writableFile/writableSubRoot calls below: those see only the current
+   * version of the folder, so on a device whose root is still `behind` they
+   * would create a second contacts-db beside the server's one - which is the
+   * name overlap that made the root conflict in the first place.
+   *
+   * A `conflicting` root is reported back rather than resolved here, because
+   * resolving it needs the db handle that only exists further down.
+   */
+  let rootState = await prepareSyncedRoot({ fs, emitStorageEvent });
+
+  /**
+   * Nothing is published while the root is not reconciled with the server.
+   * Local writes go on as usual - the first run on a new device stays usable
+   * offline, it just keeps its state to itself until the root is verified.
+   */
+  function areUploadsHeld(): boolean {
+    return rootState.holdUploads;
+  }
+
+  const sqlite = await openContactsDb(fs);
+  const imagesFolder = await fs.writableSubRoot(IMAGES_FOLDER);
+
+  const filesSrv = await filesStoreService(imagesFolder);
+
+  /**
+   * Debounced upload of the db file after local saves (trailing 500ms):
+   * a burst of writes yields several local versions and ONE upload of the
+   * latest; a lone write is uploaded ~0.5s later. Keeping the file synced
+   * right after writes closes the window in which sync choreography
+   * (adoptRemote on echoes of our own uploads) resets the file node's
+   * version below still-registered local versions — after which every save
+   * fails with "Version N already exists". Only the UPLOAD is debounced:
+   * the local per-operation save stays awaited, so save-failure rollbacks
+   * and RPC reply semantics are untouched. Connect (offline) errors are
+   * tolerated by syncUpload; offline also produces no adoption echoes.
+   */
+  const DB_UPLOAD_DEBOUNCE_MS = 500;
+  let dbUploadTimer: ReturnType<typeof setTimeout> | null = null;
+  let dbUploadRunning = false;
+  let dbUploadQueued = false;
+
+  async function runDbUpload(): Promise<void> {
+    // Skipped rather than queued: once the root is verified, the initial sync
+    // pass finds the file `unsynced` and uploads whatever the newest local
+    // version is by then.
+    if (areUploadsHeld()) {
+      return;
+    }
+
+    if (dbUploadRunning) {
+      dbUploadQueued = true;
+      return;
+    }
+    dbUploadRunning = true;
+    try {
+      await syncUpload({ fs, path: CONTACTS_DB_FILE, emitStorageEvent, immediately: true });
+    } catch (err) {
+      w3n.log('warning', `Upload of ${CONTACTS_DB_FILE} after local save failed`, err);
+    } finally {
+      dbUploadRunning = false;
+      if (dbUploadQueued) {
+        dbUploadQueued = false;
+        void runDbUpload();
+      }
+    }
+  }
+
+  function scheduleDbUpload(): Promise<void> {
+    if (dbUploadTimer !== null) {
+      clearTimeout(dbUploadTimer);
+    }
+    dbUploadTimer = setTimeout(() => {
+      dbUploadTimer = null;
+      void runDbUpload();
+    }, DB_UPLOAD_DEBOUNCE_MS);
+    return Promise.resolve();
+  }
+
+  const contactDbSrv = await contactDb(sqlite, scheduleDbUpload);
+
+  // Second phase of bringing the root in line with the server: the merge needs
+  // contactDbSrv, and it has to happen BEFORE the first saveToFile below and
+  // before watchTree starts reacting to remote changes - so that no local state
+  // is published over a remote branch that has not been absorbed yet.
+  if (rootState.conflict) {
+    try {
+      await resolveRootFolderConflict({ fs, sqlite, contactDbSrv, emitStorageEvent });
+      rootState = { verified: true, holdUploads: false, conflict: false };
+    } catch (err) {
+      // Uploads stay held: publishing now would overwrite the remote branch.
+      await w3n.log('error', 'Could not resolve the root folder conflict on startup', err);
+    }
+  }
+
+  await sqlite.saveToFile({ skipUpload: true });
+
   fs.watchTree('', 3, {
     next: async val => {
-      // console.log('[🔔] WATCH_TREE => ', JSON.stringify(val));
       const { type, path } = val;
       const processedPath = path.replace('./', '');
 
@@ -112,11 +268,17 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
 
         case 'remote-change': {
           if (processedPath === CONTACTS_DB_FILE) {
-            await handleDbFileSyncStatus(fs, sqlite, emitStorageEvent, contactDbSrv);
+            // NOT wrapped in sqlite.sync(): the handler's conflict branch
+            // calls contactDbSrv.updateContactsTable → saveToFile →
+            // syncProc.startOrChain, which deadlocks when already inside a
+            // sync() action (service then never starts). Serializing this
+            // with local writes needs re-entrancy support in
+            // sqlite-on-3nstorage first.
+            await handleDbFileSyncStatus({ fs, sqlite, contactDbSrv, emitStorageEvent });
           } else if (processedPath.includes(IMAGES_FOLDER)) {
-            await handleImagesFolderSyncStatus(fs, emitStorageEvent);
+            await handleImagesFolderSyncStatus({ fs, emitStorageEvent });
           } else {
-            await handleRootFolderSyncStatus(fs, sqlite, emitStorageEvent, contactDbSrv);
+            await handleRootFolderSyncStatus({ fs, sqlite, contactDbSrv, emitStorageEvent });
           }
           break;
         }
@@ -126,12 +288,23 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
   });
 
   /* images code block */
-  async function addImage(
-    { base64, id, withUploadParentFolder }:
-    { base64: string; id?: string; withUploadParentFolder?: boolean },
-  ): Promise<string> {
+  async function addImage({
+    base64,
+    id,
+    withUploadParentFolder,
+  }: {
+    base64: string;
+    id?: string;
+    withUploadParentFolder?: boolean;
+  }): Promise<string> {
     const imageFileId = id || randomStr(20);
     await filesSrv.saveFile({ base64, id: imageFileId });
+    // The file is saved locally either way; only its publication waits for the
+    // root to be verified. The initial sync pass uploads it afterwards.
+    if (areUploadsHeld()) {
+      return imageFileId;
+    }
+
     await syncUpload({ fs, path: `${IMAGES_FOLDER}/${imageFileId}`, emitStorageEvent });
 
     if (withUploadParentFolder) {
@@ -157,16 +330,21 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
   async function deleteImage(id: string, withoutUpload?: boolean): Promise<void> {
     await filesSrv.deleteFile(id);
     await filesSrv.deleteFile(`${id}-mini`);
-    if (!withoutUpload) {
+    if (!withoutUpload && !areUploadsHeld()) {
       await syncUpload({ fs, path: IMAGES_FOLDER, emitStorageEvent, immediately: true });
     }
   }
 
   /* contacts code block */
-  async function addContact(contact: Omit<Person, 'timestamp'>): Promise<Person | {
-    errorType: string;
-    errorMessage: string;
-  }> {
+  async function addContact(
+    contact: RawPerson | Omit<RawPerson, 'timestamp'> | Person | Omit<Person, 'timestamp' | 'avatarImage'>,
+  ): Promise<
+    | Person
+    | {
+        errorType: string;
+        errorMessage: string;
+      }
+  > {
     const isThereSuchContact = !!(await getContactByMail(contact.mail));
     if (isThereSuchContact) {
       return {
@@ -182,11 +360,16 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
         data: addedContact,
       },
     });
-    await syncUpload({ fs, path: CONTACTS_DB_FILE, emitStorageEvent });
+    // No upload is started here: insertContactInto -> saveDbToFile already
+    // scheduled the debounced one. Starting a second upload of the same file
+    // makes the platform reject it with fs-sync/alreadyUploading, which used to
+    // fail this whole call - see scheduleDbUpload.
     return addedContact;
   }
 
-  async function updateContact(contact: Person | Omit<Person, 'timestamp'>): Promise<Person> {
+  async function updateContact(
+    contact: RawPerson | Omit<RawPerson, 'timestamp'> | Person | Omit<Person, 'timestamp' | 'avatarImage'>,
+  ): Promise<Person> {
     const updatedContact = await contactDbSrv.updateContactInto(contact);
     emitStorageEvent({
       event: 'update:contact',
@@ -194,31 +377,37 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
         data: updatedContact,
       },
     });
-    await syncUpload({ fs, path: CONTACTS_DB_FILE, emitStorageEvent });
+    // The debounced upload scheduled by saveDbToFile covers this; see addContact.
     return updatedContact;
   }
 
-  async function upsertContact(contact: Person | Omit<Person, 'timestamp'>): Promise<Person | {
-    errorType: string;
-    errorMessage: string
-  }> {
-    if (contact.id === 'new') {
+  async function upsertContact(
+    contact: RawPerson | Omit<RawPerson, 'timestamp'> | Person | Omit<Person, 'timestamp' | 'avatarImage'>,
+  ): Promise<
+    | Person
+    | {
+        errorType: string;
+        errorMessage: string;
+      }
+  > {
+    if (isNewContactId(contact.id)) {
       return await addContact(contact);
     }
 
     return await updateContact(contact);
   }
 
+  /**
+   * @param withoutParentUpload is kept for callers that delete in a batch, so
+   * that only the last deletion asks the db to be saved to file - and with it,
+   * uploaded. The upload itself is the debounced one; see addContact.
+   */
   async function deleteContact(id: string, withoutParentUpload?: boolean): Promise<void> {
-    await contactDbSrv.deleteContactFrom(id);
+    await contactDbSrv.deleteContactFrom(id, withoutParentUpload);
     emitStorageEvent({
       event: 'remove:contact',
       payload: { id },
     });
-
-    if (!withoutParentUpload) {
-      await syncUpload({ fs, path: CONTACTS_DB_FILE, emitStorageEvent });
-    }
   }
 
   async function getContactList(withImage?: boolean): Promise<Person[]> {
@@ -270,30 +459,174 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
     return contact;
   }
 
-  /* utils code block */
-  async function removeUnnecessaryImageFiles() {
-    return _removeUnnecessaryImageFiles(fs, contactDbSrv.getIdsOfAllFilesInUse, emitStorageEvent);
+  /**
+   * Asks ASMail whether an address can receive at all. Lives here because only
+   * the deno component is granted `mail: { preflightsTo }` - the GUI windows are
+   * not, so they cannot ask directly.
+   *
+   * Answers undefined instead of failing when the check itself cannot be made,
+   * e.g. offline: the caller treats "could not verify" as "carry on", and being
+   * unable to check must not turn into a refusal to act.
+   */
+  async function checkAddressReachability(
+    addr: string,
+  ): Promise<AddressCheckResult | undefined> {
+    try {
+      return await checkAddressExistenceForASMail(addr);
+    } catch (err) {
+      w3n.log('info', `Could not check whether ${addr} can receive`, err);
+      return undefined;
+    }
   }
 
+  /* utils code block */
+  async function removeUnnecessaryImageFiles() {
+    // Every image file no contact row refers to is deleted - and on a device
+    // whose db has not been reconciled with the server yet, that is every
+    // avatar just downloaded. See prepareSyncedRoot.
+    if (!rootState.verified) {
+      await w3n.log(
+        'info', 'Sweep of unused image files is skipped: the root folder is not verified yet',
+      );
+      return;
+    }
+
+    return _removeUnnecessaryImageFiles({
+      fs,
+      getIdsOfAllFilesInUse: contactDbSrv.getIdsOfAllFilesInUse,
+      emitStorageEvent,
+    });
+  }
+
+  // Serialized, so that the pass started on a regained connection cannot
+  // interleave with one the GUI asks for over IPC.
+  const initialSyncProc = new SingleProc();
+
   async function initialSyncProcess(): Promise<void> {
+    return initialSyncProc.startOrChain(runInitialSyncProcess);
+  }
+
+  async function runInitialSyncProcess(): Promise<void> {
+    if (areUploadsHeld()) {
+      await w3n.log(
+        'info', 'Initial synchronization is postponed: the root folder is not verified yet',
+      );
+      return;
+    }
+
     const isThereConnection = await checkServerConnection(fs);
     if (!isThereConnection) {
-      setTimeout(() => {
-        initialSyncProcess();
-        return;
-      }, 60000);
+      return;
     }
 
     try {
-      await handleDbFileSyncStatus(fs, sqlite, emitStorageEvent, contactDbSrv);
-      await handleImagesFolderSyncStatus(fs, emitStorageEvent);
-      await handleRootFolderSyncStatus(fs, sqlite, emitStorageEvent, contactDbSrv);
+      // The ROOT goes first: what to do about the db file and about the images
+      // folder is only decidable once the root's children are the server's
+      // ones. It used to be decided about the db file first, before the state
+      // of the root had been looked at at all.
+      await handleRootFolderSyncStatus({ fs, sqlite, contactDbSrv, emitStorageEvent });
+      // See the watchTree handler for why this must NOT go through sqlite.sync().
+      await handleDbFileSyncStatus({ fs, sqlite, contactDbSrv, emitStorageEvent });
+      await handleImagesFolderSyncStatus({ fs, emitStorageEvent });
 
       await removeUnnecessaryImageFiles();
     } catch (err) {
       w3n.log('error', '🔥 Error while initial synchronization process. ', err);
+      emitStorageEvent({
+        event: 'sync:clean',
+        payload: { reason: 'Error while initial synchronization process.' },
+      });
     }
   }
+
+  /**
+   * Retries the root verification until it succeeds, and lifts the upload hold
+   * when it does.
+   *
+   * This replaces a setTimeout that rescheduled initialSyncProcess from inside
+   * itself: its `return` sat in the timer callback, so the body ran offline
+   * anyway, and every offline pass added another recursive timer that nothing
+   * ever cancelled.
+   *
+   * The retry is what re-establishes the session, not just what notices it:
+   * prepareSyncedRoot's status('') is an HTTP request to the storage server, and
+   * the platform re-logs in and marks itself connected on any such request. The
+   * previous version of this loop awaited fs.v.sync.whenConnected() instead, and
+   * in the live test of 2026-08-22 that never resolved after the network came
+   * back - so the hold was never lifted at all. See waitForOnline.
+   */
+  async function verifyRootWhenConnected(): Promise<void> {
+    let failuresWhileOnline = 0;
+    let isReportedStuck = false;
+
+    while (!rootState.verified) {
+      const isOnlineReported = await waitForOnline({ timeoutMs: CONNECTION_WAIT_MS });
+
+      try {
+        // Quiet: the startup call has already logged that the server cannot be
+        // reached, and one identical line per attempt buries everything else.
+        rootState = await prepareSyncedRoot({
+          fs,
+          emitStorageEvent,
+          quiet: true,
+          resolveConflict: () => resolveRootFolderConflict({
+            fs, sqlite, contactDbSrv, emitStorageEvent,
+          }),
+        });
+      } catch (err) {
+        // Logged and retried, never abandoned: giving up here would keep the
+        // upload hold on for the rest of the session.
+        await w3n.log('error', 'Could not verify the root folder against the server', err);
+      }
+
+      if (rootState.verified) {
+        break;
+      }
+
+      // Being offline is not news. Failing WHILE the platform says it is online
+      // is: the user sees "online" and has no way to tell that nothing is being
+      // published. Seen for real in the live tests of 2026-08-22, where the
+      // storage session stayed broken for the life of the process.
+      if (!isOnlineReported) {
+        continue;
+      }
+
+      failuresWhileOnline += 1;
+      if (!isReportedStuck && (failuresWhileOnline >= STUCK_AFTER_ONLINE_ATTEMPTS)) {
+        isReportedStuck = true;
+        await w3n.log(
+          'warning',
+          `Root folder could not be verified in ${failuresWhileOnline} attempts made while online`,
+        );
+        emitStorageEvent({
+          event: 'sync:stuck',
+          payload: { isStuck: true, reason: 'root-folder-not-verified' },
+        });
+      }
+    }
+
+    if (isReportedStuck) {
+      emitStorageEvent({ event: 'sync:stuck', payload: { isStuck: false } });
+    }
+
+    await initialSyncProcess();
+  }
+
+  await initialSyncProcess();
+
+  if (!rootState.verified) {
+    // Deliberately not awaited: the app has to come up and serve local reads
+    // while it waits for the server.
+    void verifyRootWhenConnected();
+  }
+
+  // TEMPORARY: covers a break of the storage event socket that the platform
+  // does not repair, after which watchTree above hears nothing and the devices
+  // stop converging. Remove together with watchStorageReconnection once the
+  // platform reconnects on its own.
+  watchStorageReconnection(() => {
+    void initialSyncProcess();
+  });
 
   return {
     fs,
@@ -312,13 +645,12 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
     getContact,
     getContactByMail,
 
+    checkAddressReachability,
+
     removeUnnecessaryImageFiles,
     initialSyncProcess,
   };
 }
-
-export type ContactsDenoSrvInternal = Omit<ContactsDenoSrv, 'fs' | 'addContact' | 'updateContact' | 'getContactByMail'>;
-export type ContactsDenoSrvExternal = Pick<ContactsDenoSrv, 'getContactByMail' | 'addContact' | 'upsertContact' | 'getContact' | 'getContactList'>;
 
 contactsDenoSrv()
   .then(srv => {
@@ -335,12 +667,12 @@ contactsDenoSrv()
       'getContactList',
       'getContact',
 
+      'checkAddressReachability',
+
       'removeUnnecessaryImageFiles',
       'initialSyncProcess',
     ]);
-    srvWrapInternal.exposeObservableMethods<Pick<ContactsDenoSrv, 'watchEvent'>>(srv, [
-      'watchEvent',
-    ]);
+    srvWrapInternal.exposeObservableMethods<Pick<ContactsDenoSrv, 'watchEvent'>>(srv, ['watchEvent']);
     srvWrapInternal.startIPC();
 
     srvWrap.exposeReqReplyMethods<ContactsDenoSrvExternal>(srv, [

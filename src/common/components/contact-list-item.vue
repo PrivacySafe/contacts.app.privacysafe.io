@@ -15,96 +15,127 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
 <script setup lang="ts">
-import { computed, onBeforeMount, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
-import { storeToRefs } from 'pinia';
-import { Ui3nIcon } from '@v1nt1248/3nclient-lib';
-import { useAppStore } from '@main/common/store/app.store.ts';
-import type { ContactListItem } from '@main/types';
-import { appContactsSrvProxy } from '@main/common/services/services-provider';
-import ContactIcon from '@main/common/components/contact-icon.vue';
+  import { computed, inject, onBeforeMount, onBeforeUnmount, ref, watch } from 'vue';
+  import { useRouter } from 'vue-router';
+  import { storeToRefs } from 'pinia';
+  import { Ui3nIcon } from '@v1nt1248/3nclient-lib';
+  import { VUEBUS_KEY, type VueBusPlugin } from '@v1nt1248/3nclient-lib/plugins';
+  import { useAppStore } from '@main/common/store/app.store.ts';
+  import type { AppGlobalEvents, ContactListItem } from '@main/types';
+  import { appContactsSrvProxy } from '@main/common/services/services-provider';
+  import ContactIcon from '@main/common/components/contact-icon.vue';
 
-const props = withDefaults(defineProps<{
-  item: ContactListItem;
-  selectedContactIds?: string[];
-  isMobileFormFactor?: boolean;
-}>(), {
-  selectedContactIds: () => [],
-});
-const emits = defineEmits<{
-  (event: 'select'): void;
-}>();
+  const props = withDefaults(
+    defineProps<{
+      item: ContactListItem;
+      selectedContactIds?: string[];
+      isMobileFormFactor?: boolean;
+    }>(),
+    {
+      selectedContactIds: () => [],
+    },
+  );
+  const emits = defineEmits<{
+    (event: 'select'): void;
+  }>();
 
-const router = useRouter();
-const { user } = storeToRefs(useAppStore());
+  const router = useRouter();
+  const { $emitter } = inject<VueBusPlugin<AppGlobalEvents>>(VUEBUS_KEY)!;
+  const { user } = storeToRefs(useAppStore());
 
-const isLoading = ref(false);
-const img = ref('');
-const imgGettingAttemptsNumber = ref(0);
-let imgTOut: ReturnType<typeof setTimeout> | null = null;
+  const isLoading = ref(false);
+  const img = ref('');
+  const imgGettingAttemptsNumber = ref(0);
+  let imgTOut: ReturnType<typeof setTimeout> | null = null;
 
-const iconStyle = computed(() => {
-  if (!img.value) {
-    return {};
+  const iconStyle = computed(() => {
+    if (!img.value) {
+      return {};
+    }
+
+    return { backgroundImage: `url(${img.value})` };
+  });
+
+  async function getAvatar() {
+    if (imgGettingAttemptsNumber.value >= 3) {
+      if (imgTOut) {
+        clearTimeout(imgTOut);
+        imgTOut = null;
+        imgGettingAttemptsNumber.value = 0;
+      }
+      return;
+    }
+
+    try {
+      isLoading.value = true;
+      imgGettingAttemptsNumber.value += 1;
+      const imgData = await appContactsSrvProxy.getImage(`${props.item.avatarId}-mini`);
+      if (imgData === '[error]') {
+        imgTOut = setTimeout(() => {
+          getAvatar();
+        }, 30000);
+      } else {
+        img.value = imgData;
+      }
+    } finally {
+      isLoading.value = false;
+    }
   }
 
-  return { backgroundImage: `url(${img.value})` };
-});
+  async function openContact() {
+    await router.push({ name: 'contact', params: { id: props.item.id } });
+  }
 
-async function getAvatar() {
-  if (imgGettingAttemptsNumber.value >= 3) {
+  function selectContact(ev: MouseEvent) {
+    ev.stopPropagation();
+    ev.preventDefault();
+    emits('select');
+  }
+
+  /**
+   * The retries in getAvatar are blind - three of them, 30s apart - so avatars
+   * whose bytes arrive later than that stayed blank until this item was built
+   * again. The service now reports a finished download as update:contact-list,
+   * which reaches here as this bus event, so a fresh attempt is made at the one
+   * moment it can succeed. Only for an item still missing its picture: for the
+   * rest this event says nothing new.
+   */
+  async function retryAvatarIfMissing() {
+    if (!props.item.avatarId || img.value) {
+      return;
+    }
+
+    imgGettingAttemptsNumber.value = 0;
+    await getAvatar();
+  }
+
+  onBeforeMount(async () => {
+    $emitter.on('contact-list:updated', retryAvatarIfMissing);
+    if (props.item.avatarId) {
+      await getAvatar();
+    }
+  });
+
+  onBeforeUnmount(() => {
+    $emitter.off('contact-list:updated', retryAvatarIfMissing);
     if (imgTOut) {
       clearTimeout(imgTOut);
       imgTOut = null;
-      imgGettingAttemptsNumber.value = 0;
     }
-    return;
-  }
+  });
 
-  try {
-    isLoading.value = true;
-    imgGettingAttemptsNumber.value += 1;
-    const imgData = await appContactsSrvProxy.getImage(`${props.item.avatarId}-mini`);
-    if (imgData === '[error]') {
-      imgTOut = setTimeout(() => {
-        getAvatar();
-      }, 30000);
-    } else {
-      img.value = imgData;
-    }
-  } finally {
-    isLoading.value = false;
-  }
-}
+  watch(
+    () => props.item.avatarId,
+    async (val, oVal) => {
+      if (val && val !== oVal) {
+        await getAvatar();
+      }
 
-async function openContact() {
-  await router.push({ name: 'contact', params: { id: props.item.id } });
-}
-
-function selectContact(ev: MouseEvent) {
-  ev.stopPropagation();
-  ev.preventDefault();
-  emits('select');
-}
-
-onBeforeMount(async () => {
-  if (props.item.avatarId) {
-    await getAvatar();
-  }
-});
-
-watch(
-  () => props.item.avatarId,
-  async (val, oVal) => {
-    if (val && val !== oVal) {
-      await getAvatar();
-    }
-
-    if (!val && val !== oVal) {
-      img.value = '';
-    }
-  },
-);
+      if (!val && val !== oVal) {
+        img.value = '';
+      }
+    },
+  );
 </script>
 
 <template>
@@ -112,15 +143,12 @@ watch(
     :class="[
       $style.contactListItem,
       isMobileFormFactor && $style.contactListItemMobile,
-      !isMobileFormFactor && selectedContactIds.includes(item.id) && $style.selected,
+      !isMobileFormFactor && selectedContactIds?.includes(item.id) && $style.selected,
     ]"
     @click="openContact"
   >
     <div
-      :class="[
-        $style.icon,
-        isMobileFormFactor && selectedContactIds.includes(item.id) && $style.iconSelected,
-      ]"
+      :class="[$style.icon, isMobileFormFactor && selectedContactIds?.includes(item.id) && $style.iconSelected]"
       :style="iconStyle"
       v-on="isMobileFormFactor ? { click: selectContact } : {}"
     >
@@ -128,12 +156,12 @@ watch(
         v-if="!img"
         :name="item.displayName"
         :size="32"
-        :selected="isMobileFormFactor && selectedContactIds.includes(item.id)"
+        :selected="isMobileFormFactor && selectedContactIds?.includes(item.id)"
         :readonly="isMobileFormFactor ? item.mail === user : true"
       />
 
       <div
-        v-if="isMobileFormFactor && img && selectedContactIds.includes(item.id)"
+        v-if="isMobileFormFactor && img && selectedContactIds?.includes(item.id)"
         :class="$style.iconSelectedIcon"
       >
         <div :class="$style.contactIconIcon">
@@ -166,147 +194,148 @@ watch(
 </template>
 
 <style lang="scss" module>
-@use '@main/common/assets/styles/_mixins' as mixins;
+  @use '@main/common/assets/styles/_mixins' as mixins;
 
-.contactListItem {
-  --contact-list-item-height: 48px;
-  --contact-list-item-icon-size: 32px;
+  .contactListItem {
+    --contact-list-item-height: 48px;
+    --contact-list-item-icon-size: 32px;
 
-  position: relative;
-  width: 100%;
-  height: var(--contact-list-item-height);
-  display: flex;
-  justify-content: flex-start;
-  align-items: center;
-  column-gap: var(--spacing-s);
-  padding: 0 var(--spacing-m) 0 var(--spacing-l);
-  font-size: var(--font-14);
-  font-weight: 500;
-  color: var(--color-text-control-primary-default);
-  cursor: pointer;
-
-  &.contactListItemMobile {
-    padding-left: var(--spacing-m);
-  }
-
-  &:hover {
-    background-color: var(--color-bg-control-primary-hover);
-  }
-
-  &.selected {
-    background-color: var(--color-bg-control-primary-hover);
-  }
-
-  .icon {
     position: relative;
-    width: var(--contact-list-item-icon-size);
-    min-width: var(--contact-list-item-icon-size);
-    height: var(--contact-list-item-icon-size);
-    border-radius: 50%;
-    border: 1px solid var(--color-border-block-primary-default);
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: cover;
+    width: calc(100% - 16px);
+    height: var(--contact-list-item-height);
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    column-gap: var(--spacing-s);
+    padding: 0 var(--spacing-m) 0 var(--spacing-l);
+    font-size: var(--font-14);
+    font-weight: 500;
+    color: var(--color-text-control-primary-default);
+    cursor: pointer;
+    user-select: none;
 
-    &.iconSelected {
-      &::before {
-        content: '';
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        background-color: transparent;
-        box-sizing: border-box;
-        border-radius: 50%;
-        border: 4px solid var(--default-fill-default);
-      }
-
-      &::after {
-        content: '';
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        background-color: transparent;
-        box-sizing: border-box;
-        border-radius: 50%;
-        border: 2px solid var(--color-border-control-accent-default);
-      }
+    &.contactListItemMobile {
+      padding-left: var(--spacing-m);
     }
 
-    .iconSelectedIcon {
-      position: absolute;
+    &:hover {
+      background-color: var(--color-bg-control-primary-hover);
+    }
+
+    &.selected {
+      background-color: var(--color-bg-control-primary-hover);
+    }
+
+    .icon {
+      position: relative;
       width: var(--contact-list-item-icon-size);
       min-width: var(--contact-list-item-icon-size);
       height: var(--contact-list-item-icon-size);
       border-radius: 50%;
       border: 1px solid var(--color-border-block-primary-default);
+      background-position: center;
+      background-repeat: no-repeat;
+      background-size: cover;
 
-      &::before {
-        content: '';
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        background-color: transparent;
-        box-sizing: border-box;
-        border-radius: 50%;
-        border: 4px solid var(--default-fill-default);
+      &.iconSelected {
+        &::before {
+          content: '';
+          position: absolute;
+          width: 100%;
+          height: 100%;
+          background-color: transparent;
+          box-sizing: border-box;
+          border-radius: 50%;
+          border: 4px solid var(--default-fill-default);
+        }
+
+        &::after {
+          content: '';
+          position: absolute;
+          width: 100%;
+          height: 100%;
+          background-color: transparent;
+          box-sizing: border-box;
+          border-radius: 50%;
+          border: 2px solid var(--color-border-control-accent-default);
+        }
       }
 
-      &::after {
-        content: '';
+      .iconSelectedIcon {
         position: absolute;
-        width: 100%;
-        height: 100%;
-        background-color: transparent;
-        box-sizing: border-box;
+        width: var(--contact-list-item-icon-size);
+        min-width: var(--contact-list-item-icon-size);
+        height: var(--contact-list-item-icon-size);
         border-radius: 50%;
-        border: 2px solid var(--color-border-control-accent-default);
+        border: 1px solid var(--color-border-block-primary-default);
+
+        &::before {
+          content: '';
+          position: absolute;
+          width: 100%;
+          height: 100%;
+          background-color: transparent;
+          box-sizing: border-box;
+          border-radius: 50%;
+          border: 4px solid var(--default-fill-default);
+        }
+
+        &::after {
+          content: '';
+          position: absolute;
+          width: 100%;
+          height: 100%;
+          background-color: transparent;
+          box-sizing: border-box;
+          border-radius: 50%;
+          border: 2px solid var(--color-border-control-accent-default);
+        }
+
+        .contactIconIcon {
+          position: absolute;
+          width: calc(100% / 3);
+          height: calc(100% / 3);
+          border-radius: 50%;
+          background-color: var(--color-border-control-accent-default);
+          bottom: 0;
+          right: 0;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 1;
+        }
       }
 
-      .contactIconIcon {
+      .loader {
         position: absolute;
-        width: calc(100% / 3);
-        height: calc(100% / 3);
-        border-radius: 50%;
-        background-color: var(--color-border-control-accent-default);
-        bottom: 0;
-        right: 0;
+        inset: 0;
         display: flex;
         justify-content: center;
         align-items: center;
-        z-index: 1;
+        background-color: transparent;
       }
     }
 
-    .loader {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background-color: transparent;
+    .name {
+      display: inline-block;
+      width: calc(100% - var(--spacing-xl));
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+
+      span {
+        display: block;
+        line-height: 1;
+        margin-bottom: var(--spacing-xs);
+        @include mixins.text-overflow-ellipsis(calc(100% - var(--spacing-xl)));
+      }
+
+      i {
+        display: block;
+        font-size: var(--font-12);
+        line-height: 1;
+        color: var(--color-text-block-secondary-default);
+      }
     }
   }
-
-  .name {
-    display: inline-block;
-    width: calc(100% - var(--spacing-xl));
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-
-    span {
-      display: block;
-      line-height: 1;
-      margin-bottom: var(--spacing-xs);
-      @include mixins.text-overflow-ellipsis(calc(100% - var(--spacing-xl)));
-    }
-
-    i {
-      display: block;
-      font-size: var(--font-12);
-      line-height: 1;
-      color: var(--color-text-block-secondary-default);
-    }
-  }
-}
 </style>

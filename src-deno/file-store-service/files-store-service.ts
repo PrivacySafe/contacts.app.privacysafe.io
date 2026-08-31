@@ -16,6 +16,7 @@
 */
 import { SingleProc } from '../../shared-libs/processes/single.ts';
 import { randomStr } from '../../src/common/services/base/random.ts';
+import { isUploadInFlight } from '../utils/upload-state.ts';
 
 export interface FilesStoreService {
   saveFile({ base64, id }: { base64: string; id?: string }): Promise<string>;
@@ -69,16 +70,34 @@ export async function filesStoreService(fs: web3n.files.WritableFS): Promise<Fil
       const buffer = Buffer.from(uint8Array);
       return buffer.toString('base64');
     } catch (e: unknown) {
-      w3n.log('error', `Error getting file ${entityId}. `, e);
-
       const { type, notFound } = e as web3n.files.FileException;
+      // A file that is in the folder listing while its bytes are still only on
+      // the server reads as not found. That is the normal state of another
+      // device's avatar until the download lands, so it is not an error: the
+      // caller is answered with '', which getImage turns into '[error]' - the
+      // signal the list item retries on.
       if (type === 'file' && notFound) {
         return '';
       }
+
+      w3n.log('error', `Error getting file ${entityId}. `, e);
     }
   }
 
   async function deleteFile(entityId: string): Promise<void> {
+    // Deleting a file whose upload is in flight makes the core reject its own
+    // background removeCurrentVersion with file/concurrentUpdate, unhandled,
+    // because this call has already resolved by then. Leaving the file alone
+    // turns it into an orphan, which removeUnnecessaryImageFiles collects on the
+    // next sweep - so the deletion still happens, just later.
+    if (await isUploadInFlight(fs, entityId)) {
+      w3n.log(
+        'info',
+        `Deletion of file ${entityId} is left to the next sweep: its upload is in flight`,
+      );
+      return;
+    }
+
     try {
       await fileProc.startOrChain(() => fs.deleteFile(entityId));
     } catch (e) {

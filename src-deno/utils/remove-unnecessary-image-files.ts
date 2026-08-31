@@ -17,12 +17,13 @@
 import { IMAGES_FOLDER } from '../constants.ts';
 import type { ContactEvent } from '../../src/types/index.ts';
 import { syncUpload } from '../utils/sync-upload.ts';
+import { isUploadInFlight } from '../utils/upload-state.ts';
 
-export async function removeUnnecessaryImageFiles(
-  fs: web3n.files.WritableFS,
-  getIdsOfAllFilesInUse: () => string[],
-  emitStorageEvent: (event: ContactEvent) => void,
-): Promise<void> {
+export async function removeUnnecessaryImageFiles({ fs, getIdsOfAllFilesInUse, emitStorageEvent }: {
+  fs: web3n.files.WritableFS;
+  getIdsOfAllFilesInUse: () => string[];
+  emitStorageEvent: (event: ContactEvent) => void;
+}): Promise<void> {
   const res = getIdsOfAllFilesInUse();
   const imageFilesInUse = res.reduce((res, fId) => {
     res.push(fId);
@@ -39,9 +40,30 @@ export async function removeUnnecessaryImageFiles(
     return res;
   }, [] as string[]);
 
-  const unnecessaryImageFiles = imagesOnFs.filter(fId => !imageFilesInUse.includes(fId));
-  console.log('🔵 REMOVE UNNECESSARY IMAGE FILES => ', JSON.stringify(unnecessaryImageFiles, null, 2));
-  if (Array.isArray(unnecessaryImageFiles) && unnecessaryImageFiles.length > 0 ) {
+  const orphaned = imagesOnFs.filter(fId => !imageFilesInUse.includes(fId));
+
+  // Deleting a file whose upload is in flight makes the core reject its own
+  // background removeCurrentVersion with file/concurrentUpdate, and that
+  // rejection is unhandled — our deleteFile has already resolved. An orphan is
+  // never urgent, so it is left for the next sweep instead (app start and every
+  // 24 hours).
+  const deferred: string[] = [];
+  const unnecessaryImageFiles: string[] = [];
+  for (const imageId of orphaned) {
+    if (await isUploadInFlight(fs, `${IMAGES_FOLDER}/${imageId}`)) {
+      deferred.push(imageId);
+    } else {
+      unnecessaryImageFiles.push(imageId);
+    }
+  }
+
+  console.log('🔵 REMOVE UNNECESSARY IMAGE FILES => ', JSON.stringify(unnecessaryImageFiles));
+  if (deferred.length > 0) {
+    console.log(
+      '🔵 DEFERRED, UPLOAD IN FLIGHT => ', JSON.stringify(deferred),
+    );
+  }
+  if (unnecessaryImageFiles.length > 0) {
     const promises = [] as Promise<void>[];
     for (const imageId of unnecessaryImageFiles) {
       promises.push(fs.deleteFile(`${IMAGES_FOLDER}/${imageId}`));

@@ -15,7 +15,7 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 import { makeServiceCaller } from '@shared/ipc/ipc-service-caller';
-import type { ContactsDenoSrvInternal } from '../../../src-deno/contacts-deno-srv';
+import type { ContactsDenoSrvInternal } from '@deno/types';
 
 export let appContactsSrvProxy: ContactsDenoSrvInternal;
 
@@ -32,6 +32,7 @@ export async function initializeServices() {
         'upsertContact',
         'deleteContact',
         'getContactList',
+        'checkAddressReachability',
         'removeUnnecessaryImageFiles',
         'initialSyncProcess',
       ],
@@ -39,6 +40,14 @@ export async function initializeServices() {
 
     console.info('<- SERVICES ARE INITIALIZED ->');
   } catch (e) {
-    console.error('# ERROR WHILE SERVICES INITIALISE # ', e);
+    // Deliberately swallowed, and that is load-bearing: main.ts mounts the app
+    // in the .then() of this call, so a rethrow would leave no window at all -
+    // and no way to tell the user why. The window's own mounting handler asks
+    // what went wrong and reports it; see reportWhyServiceIsUnavailable in
+    // useAppView. Kept at `info` for that reason, and routed through w3n.log
+    // rather than the console, which never reaches the platform's log files.
+    await w3n.log(
+      'info', 'Contacts service is not available at start-up; the window reports the reason', e,
+    );
   }
 }

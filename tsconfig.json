@@ -21,22 +21,20 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "baseUrl": ".",
     "paths": {
       "@main/*": ["./src/*"],
       "@shared/*": ["./shared-libs/*"],
+      "@deno/*": ["./src-deno/*"]
     }
   },
   "include": [
     "vite.config.ts",
+    "vitest.config.ts",
     "src/**/*",
     "shared-libs/**/*",
     "src-deno/**/*",
-    "@types/**/*",
+    "tests/unit/**/*",
+    "@types/**/*"
   ],
-  "exclude": [
-    "node_modules",
-    "public",
-    "app"
-  ]
+  "exclude": ["node_modules", "public", "app", "node_modules/.deno"]
 }

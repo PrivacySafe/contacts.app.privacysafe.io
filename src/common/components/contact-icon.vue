@@ -18,6 +18,7 @@
 import { computed } from 'vue';
 import { Ui3nIcon } from '@v1nt1248/3nclient-lib';
 import { generateColor } from '@main/common/utils/generate-color';
+import { initialsOf } from '@main/common/utils/contact-presentation';
 
 const props = defineProps<{
   size?: number;
@@ -30,23 +31,9 @@ const emit = defineEmits<{
   (e: 'click', event: MouseEvent): void;
 }>();
 
-const letters = computed<string>(() => {
-  if (!props.name || props.photo) return '';
-
-  const trimmed = props.name.trim();
-  if (!trimmed) return '';
-
-  if (trimmed.length === 1) {
-    return trimmed.toLocaleUpperCase();
-  }
-
-  const words = trimmed.split(/\s+/);
-  if (words.length >= 2 && words[0][0] && words[1][0]) {
-    return `${words[0][0].toLocaleUpperCase()}${words[1][0].toLocaleUpperCase()}`;
-  }
-
-  return `${trimmed[0].toLocaleUpperCase()}${trimmed[1]?.toLocaleLowerCase() ?? ''}`;
-});
+const letters = computed<string>(() => (
+  props.photo ? '' : initialsOf(props.name)
+));
 
 const innerSize = computed<number>(() => props.size || 24);
 const checkIconSize = computed<number>(() => Math.max(8, Math.floor(innerSize.value / 3) - 2));

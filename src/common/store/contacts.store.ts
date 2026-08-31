@@ -21,6 +21,8 @@ import difference from 'lodash/difference';
 import { appContactsSrvProxy } from '@main/common/services/services-provider';
 import { useAppStore } from '@main/common/store/app.store';
 import type { Person, PersonView, ContactListItem } from '@main/types';
+import { useI18n } from 'vue-i18n';
+import { includesMailAddress } from '@main/common/utils/mail-address';
 
 const contactFields: {
   field: Exclude<keyof ContactListItem, 'id'>;
@@ -34,15 +36,35 @@ const contactFields: {
 ];
 
 export const useContactsStore = defineStore('contacts', () => {
+
   const appStore = useAppStore();
+  const { t } = useI18n();
 
   const contacts = ref<ContactListItem[]>([]);
 
+  const contactDataFromCmd = ref<Person | null>(null);
+
   const currentContactIds = computed(() => contacts.value.map(c => c.id));
 
+  /**
+   * Contacts keyed by id, in display-name order.
+   *
+   * Sorted on a COPY: Array.prototype.sort mutates, so sorting `contacts` here
+   * made merely READING this computed reorder the array both list views render
+   * from. Their order then depended on whether anything had happened to read
+   * contactList first.
+   */
   const contactList = computed(() => {
     return contacts.value
-      .sort((a, b) => (a.displayName.toLocaleLowerCase() > b.displayName.toLocaleLowerCase() ? 1 : -1))
+      .slice()
+      .sort((a, b) => {
+        const nameA = (a.displayName || '').toLocaleLowerCase();
+        const nameB = (b.displayName || '').toLocaleLowerCase();
+        if (nameA === nameB) {
+          return 0;
+        }
+        return ((nameA > nameB) ? 1 : -1);
+      })
       .reduce(
         (res, item) => {
           res[item.id] = item;
@@ -54,14 +76,19 @@ export const useContactsStore = defineStore('contacts', () => {
 
   const mailAddressesUsed = computed(() => Object.values(contactList.value).map(p => p.mail));
 
+  /**
+   * Compared canonically, not as raw strings: 'Ann@3NWeb.com' and
+   * 'ann@3nweb.com' are one address, and reading them as two is how one person
+   * ends up as two contacts. The service's own duplicate check does the same.
+   */
   function isMailAddressInUse(mail: string, ignoredMailAddresses?: string[]): boolean {
-    const mailAddressesUsedFiltered = mailAddressesUsed.value.filter(
-      a => !(ignoredMailAddresses || []).includes(a),
+    const stillTaken = mailAddressesUsed.value.filter(
+      a => !includesMailAddress(ignoredMailAddresses || [], a),
     );
-    return mailAddressesUsedFiltered.includes(mail);
+    return includesMailAddress(stillTaken, mail);
   }
 
-  async function upsertContact(contact: Omit<Person, 'timestamp'>): Promise<
+  async function upsertContact(contact: Omit<Person, 'timestamp' | 'avatarImage'>): Promise<
     | Person
     | {
         errorType: string;
@@ -96,8 +123,8 @@ export const useContactsStore = defineStore('contacts', () => {
       (res, item) => {
         const newContact: ContactListItem = {
           id: item.id,
-          name: item.mail === appStore.user ? 'Me' : item.name,
-          displayName: item.mail === appStore.user ? 'Me' : item.name || item.mail,
+          name: item.mail === appStore.user ? t('contact.myself.name') : item.name,
+          displayName: item.mail === appStore.user ? t('contact.myself.name') : item.name || item.mail,
           mail: item.mail,
           avatarId: item.avatarId || '',
           avatarImage: item.avatarImage || '',
@@ -124,10 +151,10 @@ export const useContactsStore = defineStore('contacts', () => {
           }
           return res;
         }, [] as number[])
-        .sort()
-        .reverse();
-      for (let i = 0; i < removeIdsIndexes.length; i++) {
-        contacts.value.splice(i, 1);
+        .sort((a, b) => b - a);
+
+      for (const item of removeIdsIndexes) {
+        contacts.value.splice(item, 1);
       }
 
       for (const newContact of newContacts) {
@@ -206,6 +233,7 @@ export const useContactsStore = defineStore('contacts', () => {
 
   return {
     contacts,
+    contactDataFromCmd,
     contactList,
     isMailAddressInUse,
     upsertContactListItem,

@@ -10,8 +10,14 @@ export const inboxApp = Object.freeze({
   openCmd: 'open-inbox-with',
 });
 
+export const NEW_EMPTY_CONTACT_ID = 'new';
+export const NEW_POPULATED_CONTACT_ID = 'new-populated';
+export function isNewContactId(id: string|undefined|null): boolean {
+  return ((id === NEW_EMPTY_CONTACT_ID) || (id === NEW_POPULATED_CONTACT_ID));
+}
+
 export const EMPTY_CONTACT: Person = {
-  id: 'new',
+  id: NEW_EMPTY_CONTACT_ID,
   name: '',
   mail: '',
   avatarId: undefined,

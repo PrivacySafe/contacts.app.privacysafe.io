@@ -1,6 +1,7 @@
 import { createRouter, createWebHashHistory, RouteRecordRaw } from 'vue-router';
 import List from '@main/mobile/pages/list.vue';
 import Contact from '@main/mobile/pages/contact.vue';
+import { NEW_EMPTY_CONTACT_ID, NEW_POPULATED_CONTACT_ID } from '@main/common/constants';
 
 const routes: RouteRecordRaw[] = [
   { path: '/', redirect: '/list' },
@@ -33,7 +34,7 @@ export interface ContactRoute {
 
 export interface NewContactRoute extends ContactRoute {
   params: {
-    id: 'new';
+    id: (typeof NEW_EMPTY_CONTACT_ID) | (typeof NEW_POPULATED_CONTACT_ID);
   };
   query: {
     editMode: 'on';

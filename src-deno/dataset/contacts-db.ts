@@ -14,74 +14,83 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-empty-function */
 
 // @deno-types="../../shared-libs/sqlite-on-3nstorage/index.d.ts"
-import { SQLiteOn3NStorage, QueryExecResult } from '../../shared-libs/sqlite-on-3nstorage/index.js';
-import type { Person, PersonView } from '@main/types';
+import { SQLiteOn3NStorage } from '../../shared-libs/sqlite-on-3nstorage/index.js';
+import type { Person, PersonView, RawPerson } from '../../src/types/index.ts';
 import { randomStr } from '../../src/common/services/base/random.ts';
 import { makeContactsException } from '../utils/exceptions.ts';
+import { safeJsonParse } from '../utils/obj-processing.ts';
+import { isNewContactId } from '@main/common/constants/index.ts';
+import { canonicalMail } from '@main/common/utils/mail-address.ts';
+import {
+  objectFromQueryExecResult,
+  personValueToSqlInsertParams,
+  queryResultToPerson,
+} from './contact-row-mapping.ts';
 
-type SqlValue = number | string | Uint8Array | null;
+// Re-exported for existing importers; the implementations live in the pure,
+// sqlite-runtime-free contact-row-mapping module.
+export { objectFromQueryExecResult, personValueToSqlInsertParams, queryResultToPerson };
 
 export interface ContactDB {
-  insertContactInto: ({ contact, withoutSaveToFile }: {
-    contact: Person | Omit<Person, 'timestamp'>;
+  insertContactInto: ({
+    contact,
+    withoutSaveToFile,
+  }: {
+    contact: RawPerson | Omit<RawPerson, 'timestamp'> | Person | Omit<Person, 'timestamp' | 'avatarImage'>;
     withoutSaveToFile?: boolean;
   }) => Promise<Person>;
   getContactFrom: (id: string) => Person | undefined;
   getContactByMail: (mail: string) => Person | undefined;
-  updateContactInto: (contact: Person | Omit<Person, 'timestamp'>, withoutSaveToFile?: boolean) => Promise<Person>;
+  updateContactInto: (
+    contact: RawPerson | Omit<RawPerson, 'timestamp'> | Person | Omit<Person, 'timestamp' | 'avatarImage'>,
+    withoutSaveToFile?: boolean,
+  ) => Promise<Person>;
   deleteContactFrom: (id: string, withoutSaveToFile?: boolean) => Promise<boolean>;
   listAllContactsFrom: () => PersonView[];
-  updateContactsTable: (contacts: Omit<Person, 'avatarImage'>[], withoutSaveToFile?: boolean) => Promise<boolean>;
+  updateContactsTable: (
+    contacts: RawPerson[] | Omit<Person, 'avatarImage'>[],
+    withoutSaveToFile?: boolean,
+  ) => Promise<boolean>;
   getIdsOfAllFilesInUse: () => string[];
 }
 
-export function objectFromQueryExecResult<T>(sqlResult: QueryExecResult): T[] {
-  const { columns, values: rows } = sqlResult;
-  return rows.map((row: SqlValue[]) => row.reduce((obj, cellValue, index) => {
-    const field = columns[index] as keyof T;
-    obj[field] = cellValue as any;
-    return obj;
-  }, {} as T));
-}
-
-export async function contactDb(sqlite: SQLiteOn3NStorage): Promise<ContactDB> {
-  function personValueToSqlInsertParams(value: Omit<Person, 'avatarImage'>) {
-    return {
-      $id: value.id,
-      $name: value.name || null,
-      $mail: value.mail,
-      $avatarId: value.avatarId || null,
-      $timestamp: value.timestamp || 0,
-      $notice: value.notice || null,
-      $phone: value.phone || null,
-      $activities: Array.isArray(value.activities)
-        ? JSON.stringify(value.activities)
-        : null,
-      $settings: value.settings
-        ? JSON.stringify(value.settings)
-        : null,
-    };
+export async function contactDb(
+  sqlite: SQLiteOn3NStorage,
+  /**
+   * Called after every successful saveToFile. Used to upload the new local
+   * version to the server RIGHT AWAY: leaving the file 'unsynced' (local
+   * ahead of synced) opens a window in which the sync choreography
+   * (adoptRemote on remote-change echoes of our own uploads) resets the
+   * file node's version to the older synced one while the newer local
+   * version file stays registered — after which EVERY next save fails with
+   * "Version N already exists" (observed deterministically: fresh user,
+   * contact #1 saves fine, contact #2 always fails).
+   */
+  afterSave?: () => Promise<void>,
+): Promise<ContactDB> {
+  async function saveDbToFile(): Promise<void> {
+    await sqlite.saveToFile({ skipUpload: true });
+    // Failures here (e.g. offline) must not fail the local save: write
+    // itself succeeded, and syncUpload tolerates connect errors anyway.
+    await afterSave?.().catch(() => {});
   }
 
-  function queryResultToPerson(sqlResult: QueryExecResult, row = 0): Omit<Person, 'avatarImage'> {
-    const person = objectFromQueryExecResult<Omit<Person, 'avatarImage'>>(sqlResult)[row];
-    person.activities = person.activities !== null ? JSON.parse(person.activities as unknown as string) : [];
-    person.settings = person.settings !== null ? JSON.parse(person.settings as unknown as string) : {};
-    return person;
-  }
-
-  async function insertContactInto(
-    { contact, withoutSaveToFile }:
-    {
-      contact: Person | Omit<Person, 'timestamp'>;
-      withoutSaveToFile?: boolean;
-    },
-  ): Promise<Person> {
-    const contactData = JSON.parse(JSON.stringify(contact)) as Person | Omit<Person, 'timestamp'>;
-    if (!contactData.id || contactData.id === 'new') {
+  async function insertContactInto({
+    contact,
+    withoutSaveToFile,
+  }: {
+    contact: RawPerson | Omit<RawPerson, 'timestamp'> | Person | Omit<Person, 'timestamp' | 'avatarImage'>;
+    withoutSaveToFile?: boolean;
+  }): Promise<Person> {
+    const contactData = JSON.parse(JSON.stringify(contact)) as
+      | RawPerson
+      | Omit<RawPerson, 'timestamp'>
+      | Person
+      | Omit<Person, 'timestamp' | 'avatarImage'>;
+    if (isNewContactId(contactData.id)) {
       contactData.id = randomStr(8);
     }
 
@@ -89,9 +98,7 @@ export async function contactDb(sqlite: SQLiteOn3NStorage): Promise<ContactDB> {
       (contactData as Person).timestamp = Date.now();
     }
 
-    const params = personValueToSqlInsertParams({
-      ...contactData as Person,
-    });
+    const params = personValueToSqlInsertParams(contactData as Omit<Person, 'avatarImage'> | RawPerson);
     sqlite.db.exec(
       `--sql
     INSERT INTO contacts (id, name, mail, avatarId, timestamp, notice, phone, activities, settings)
@@ -106,7 +113,16 @@ export async function contactDb(sqlite: SQLiteOn3NStorage): Promise<ContactDB> {
     }
 
     if (!withoutSaveToFile && dbChanged && dbChanged > 0) {
-      await sqlite.saveToFile({ skipUpload: true });
+      try {
+        await saveDbToFile();
+      } catch (err) {
+        // Roll the in-memory INSERT back: leaving it in makes every retry hit
+        // a false "already exists" while the contact is absent from disk and
+        // vanishes on restart (observed with a storage version conflict).
+        sqlite.db.exec(`DELETE FROM contacts WHERE id = $id`, { $id: contactData.id });
+        await sqlite.saveToFile({ skipUpload: true });
+        throw err;
+      }
     }
 
     return contactData as Person;
@@ -119,24 +135,35 @@ export async function contactDb(sqlite: SQLiteOn3NStorage): Promise<ContactDB> {
       { $id: id },
     );
 
-    return ((sqlValue && (sqlValue.values.length === 1)) ?
-        queryResultToPerson(sqlValue, 0) : undefined
-    );
+    return sqlValue && sqlValue.values.length === 1 ? queryResultToPerson(sqlValue, 0) : undefined;
   }
 
+  /**
+   * Matched on the canonical form rather than by SQL equality: sqlite compares
+   * TEXT byte by byte, so 'Ann@3NWeb.com' would not find a stored
+   * 'ann@3nweb.com' and the duplicate check above it would let both in. The
+   * table is a personal address book, so scanning it is cheap.
+   */
   function getContactByMail(mail: string): Person | undefined {
+    const canonical = canonicalMail(mail);
+    if (!canonical) {
+      return undefined;
+    }
+
     const [sqlValue] = sqlite.db.exec(
       `--sql
-    SELECT * FROM contacts WHERE mail = $mail`,
-      { $mail: mail },
+    SELECT * FROM contacts`,
     );
+    if (!sqlValue || !sqlValue.values.length) {
+      return undefined;
+    }
 
-    const data = sqlValue && sqlValue.values.length ? objectFromQueryExecResult<Person>(sqlValue) : undefined;
-    return data ? data[0] : undefined
+    return objectFromQueryExecResult<Person>(sqlValue)
+    .find(contact => (canonicalMail(contact.mail) === canonical));
   }
 
   async function updateContactInto(
-    contact: Person | Omit<Person, 'timestamp'>,
+    contact: RawPerson | Omit<RawPerson, 'timestamp'> | Person | Omit<Person, 'timestamp' | 'avatarImage'>,
     withoutSaveToFile?: boolean,
   ): Promise<Person> {
     if (!contact.id) {
@@ -146,11 +173,15 @@ export async function contactDb(sqlite: SQLiteOn3NStorage): Promise<ContactDB> {
       });
     }
 
+    // Read the current row first, so a failed file save can restore it (an
+    // in-memory change that never reached disk must not survive the error).
+    const contactBeforeUpdate = getContactFrom(contact.id);
+
     const updatedContact = {
       ...contact,
       timestamp: Date.now(),
-    };
-    const params = personValueToSqlInsertParams({ ...updatedContact });
+    } as RawPerson | Omit<Person, 'avatarImage'>;
+    const params = personValueToSqlInsertParams(updatedContact);
 
     sqlite.db.exec(
       `--sql
@@ -161,14 +192,54 @@ export async function contactDb(sqlite: SQLiteOn3NStorage): Promise<ContactDB> {
     );
 
     const dbChanged = sqlite.db.getRowsModified();
-    if (!withoutSaveToFile && dbChanged && dbChanged > 0) {
-      await sqlite.saveToFile({ skipUpload: true });
+    // No row matched: the contact is not in the table. Returning the given
+    // object anyway told the caller "saved" for something that was never
+    // stored - and after a removal on another device that is exactly what a
+    // save of an open contact would do.
+    if (dbChanged === 0) {
+      throw makeContactsException({
+        contactNotFound: true,
+        message: `There is no contact with id ${contact.id}`,
+      });
     }
 
-    return updatedContact;
+    if (!withoutSaveToFile && dbChanged > 0) {
+      try {
+        await saveDbToFile();
+      } catch (err) {
+        if (contactBeforeUpdate) {
+          sqlite.db.exec(
+            `--sql
+            UPDATE contacts
+            SET name=$name, mail=$mail, avatarId=$avatarId, timestamp=$timestamp, notice=$notice, phone=$phone, activities=$activities, settings=$settings
+            WHERE id = $id`,
+            personValueToSqlInsertParams(contactBeforeUpdate),
+          );
+        }
+        throw err;
+      }
+    }
+
+    return {
+      ...updatedContact,
+      activities:
+        updatedContact.activities === null
+          ? null
+          : typeof updatedContact.activities === 'string'
+            ? safeJsonParse(updatedContact.activities)
+            : updatedContact.activities,
+      settings:
+        updatedContact.settings === null
+          ? null
+          : typeof updatedContact.settings === 'string'
+            ? safeJsonParse(updatedContact.settings)
+            : updatedContact.settings,
+    };
   }
 
   async function deleteContactFrom(id: string, withoutSaveToFile?: boolean): Promise<boolean> {
+    const contactBeforeDelete = getContactFrom(id);
+
     sqlite.db.exec(
       `--sql
       DELETE FROM contacts WHERE id = $id`,
@@ -177,7 +248,21 @@ export async function contactDb(sqlite: SQLiteOn3NStorage): Promise<ContactDB> {
 
     const dbChanged = sqlite.db.getRowsModified();
     if (!withoutSaveToFile && dbChanged && dbChanged > 0) {
-      await sqlite.saveToFile({ skipUpload: true });
+      try {
+        await saveDbToFile();
+      } catch (err) {
+        // Restore the in-memory row: the deletion never reached disk.
+        if (contactBeforeDelete) {
+          sqlite.db.exec(
+            `--sql
+          INSERT INTO contacts (id, name, mail, avatarId, timestamp, notice, phone, activities, settings)
+          VALUES ($id, $name, $mail, $avatarId, $timestamp, $notice, $phone, $activities, $settings)
+          ON CONFLICT(id) DO NOTHING`,
+            personValueToSqlInsertParams(contactBeforeDelete),
+          );
+        }
+        throw err;
+      }
     }
 
     return dbChanged > 0;
@@ -204,7 +289,7 @@ export async function contactDb(sqlite: SQLiteOn3NStorage): Promise<ContactDB> {
     }
 
     const res: string[] = [];
-    for (const value of (sqlValue.values as string[][])) {
+    for (const value of sqlValue.values as string[][]) {
       for (const item of value) {
         res.push(item);
       }
@@ -231,13 +316,14 @@ export async function contactDb(sqlite: SQLiteOn3NStorage): Promise<ContactDB> {
   }
 
   async function updateContactsTable(
-    contacts: Omit<Person, 'avatarImage'>[],
+    contacts: RawPerson[] | Omit<Person, 'avatarImage'>[],
     withoutSaveToFile?: boolean,
   ): Promise<boolean> {
     sqlite.db.exec(
       `--sql
       DROP TABLE contacts`,
     );
+
     createContactsTable();
 
     for (let i = 0; i < contacts.length; i++) {

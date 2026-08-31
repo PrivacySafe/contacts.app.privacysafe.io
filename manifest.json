@@ -1,20 +1,18 @@
 {
   "name": "Contacts",
   "appDomain": "contacts.app.privacysafe.io",
-  "version": "0.8.17",
+  "version": "0.8.32",
   "description": "Private address book for your contact list.",
   "icon": "logo.png",
 
   "components": {
-
     "/index.html": {
       "startedBy": "user",
       "runtime": "web-gui",
-      "formFactor": [ "desktop", "tablet" ],
+      "formFactor": ["desktop", "tablet"],
       "capsRequested": {
         "apps": "opener",
-        "logout": "all",
-        "log": "all",
+        "logToPlatform": true,
         "mailerid": true,
         "keyrings": "all",
         "shell": {
@@ -22,12 +20,8 @@
           "clipboard": "all",
           "startAppCmds": {
             "otherApps": {
-              "chat.app.privacysafe.io": [
-                "open-chat-with"
-              ],
-              "inbox.app.privacysafe.io": [
-                "open-inbox-with"
-              ]
+              "chat.app.privacysafe.io": ["open-chat-with"],
+              "inbox.app.privacysafe.io": ["open-inbox-with"]
             }
           },
           "fsResource": {
@@ -35,14 +29,14 @@
               "launcher.app.privacysafe.io": "ui-settings"
             }
           },
+          "userNotifications": true,
+          "scanUrlQR": true,
           "openDashboard": true
         },
         "storage": {
           "appFS": "default"
         },
-        "appRPC": [
-          "AppContactsInternal"
-        ],
+        "appRPC": ["AppContactsInternal", "AppContactsNew"],
         "connectivity": "check"
       },
       "windowOpts": {
@@ -50,6 +44,11 @@
         "height": 720,
         "minWidth": 760,
         "minHeight": 680
+      },
+      "startCmds": {
+        "add-contact": {
+          "otherApps": "*"
+        }
       }
     },
 
@@ -59,20 +58,16 @@
       "formFactor": "phone",
       "capsRequested": {
         "apps": "opener",
-        "logout": "all",
-        "log": "all",
+        "logToPlatform": true,
         "mailerid": true,
         "keyrings": "all",
         "shell": {
           "fileDialog": "all",
+          "clipboard": "all",
           "startAppCmds": {
             "otherApps": {
-              "chat.app.privacysafe.io": [
-                "open-chat-with"
-              ],
-              "inbox.app.privacysafe.io": [
-                "open-inbox-with"
-              ]
+              "chat.app.privacysafe.io": ["open-chat-with"],
+              "inbox.app.privacysafe.io": ["open-inbox-with"]
             }
           },
           "fsResource": {
@@ -80,15 +75,20 @@
               "launcher.app.privacysafe.io": "ui-settings"
             }
           },
+          "userNotifications": true,
+          "scanUrlQR": true,
           "openDashboard": true
         },
         "storage": {
           "appFS": "default"
         },
-        "appRPC": [
-          "AppContactsInternal"
-        ],
+        "appRPC": ["AppContactsInternal"],
         "connectivity": "check"
+      },
+      "startCmds": {
+        "add-contact": {
+          "otherApps": "*"
+        }
       }
     },
 
@@ -100,14 +100,28 @@
         },
         "AppContactsInternal": {
           "thisAppComponents": "*"
+        },
+        "AppContactsNew": {
+          "thisAppComponents": ["/index.html", "/index-mobile.html"]
         }
       },
       "runtime": "deno",
       "capsRequested": {
-        "log": "all",
+        "logToPlatform": true,
         "mailerid": true,
         "mail": {
           "preflightsTo": "all"
+        },
+        "shell": {
+          "startAppCmds": {
+            "thisApp": ["add-contact"]
+          },
+          "userNotifications": true,
+          "fsResource": {
+            "otherApps": {
+              "launcher.app.privacysafe.io": "ui-settings"
+            }
+          }
         },
         "storage": {
           "appFS": "default"
@@ -115,7 +129,6 @@
         "connectivity": "check"
       }
     }
-
   },
 
   "launchers": [
@@ -124,7 +137,7 @@
       "icon": "logo.png",
       "description": "Private address book for your contact list.",
       "component": "/index.html",
-      "formFactor": [ "desktop", "tablet" ]
+      "formFactor": ["desktop", "tablet"]
     },
     {
       "name": "Contacts",
@@ -143,5 +156,4 @@
       "description": "Warms up contacts app service"
     }
   ]
-
 }

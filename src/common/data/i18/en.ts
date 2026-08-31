@@ -29,7 +29,7 @@ export const en = {
       synced: 'synced',
       unsynced: 'unsynced',
     },
-    exit: 'Log out',
+    exit: 'Close',
     btn: {
       cancel: 'Cancel',
       save: 'Save',
@@ -40,6 +40,13 @@ export const en = {
         online: 'You are currently online. All previously made changes will be synchronized.',
         offline: 'You are currently offline. All changes will stay on this device till it gets connected.',
       },
+    },
+    warning: {
+      'sync-stuck':
+        'Synchronization has not resumed, although this device is online. Changes are being kept on this device. Restart the app to sync them.',
+      'first-run-needs-network':
+        'This app has to be started once while online: its storage cannot be created on this device without the server. Connect and start the app again.',
+      'service-unavailable': 'The contacts service did not start. Restart the app.',
     },
   },
   action: {
@@ -54,7 +61,7 @@ export const en = {
         tooltip: 'Open a chat with the contact',
       },
       mail: {
-        tooltip: 'Create a message to the the contact',
+        tooltip: 'Create a message to the contact',
       },
     },
     show: {
@@ -99,6 +106,9 @@ export const en = {
       phone: 'Phone',
       note: 'Note',
     },
+    myself: {
+      name: 'Me',
+    },
     dialog: {
       title: {
         'own-keys': 'Own Keys',
@@ -115,7 +125,8 @@ export const en = {
   },
   'keys-info': {
     'key-on-server': {
-      'no-key': 'No introductory public key is present on the server. Without such key new people can\'t send you messages, while existing contacts with established communication key chains can continue sending you messages.',
+      'no-key':
+        "No introductory public key is present on the server. Without such key new people can't send you messages, while existing contacts with established communication key chains can continue sending you messages.",
       section: 'Introductory Public Key on ASMail Server',
       btn: {
         'make-new': 'Create New Key',
@@ -132,13 +143,32 @@ export const en = {
     'your-key-id': 'Your Key Id',
     'contact-key-id': `Contact's Key Id`,
     'contact-intro-key-id': `Contact's Introductory Key Id`,
-    'expiry': 'Expiry',
-    'alg': 'Algorithm',
+    expiry: 'Expiry',
+    alg: 'Algorithm',
     'mid-certifier': 'MailerId certifier',
-    'timestamp': 'Timestamp',
+    timestamp: 'Timestamp',
     'last-msg-ts': 'Last used at',
     'num-of-sent-msgs': 'Number of sent messages',
     'received-msgs': 'Received messages',
     'random-pids': 'Randomized Pair Ids',
+  },
+  reachability: {
+    'not-present-at-domain':
+      'There is no such account at that domain, so {mail} cannot receive messages. Check the address.',
+    'no-service-for-domain':
+      'That domain runs no 3NWeb messaging service, so {mail} cannot receive messages.',
+    'access-restricted':
+      '{mail} exists but restricts who may write to it, so your message may not be accepted.',
+    offline: 'Available when online.',
+    'contact-not-saved': 'Available after the contact is saved.',
+  },
+  qrcode: {
+    'save-dialog-title': 'Save QR Code',
+    'save-dialog-button': 'Save ME',
+    'save-qr-tooltip': 'Save / Download QR Code',
+    'copy-link-tooltip': 'Copy Link',
+    'copy-link-text': 'Link Copied',
+    'save-success': 'QR Code save successfully',
+    'save-invalid': 'Invalid image format',
   },
 };

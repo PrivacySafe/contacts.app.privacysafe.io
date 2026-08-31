@@ -5,6 +5,7 @@ node_modules
 /test-user*.json
 /test-runner
 /test-data
+/tests/report
 /temp
 /setup-w3n.bundle.js
 
@@ -30,4 +31,5 @@ yarn-error.log*
 
 # Tmp files
 .~*
-pnpm-workspace.yaml
+.claude/
+plans/

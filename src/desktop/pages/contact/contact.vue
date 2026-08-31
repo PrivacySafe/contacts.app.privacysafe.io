@@ -15,69 +15,76 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
 <script setup lang="ts">
-import { inject, onBeforeMount, onBeforeUnmount, watch, type WatchHandle } from 'vue';
-import { useI18n } from 'vue-i18n';
-import { VUEBUS_KEY, type VueBusPlugin } from '@v1nt1248/3nclient-lib/plugins';
-import { Ui3nProgressCircular, Ui3nButton, Ui3nTooltip } from '@v1nt1248/3nclient-lib';
-import { useContact } from '@main/common/composables/useContact';
-import type { AppGlobalEvents } from '@main/types';
-import ContactBody from '@main/common/components/contact-content.vue';
+  import { inject, onBeforeMount, onBeforeUnmount, watch, type WatchHandle } from 'vue';
+  import { useI18n } from 'vue-i18n';
+  import { VUEBUS_KEY, type VueBusPlugin } from '@v1nt1248/3nclient-lib/plugins';
+  import { Ui3nProgressCircular, Ui3nButton, Ui3nTooltip } from '@v1nt1248/3nclient-lib';
+  import { useContact } from '@main/common/composables/useContact';
+  import type { AppGlobalEvents } from '@main/types';
+  import ContactBody from '@main/common/components/contact-content.vue';
+  import CustomScrollBar from '@main/common/components/custom-scroll-bar.vue';
 
-const { t } = useI18n();
-const { $emitter } = inject<VueBusPlugin<AppGlobalEvents>>(VUEBUS_KEY)!;
+  const { t } = useI18n();
+  const { $emitter } = inject<VueBusPlugin<AppGlobalEvents>>(VUEBUS_KEY)!;
 
-const {
-  contentEl,
-  isLoading,
-  contactId,
-  contact,
-  isUserAddress,
-  whetherContactChanged,
-  contactAvatarStyle,
-  contactLetters,
-  imageProcessing,
-  contactValid,
-  rules,
-  getContactData,
-  delContact,
-  uploadImage,
-  deleteImage,
-  openChat,
-  openInbox,
-  showOwnKeysInfo,
-  showContactKeysInfo,
-  onFieldUpdate,
-  saveContact,
-  cancel,
-} = useContact();
+  const {
+    contentEl,
+    isLoading,
+    contactIdFromURL: contactId,
+    contact,
+    isUserAddress,
+    isContactNew,
+    whetherContactChanged,
+    contactAvatarStyle,
+    contactLetters,
+    imageProcessing,
+    contactValid,
+    rules,
+    getContactData,
+    delContact,
+    uploadImage,
+    deleteImage,
+    openChat,
+    openInbox,
+    canReachOtherApps,
+    canShowContactKeys,
+    disabledActionReason,
+    showOwnKeysInfo,
+    showContactKeysInfo,
+    onFieldUpdate,
+    saveContact,
+    cancel,
+    showQRcode,
+  } = useContact();
 
-const routeWatching: WatchHandle = watch(
-  contactId,
-  async () => {
-    await getContactData();
-    if (contentEl.value) {
-      contentEl.value.scrollTop = 0;
-    }
-  }, {
-    immediate: true,
-  }
-);
+  const routeWatching: WatchHandle = watch(
+    contactId,
+    async () => {
+      await getContactData();
+      if (contentEl.value) {
+        contentEl.value.scrollTop = 0;
+      }
+    },
+    {
+      immediate: true,
+    },
+  );
 
-onBeforeMount(() => {
-  $emitter.on('contact-list:updated', getContactData);
-});
+  onBeforeMount(() => {
+    $emitter.on('contact-list:updated', getContactData);
+  });
 
-onBeforeUnmount(() => {
-  routeWatching && routeWatching.stop();
-  $emitter.off('contact-list:updated', getContactData);
-});
+  onBeforeUnmount(() => {
+    routeWatching && routeWatching.stop();
+    $emitter.off('contact-list:updated', getContactData);
+  });
 </script>
 
 <template>
   <div :class="$style.contact">
     <div :class="$style.header">
       <ui3n-button
-        v-if="!isUserAddress && contact?.id !== 'new'"
+        v-if="!isUserAddress && !isContactNew"
         type="icon"
         color="transparent"
         icon="outline-delete"
@@ -123,7 +130,7 @@ onBeforeUnmount(() => {
       <div :class="$style.headerActions">
         <ui3n-tooltip
           v-if="!isUserAddress"
-          :content="t('action.open.chat.tooltip')"
+          :content="canReachOtherApps ? t('action.open.chat.tooltip') : disabledActionReason"
           position-strategy="fixed"
           placement="top"
         >
@@ -132,13 +139,14 @@ onBeforeUnmount(() => {
             icon="outline-chat"
             icon-size="16"
             icon-color="var(--color-icon-button-primary-default)"
+            :disabled="!canReachOtherApps"
             @click="openChat"
           />
         </ui3n-tooltip>
 
         <ui3n-tooltip
           v-if="!isUserAddress"
-          :content="t('action.open.mail.tooltip')"
+          :content="canReachOtherApps ? t('action.open.mail.tooltip') : disabledActionReason"
           position-strategy="fixed"
           placement="top"
         >
@@ -147,6 +155,7 @@ onBeforeUnmount(() => {
             icon="outline-mail"
             icon-size="16"
             icon-color="var(--color-icon-button-primary-default)"
+            :disabled="!canReachOtherApps"
             @click="openInbox"
           />
         </ui3n-tooltip>
@@ -168,7 +177,7 @@ onBeforeUnmount(() => {
 
         <ui3n-tooltip
           v-if="!isUserAddress"
-          :content="t('action.show.keys.contact')"
+          :content="canShowContactKeys ? t('action.show.keys.contact') : disabledActionReason"
           position-strategy="fixed"
           placement="top"
         >
@@ -177,7 +186,22 @@ onBeforeUnmount(() => {
             icon="round-key"
             icon-size="16"
             icon-color="var(--color-icon-button-primary-default)"
+            :disabled="!canShowContactKeys"
             @click="showContactKeysInfo"
+          />
+        </ui3n-tooltip>
+
+        <ui3n-tooltip
+          content="Share QR"
+          position-strategy="fixed"
+          placement="top"
+        >
+          <ui3n-button
+            type="icon"
+            icon="round-qr-code"
+            icon-size="16"
+            icon-color="var(--color-icon-button-primary-default)"
+            @click="showQRcode(contact!.id)"
           />
         </ui3n-tooltip>
       </div>
@@ -187,15 +211,17 @@ onBeforeUnmount(() => {
       ref="contentEl"
       :class="$style.content"
     >
-      <contact-body
-        v-if="contact"
-        :contact="contact"
-        :valid="contactValid"
-        :rules="rules"
-        :disabled="isUserAddress"
-        @update:field="onFieldUpdate"
-        @update:valid="contactValid = $event"
-      />
+      <custom-scroll-bar>
+        <contact-body
+          v-if="contact"
+          :contact="contact"
+          :valid="contactValid"
+          :rules="rules"
+          :disabled="isUserAddress"
+          @update:field="onFieldUpdate"
+          @update:valid="contactValid = $event"
+        />
+      </custom-scroll-bar>
     </div>
 
     <div :class="$style.actions">
@@ -227,106 +253,107 @@ onBeforeUnmount(() => {
 </template>
 
 <style lang="scss" module>
-.contact {
-  --contact-header-height: 184px;
-  --contact-avatar-size: 128px;
-  --contact-actions-height: 64px;
+  .contact {
+    --contact-header-height: 184px;
+    --contact-avatar-size: 128px;
+    --contact-actions-height: 64px;
 
-  position: relative;
-  width: 100%;
-  height: 100%;
-  padding-top: var(--spacing-m);
-}
+    position: relative;
+    width: 100%;
+    height: 100%;
+    padding-top: var(--spacing-m);
+    user-select: none;
+  }
 
-.header {
-  position: relative;
-  width: 100%;
-  height: var(--contact-header-height);
-}
+  .header {
+    position: relative;
+    width: 100%;
+    height: var(--contact-header-height);
+  }
 
-.delBtn {
-  position: absolute;
-  top: 0;
-  right: var(--spacing-s);
-}
+  .delBtn {
+    position: absolute;
+    top: 0;
+    right: var(--spacing-s);
+  }
 
-.avatar {
-  position: relative;
-  width: var(--contact-avatar-size);
-  height: var(--contact-avatar-size);
-  border-radius: 50%;
-  user-select: none;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: cover;
-  margin: 0 auto var(--spacing-m) auto;
-  color: var(--color-text-avatar-primary-default);
-  -webkit-font-smoothing: antialiased;
-  font-size: 50px;
-  font-weight: 500;
-  cursor: pointer;
+  .avatar {
+    position: relative;
+    width: var(--contact-avatar-size);
+    height: var(--contact-avatar-size);
+    border-radius: 50%;
+    user-select: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    margin: 0 auto var(--spacing-m) auto;
+    color: var(--color-text-avatar-primary-default);
+    -webkit-font-smoothing: antialiased;
+    font-size: 50px;
+    font-weight: 500;
+    cursor: pointer;
 
-  &:hover {
-    .avatarBtn {
-      display: flex;
+    &:hover {
+      .avatarBtn {
+        display: flex;
+      }
     }
   }
-}
 
-.avatarBtn {
-  display: none;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.progress {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1;
-}
-
-.headerActions {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  column-gap: var(--spacing-s);
-  padding-bottom: var(--spacing-s);
-
-  button {
-    border-radius: var(--spacing-xs) !important;
+  .avatarBtn {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
   }
-}
 
-.content {
-  position: relative;
-  width: 100%;
-  height: calc(100% - var(--contact-header-height) - var(--contact-actions-height));
-  padding: 0 var(--spacing-s) 0 var(--spacing-m);
-}
+  .progress {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1;
+  }
 
-.actions {
-  display: flex;
-  height: var(--contact-actions-height);
-  justify-content: flex-end;
-  align-items: center;
-  padding-right: var(--spacing-m);
-  column-gap: var(--spacing-s);
-}
+  .headerActions {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    column-gap: var(--spacing-s);
+    padding-bottom: var(--spacing-s);
 
-.loader {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
+    button {
+      border-radius: var(--spacing-xs) !important;
+    }
+  }
+
+  .content {
+    position: relative;
+    width: 100%;
+    height: calc(100% - var(--contact-header-height) - var(--contact-actions-height));
+    padding: 0 0 0 var(--spacing-m);
+  }
+
+  .actions {
+    display: flex;
+    height: var(--contact-actions-height);
+    justify-content: flex-end;
+    align-items: center;
+    padding-right: var(--spacing-m);
+    column-gap: var(--spacing-s);
+  }
+
+  .loader {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
 </style>
