@@ -150,7 +150,7 @@
     <div
       :class="[$style.icon, isMobileFormFactor && selectedContactIds?.includes(item.id) && $style.iconSelected]"
       :style="iconStyle"
-      v-on="isMobileFormFactor ? { click: selectContact } : {}"
+      v-on="isMobileFormFactor && item.mail !== user ? { click: selectContact } : {}"
     >
       <contact-icon
         v-if="!img"
@@ -247,17 +247,6 @@
           box-sizing: border-box;
           border-radius: 50%;
           border: 4px solid var(--default-fill-default);
-        }
-
-        &::after {
-          content: '';
-          position: absolute;
-          width: 100%;
-          height: 100%;
-          background-color: transparent;
-          box-sizing: border-box;
-          border-radius: 50%;
-          border: 2px solid var(--color-border-control-accent-default);
         }
       }
 
