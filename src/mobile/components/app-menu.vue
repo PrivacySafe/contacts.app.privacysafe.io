@@ -1,14 +1,36 @@
 <script lang="ts" setup>
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Ui3nButton } from '@v1nt1248/3nclient-lib';
 import ContactIcon from '@main/common/components/contact-icon.vue';
+import type { AppMenuAction } from '@main/types';
 
 defineProps<{
   user: string;
-  appExit?: () => void;
+}>();
+
+const emits = defineEmits<{
+  (event: 'close'): void;
+  (event: 'action', value: AppMenuAction): void;
 }>();
 
 const { t } = useI18n();
+
+const menuItems = computed<{ id: AppMenuAction; icon: string; label: string }[]>(() => [
+  { id: 'make-backup', icon: 'outline-file-download', label: t('app.menu.makeBackup') },
+  { id: 'upload-backup', icon: 'outline-file-upload', label: t('app.menu.uploadBackup') },
+  { id: 'exit', icon: 'round-logout', label: t('app.menu.exit') },
+]);
+
+/**
+ * The drawer is closed BEFORE the action is passed on: every action here opens
+ * a dialog, and leaving the drawer up would put it behind the greyed-out panel
+ * this menu lays over the content.
+ */
+function onMenuItemClick(id: AppMenuAction) {
+  emits('close');
+  emits('action', id);
+}
 </script>
 
 <template>
@@ -28,12 +50,20 @@ const { t } = useI18n();
     </div>
 
     <div :class="$style.appMenuBody">
-      <ui3n-button
-        :class="$style.logout"
-        @click="() => appExit && appExit()"
-      >
-        {{ t('app.exit') }}
-      </ui3n-button>
+      <div :class="$style.actions">
+        <ui3n-button
+          v-for="item in menuItems"
+          :key="item.id"
+          type="outline"
+          size="large"
+          block
+          :icon="item.icon"
+          icon-position="left"
+          @click="onMenuItemClick(item.id)"
+        >
+          {{ item.label }}
+        </ui3n-button>
+      </div>
     </div>
   </div>
 </template>
@@ -87,10 +117,13 @@ const { t } = useI18n();
   padding: var(--spacing-m) 0 64px;
 }
 
-.logout {
+.actions {
   position: absolute;
   left: var(--spacing-m);
   width: calc(100% - var(--spacing-l));
   bottom: var(--spacing-m);
+  display: flex;
+  flex-direction: column;
+  row-gap: var(--spacing-s);
 }
 </style>

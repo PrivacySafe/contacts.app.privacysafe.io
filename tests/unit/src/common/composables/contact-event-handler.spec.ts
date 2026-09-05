@@ -31,6 +31,8 @@ function setup(over: Partial<Record<string, unknown>> = {}) {
     openContactId: vi.fn(() => undefined as string | undefined),
     listedContactIds: vi.fn(() => [] as string[]),
     goToContactList: vi.fn(async () => undefined),
+    onBackupProgress: vi.fn(),
+    onRestoreProgress: vi.fn(),
     ...over,
   };
   return { deps, handle: makeContactEventHandler(deps as never) };
@@ -256,6 +258,51 @@ describe('contact event handler', () => {
         currentRouteName: vi.fn(() => 'contact'),
         openContactId: vi.fn(() => 'new'),
         listedContactIds: vi.fn(() => ['a1']),
+      });
+
+      await handle({ event: 'update:contact-list' } as ContactEvent);
+
+      expect(deps.goToContactList).toHaveBeenCalled();
+    });
+
+  });
+
+  describe('backup and restore progress', () => {
+
+    // Progress events only move a progress bar. Refetching the list on them
+    // would mean hundreds of refetches over one restore.
+    it('passes backup progress on without refetching the list', async () => {
+      const { deps, handle } = setup();
+      const payload = {
+        stage: 'compressing', totalFiles: 10, processedFiles: 3, percent: 30,
+      };
+
+      await handle({ event: 'backup', payload } as ContactEvent);
+
+      expect(deps.onBackupProgress).toHaveBeenCalledWith(payload);
+      expect(deps.fetchContacts).not.toHaveBeenCalled();
+    });
+
+    it('passes restore progress on without refetching the list', async () => {
+      const { deps, handle } = setup();
+      const payload = {
+        stage: 'restoring-images', totalFiles: 4, processedFiles: 1, percent: 12,
+      };
+
+      await handle({ event: 'restore', payload } as ContactEvent);
+
+      expect(deps.onRestoreProgress).toHaveBeenCalledWith(payload);
+      expect(deps.fetchContacts).not.toHaveBeenCalled();
+    });
+
+    // A restore renumbers every contact, so the card the user had open is
+    // almost certainly gone. It is update:contact-list, emitted once the table
+    // has been swapped, that has to get them off it.
+    it('leaves an open contact card on the update that follows a restore', async () => {
+      const { deps, handle } = setup({
+        currentRouteName: vi.fn(() => 'contact'),
+        openContactId: vi.fn(() => 'old-id'),
+        listedContactIds: vi.fn(() => ['fresh-id']),
       });
 
       await handle({ event: 'update:contact-list' } as ContactEvent);

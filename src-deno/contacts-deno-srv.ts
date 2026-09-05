@@ -21,6 +21,7 @@ import { setupGlobalReportingOfUnhandledErrors } from '../shared-libs/error-hand
 import { sleep } from '../shared-libs/processes/sleep.ts';
 import { SingleProc } from '../shared-libs/processes/single.ts';
 import { filesStoreService } from './file-store-service/files-store-service.ts';
+import { contactsBackupSrv } from './contacts-backup-srv.ts';
 import { contactDb } from './dataset/contacts-db.ts';
 import { checkServerConnection } from './utils/check-server-connection.ts';
 import { checkAddressExistenceForASMail } from './utils/contact-checks.ts';
@@ -166,6 +167,36 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
     return rootState.holdUploads;
   }
 
+  /**
+   * Set while a backup is being restored.
+   *
+   * A restore replaces the whole contacts table and rewrites the avatar files,
+   * and three background activities would undo or corrupt that if they ran in
+   * the middle of it: the debounced db upload (publishing a half-written
+   * table), the sweep of unused avatars (deleting freshly restored pictures the
+   * old table does not reference yet), and the remote-change handling (its own
+   * DROP-and-refill of the same table). The first two are skipped outright
+   * while this is set; the third is serialized through dbStateProc below.
+   */
+  let restoreInProgress = false;
+
+  function setRestoreInProgress(value: boolean): void {
+    restoreInProgress = value;
+  }
+
+  /**
+   * Serializes everything that rewrites the contacts table wholesale: the
+   * remote-change handling, the startup sync pass, and a restore.
+   *
+   * These used to be unsynchronized against each other - the watchTree handler
+   * took no lock at all - so two interleaved DROP-and-refill cycles could leave
+   * the address book in pieces. It cannot be sqlite.sync(): the conflict branch
+   * of handleDbFileSyncStatus goes on to call saveToFile, which takes the same
+   * proc and deadlocks. Note that startOrChain queues rather than re-enters, so
+   * nothing taken under this proc may await another action that also takes it.
+   */
+  const dbStateProc = new SingleProc();
+
   const sqlite = await openContactsDb(fs);
   const imagesFolder = await fs.writableSubRoot(IMAGES_FOLDER);
 
@@ -191,8 +222,9 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
   async function runDbUpload(): Promise<void> {
     // Skipped rather than queued: once the root is verified, the initial sync
     // pass finds the file `unsynced` and uploads whatever the newest local
-    // version is by then.
-    if (areUploadsHeld()) {
+    // version is by then. The same holds for a restore, which ends by running
+    // that pass itself.
+    if (areUploadsHeld() || restoreInProgress) {
       return;
     }
 
@@ -215,6 +247,13 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
   }
 
   function scheduleDbUpload(): Promise<void> {
+    // A restore writes the table through the same save path, and its last
+    // insert would arm this timer for a file the restore is about to publish
+    // itself, in one deliberate pass.
+    if (restoreInProgress) {
+      return Promise.resolve();
+    }
+
     if (dbUploadTimer !== null) {
       clearTimeout(dbUploadTimer);
     }
@@ -267,19 +306,23 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
         }
 
         case 'remote-change': {
-          if (processedPath === CONTACTS_DB_FILE) {
-            // NOT wrapped in sqlite.sync(): the handler's conflict branch
-            // calls contactDbSrv.updateContactsTable → saveToFile →
-            // syncProc.startOrChain, which deadlocks when already inside a
-            // sync() action (service then never starts). Serializing this
-            // with local writes needs re-entrancy support in
-            // sqlite-on-3nstorage first.
-            await handleDbFileSyncStatus({ fs, sqlite, contactDbSrv, emitStorageEvent });
-          } else if (processedPath.includes(IMAGES_FOLDER)) {
-            await handleImagesFolderSyncStatus({ fs, emitStorageEvent });
-          } else {
-            await handleRootFolderSyncStatus({ fs, sqlite, contactDbSrv, emitStorageEvent });
-          }
+          // Taken under dbStateProc, so that this cannot interleave with the
+          // startup sync pass or with a restore - all three rewrite the same
+          // table. NOT wrapped in sqlite.sync(): the handler's conflict branch
+          // calls contactDbSrv.updateContactsTable → saveToFile →
+          // syncProc.startOrChain, which deadlocks when already inside a
+          // sync() action (service then never starts). Serializing this
+          // with local writes needs re-entrancy support in
+          // sqlite-on-3nstorage first.
+          await dbStateProc.startOrChain(async () => {
+            if (processedPath === CONTACTS_DB_FILE) {
+              await handleDbFileSyncStatus({ fs, sqlite, contactDbSrv, emitStorageEvent });
+            } else if (processedPath.includes(IMAGES_FOLDER)) {
+              await handleImagesFolderSyncStatus({ fs, emitStorageEvent });
+            } else {
+              await handleRootFolderSyncStatus({ fs, sqlite, contactDbSrv, emitStorageEvent });
+            }
+          });
           break;
         }
       }
@@ -491,6 +534,17 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
       return;
     }
 
+    // Between writing the restored avatars and swapping the table, the table
+    // still in place references none of them - so a sweep landing in that
+    // window deletes every picture the restore just wrote, silently. The
+    // restore lifts this flag before running the sync pass that sweeps.
+    if (restoreInProgress) {
+      await w3n.log(
+        'info', 'Sweep of unused image files is skipped: a restore is running',
+      );
+      return;
+    }
+
     return _removeUnnecessaryImageFiles({
       fs,
       getIdsOfAllFilesInUse: contactDbSrv.getIdsOfAllFilesInUse,
@@ -499,11 +553,10 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
   }
 
   // Serialized, so that the pass started on a regained connection cannot
-  // interleave with one the GUI asks for over IPC.
-  const initialSyncProc = new SingleProc();
-
+  // interleave with one the GUI asks for over IPC - nor with the remote-change
+  // handling or a restore, which is why it shares dbStateProc with them.
   async function initialSyncProcess(): Promise<void> {
-    return initialSyncProc.startOrChain(runInitialSyncProcess);
+    return dbStateProc.startOrChain(runInitialSyncProcess);
   }
 
   async function runInitialSyncProcess(): Promise<void> {
@@ -612,6 +665,19 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
     await initialSyncProcess();
   }
 
+  const backupSrv = await contactsBackupSrv({
+    fs,
+    sqlite,
+    contactDbSrv,
+    filesSrv,
+    imagesFolder,
+    emitStorageEvent,
+    areUploadsHeld,
+    initialSyncProcess,
+    setRestoreInProgress,
+    dbStateProc,
+  });
+
   await initialSyncProcess();
 
   if (!rootState.verified) {
@@ -647,6 +713,8 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
 
     checkAddressReachability,
 
+    ...backupSrv,
+
     removeUnnecessaryImageFiles,
     initialSyncProcess,
   };
@@ -668,6 +736,11 @@ contactsDenoSrv()
       'getContact',
 
       'checkAddressReachability',
+
+      'createBackupArchive',
+      'cancelBackupArchive',
+      'validateBackupArchive',
+      'restoreBackupArchive',
 
       'removeUnnecessaryImageFiles',
       'initialSyncProcess',

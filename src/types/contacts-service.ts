@@ -78,6 +78,70 @@ export interface ContactUpdateEvent {
   };
 }
 
+export interface BackupProgress {
+  stage: 'scanning' | 'compressing' | 'encrypting' | 'saving'
+  | 'completed' | 'error' | 'cancelled';
+  totalFiles: number;
+  processedFiles: number;
+  currentFile?: string;
+  percent: number;
+}
+
+export interface ContactBackupEvent {
+  event: 'backup';
+  payload: BackupProgress;
+}
+
+export interface RestoreProgress {
+  stage: 'unpacking' | 'decrypting' | 'restoring-images' | 'restoring-contacts'
+  | 'syncing' | 'completed' | 'error';
+  totalFiles: number;
+  processedFiles: number;
+  currentFile?: string;
+  /**
+   * Restored on this device, but not published: uploads were held because the
+   * root folder is not verified against the server yet. The data is safe, it
+   * just has not left the device.
+   */
+  syncDeferred?: boolean;
+  percent: number;
+}
+
+export interface ContactRestoreEvent {
+  event: 'restore';
+  payload: RestoreProgress;
+}
+
+/** Why an archive cannot be read. Distinct from "read, but not compatible". */
+export type BackupArchiveError =
+  'corrupted_archive'
+  | 'foreign_archive'
+  | 'no_contacts_db'
+  | 'unreadable_db'
+  | 'passphrase_required'
+  | 'wrong_passphrase'
+  | 'encryption_unsupported';
+
+/** Why an archive is readable, yet its provenance cannot be confirmed. */
+export type BackupVersionWarning =
+  'missing_metadata' | 'invalid_metadata' | 'version_mismatch';
+
+export interface BackupValidationResult {
+  /** Whether the archive can be read at all. Only this blocks a restore. */
+  valid: boolean;
+  /** Whether its layout is one this build knows; false only warns the user. */
+  compatible: boolean;
+  appVersion: string;
+  archiveVersion?: string;
+  formatVersion?: number;
+  /** Set by the gui, which owns the container the passphrase protects. */
+  encrypted?: boolean;
+  contactsCount?: number;
+  imagesCount?: number;
+  warningReason?: BackupVersionWarning;
+  error?: BackupArchiveError;
+}
+
 export type ContactEvent =
   | ContactSyncStartEvent
   | ContactSyncEndEvent
@@ -86,7 +150,9 @@ export type ContactEvent =
   | ContactListUpdate
   | ContactAddEvent
   | ContactRemoveEvent
-  | ContactUpdateEvent;
+  | ContactUpdateEvent
+  | ContactBackupEvent
+  | ContactRestoreEvent;
 
 export interface PersonView {
   id: string;

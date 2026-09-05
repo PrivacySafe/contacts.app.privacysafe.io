@@ -3,6 +3,7 @@ node_modules
 /dist
 /app
 /test-user*.json
+/test-setup*.json
 /test-runner
 /test-data
 /tests/report
@@ -33,3 +34,4 @@ yarn-error.log*
 .~*
 .claude/
 plans/
+run-test-mac-*.sh

@@ -18,6 +18,7 @@
 // sqlite/3NStorage import so that it can be unit-tested without pulling in the
 // ~1MB precompiled sqlite-on-3nstorage bundle.
 import { normalizeJsonField } from './obj-processing.ts';
+import { randomStr } from '../../src/common/services/base/random.ts';
 import type { Person, RawPerson } from '../../src/types/index.ts';
 
 interface ValidatedContactField {
@@ -71,6 +72,37 @@ export function normalizeContactRow(contact: RawPerson): RawPerson {
     }
   }
   return normalized;
+}
+
+/**
+ * Renumbers duplicated primary keys, keeping the FIRST occurrence.
+ *
+ * resolveDbFileConflict matches rows by mail and leaves every remote-only row
+ * with the id it was created under on the other device. Two devices can pick
+ * the same randomStr(8) for different contacts, and updateContactsTable inserts
+ * through insertContactInto, which throws contactAlreadyExists on a primary key
+ * clash - failing the whole merge. Remote-only rows are appended last, so the
+ * local row is the one that keeps its id.
+ *
+ * Restoring a backup needs the same guarantee for the same reason, and reaching
+ * for it there must not pull in the sqlite runtime - which is why this lives in
+ * the pure module rather than next to its first caller.
+ */
+export function ensureUniqueContactIds(contacts: RawPerson[]): RawPerson[] {
+  const seen = new Set<string>();
+  return contacts.map(contact => {
+    if (!seen.has(contact.id)) {
+      seen.add(contact.id);
+      return contact;
+    }
+
+    let id = randomStr(8);
+    while (seen.has(id)) {
+      id = randomStr(8);
+    }
+    seen.add(id);
+    return { ...contact, id };
+  });
 }
 
 /**

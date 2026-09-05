@@ -19,9 +19,15 @@ import { SQLiteOn3NStorage } from '../../shared-libs/sqlite-on-3nstorage/index.j
 import { ContactDB, objectFromQueryExecResult } from '../dataset/contacts-db.ts';
 import { CONTACTS_DB_FILE, IMAGES_FOLDER } from '../constants.ts';
 import { syncUpload } from './sync-upload.ts';
-import { normalizeContactRow, resolveDbFileConflict } from './db-file-conflict.ts';
-import { randomStr } from '../../src/common/services/base/random.ts';
+import {
+  ensureUniqueContactIds, normalizeContactRow, resolveDbFileConflict,
+} from './db-file-conflict.ts';
 import type { ContactEvent, RawPerson } from '../../src/types/index.ts';
+
+// Re-exported for existing importers; the implementation moved to the pure
+// db-file-conflict module, so that the backup service can reach it without
+// pulling in the sqlite runtime this file imports.
+export { ensureUniqueContactIds };
 
 /** Children this app puts into its root folder. Anything else is unexpected. */
 const knownRootChildren = [CONTACTS_DB_FILE, IMAGES_FOLDER];
@@ -34,33 +40,6 @@ const knownRootChildren = [CONTACTS_DB_FILE, IMAGES_FOLDER];
 function isInRemoteBranch(diff: web3n.files.FolderDiff, name: string): boolean {
   return !!diff.nameOverlaps?.includes(name)
   || !!diff.added?.inRemote?.includes(name);
-}
-
-/**
- * Renumbers duplicated primary keys, keeping the FIRST occurrence.
- *
- * resolveDbFileConflict matches rows by mail and leaves every remote-only row
- * with the id it was created under on the other device. Two devices can pick
- * the same randomStr(8) for different contacts, and updateContactsTable inserts
- * through insertContactInto, which throws contactAlreadyExists on a primary key
- * clash - failing the whole merge. Remote-only rows are appended last, so the
- * local row is the one that keeps its id.
- */
-export function ensureUniqueContactIds(contacts: RawPerson[]): RawPerson[] {
-  const seen = new Set<string>();
-  return contacts.map(contact => {
-    if (!seen.has(contact.id)) {
-      seen.add(contact.id);
-      return contact;
-    }
-
-    let id = randomStr(8);
-    while (seen.has(id)) {
-      id = randomStr(8);
-    }
-    seen.add(id);
-    return { ...contact, id };
-  });
 }
 
 /**

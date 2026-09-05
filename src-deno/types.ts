@@ -1,4 +1,11 @@
-import type { AddressCheckResult, ContactEvent, Person, RawPerson } from '../src/types/index.ts';
+import type {
+  AddressCheckResult,
+  BackupValidationResult,
+  ContactEvent,
+  Person,
+  RawPerson,
+} from '../src/types/index.ts';
+import type { BackupMetadataContent } from './utils/backup-archive.ts';
 
 export interface ContactsDenoSrv {
   fs: web3n.files.WritableFS;
@@ -45,6 +52,30 @@ export interface ContactsDenoSrv {
 
   /** ASMail's answer on whether the address can receive, or undefined if unknown. */
   checkAddressReachability: (addr: string) => Promise<AddressCheckResult | undefined>;
+
+  /**
+   * Backup and restore. The archive bytes travel over ipc rather than being
+   * written here, because the file dialogs are a gui capability: the deno
+   * component is not granted shell.fileDialog, and does not need to be.
+   */
+  /**
+   * With `forEncryption` the archive comes back without its metadata file: the
+   * gui encrypts it and puts the metadata into the container around it.
+   * `skippedImages` comes back too, since only this side knows what had to be
+   * left out of the archive.
+   */
+  createBackupArchive: (
+    opts?: { forEncryption?: boolean },
+  ) => Promise<{ bytes: Uint8Array; skippedImages: string[] }>;
+  cancelBackupArchive: () => Promise<boolean>;
+  /**
+   * Takes the archive already decrypted by the gui. An encrypted archive keeps
+   * its metadata in the container outside, so the gui passes it in.
+   */
+  validateBackupArchive: (
+    archiveBytes: Uint8Array, outerMetadata?: BackupMetadataContent,
+  ) => Promise<BackupValidationResult>;
+  restoreBackupArchive: (archiveBytes: Uint8Array) => Promise<boolean>;
 
   removeUnnecessaryImageFiles: () => Promise<void>;
   initialSyncProcess: () => Promise<void>;

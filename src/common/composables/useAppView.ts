@@ -19,17 +19,22 @@ import { computed, inject, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
-import { VueBusPlugin, VUEBUS_KEY, NotificationsPlugin, NOTIFICATIONS_KEY } from '@v1nt1248/3nclient-lib/plugins';
+import {
+  VueBusPlugin, VUEBUS_KEY, NotificationsPlugin, NOTIFICATIONS_KEY,
+  DialogsPlugin, DIALOGS_KEY,
+} from '@v1nt1248/3nclient-lib/plugins';
 import { makeServiceCaller } from '@shared/ipc/ipc-service-caller';
 import { appContactsSrvProxy } from '@main/common/services/services-provider';
 import { useAppStore } from '@main/common/store/app.store';
 import { useSyncStore } from '@main/common/store/sync.store';
 import { useContactsStore } from '@main/common/store/contacts.store';
 import { useConnectivityStatus } from '@main/common/composables/useConnectivityStatus';
-import type { AppGlobalEvents } from '@main/types';
+import type { AppGlobalEvents, AppMenuAction } from '@main/types';
 import type { ContactsDenoSrv } from '@deno/types';
 import { useCommandHandler } from '@main/common/composables/useCommandHandler';
 import { makeContactEventHandler } from '@main/common/composables/contact-event-handler';
+import { useBackupRestore } from '@main/common/composables/use-backup-restore';
+import BackupCreatingDialog from '@main/common/components/dialogs/backup-creating-dialog.vue';
 
 export type AppViewInstance = ReturnType<typeof useAppView>;
 
@@ -40,12 +45,15 @@ export function useAppView() {
 
   const { $emitter } = inject<VueBusPlugin<AppGlobalEvents>>(VUEBUS_KEY)!;
   const { $createNotice } = inject<NotificationsPlugin>(NOTIFICATIONS_KEY)!;
+  const dialog = inject<DialogsPlugin>(DIALOGS_KEY);
 
   const { connectivityStatus } = useConnectivityStatus();
 
   const appStore = useAppStore();
   const { user, appElement, appVersion, customLogoSrc, globalLoading } = storeToRefs(appStore);
-  const { setGlobalLoading } = appStore;
+  const { setGlobalLoading, onBackupProgress, onRestoreProgress } = appStore;
+
+  const { askBackupPassphrase, runRestoreWorkflow } = useBackupRestore();
 
   const syncStore = useSyncStore();
   const { isSyncRunning } = storeToRefs(syncStore);
@@ -112,6 +120,41 @@ export function useAppView() {
     w3n.closeSelf!();
   }
 
+  async function makeBackup() {
+    // The passphrase is settled before the work starts: the archive is built
+    // and encrypted in one pass, and there is nothing to ask for afterwards.
+    const choice = await askBackupPassphrase();
+    if (!choice) {
+      return;
+    }
+
+    await dialog?.$openDialog(BackupCreatingDialog, {
+      passphrase: choice.passphrase,
+      dialogProps: {
+        icon: 'outline-file-download',
+        title: t('backup.create.dialogTitle'),
+        cssStyle: { width: '570px', maxWidth: '95%' },
+        hideCloseButton: true,
+        confirmButton: false,
+        cancelButton: false,
+        closeOnClickOverlay: false,
+      },
+    });
+  }
+
+  async function runMenuAction(action: AppMenuAction) {
+    switch (action) {
+      case 'make-backup':
+        return makeBackup();
+      case 'upload-backup':
+        return void await runRestoreWorkflow();
+      case 'exit':
+        return appExit();
+      default:
+        return undefined;
+    }
+  }
+
   const { start: startHandlingCommands } = useCommandHandler();
 
   watch(
@@ -147,6 +190,8 @@ export function useAppView() {
     openContactId: () => route.params.id as string | undefined,
     listedContactIds: () => contacts.value.map(c => c.id),
     goToContactList: () => router.push({ name: 'contacts' }),
+    onBackupProgress,
+    onRestoreProgress,
   });
 
   let tu: ReturnType<typeof setInterval> | null = null;
@@ -209,6 +254,7 @@ export function useAppView() {
     persistentWarning,
     globalLoading,
     appExit,
+    runMenuAction,
     doBeforeMount,
     doBeforeUnmount,
   };

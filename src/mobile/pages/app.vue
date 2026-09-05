@@ -37,7 +37,7 @@
     persistentWarning,
     globalLoading,
     isSyncRunning,
-    appExit,
+    runMenuAction,
     doBeforeMount,
     doBeforeUnmount,
   } = useAppView();
@@ -61,8 +61,8 @@
       >
         <app-menu
           :user="user"
-          :app-exit="appExit"
           @close="isMenuOpen = false"
+          @action="runMenuAction"
         />
       </div>
     </transition>

@@ -26,3 +26,6 @@ export interface AppConfig {
 }
 
 export type ConnectivityStatus = 'offline' | 'online';
+
+/** What the app menu can ask for. Shared by the desktop and the mobile menu. */
+export type AppMenuAction = 'make-backup' | 'upload-backup' | 'exit';

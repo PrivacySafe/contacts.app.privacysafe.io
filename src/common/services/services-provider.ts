@@ -33,6 +33,12 @@ export async function initializeServices() {
         'deleteContact',
         'getContactList',
         'checkAddressReachability',
+
+        'createBackupArchive',
+        'cancelBackupArchive',
+        'validateBackupArchive',
+        'restoreBackupArchive',
+
         'removeUnnecessaryImageFiles',
         'initialSyncProcess',
       ],

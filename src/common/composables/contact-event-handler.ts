@@ -19,7 +19,7 @@
 // Collaborators arrive as plain functions, keeping this module free of pinia
 // and vue-router.
 import { CONTACTS_DB_FILE } from '@deno/constants';
-import type { ContactEvent } from '@main/types';
+import type { BackupProgress, ContactEvent, RestoreProgress } from '@main/types';
 
 export interface ContactEventHandlerDeps {
   addToSyncList: (path: string) => void;
@@ -38,6 +38,10 @@ export interface ContactEventHandlerDeps {
   openContactId: () => string | undefined;
   listedContactIds: () => string[];
   goToContactList: () => Promise<unknown>;
+  /** Progress of a backup being written, for the dialog that shows it. */
+  onBackupProgress: (progress: BackupProgress) => void;
+  /** Progress of a restore, likewise. */
+  onRestoreProgress: (progress: RestoreProgress) => void;
 }
 
 /** Path reported for the synced FS root, which arrives as an empty string. */
@@ -75,6 +79,19 @@ export function makeContactEventHandler(
 
       case 'sync:stuck': {
         deps.setSyncStuck(evt.payload.isStuck);
+        break;
+      }
+
+      // Progress only: the workflows themselves live in the store and the
+      // composable that started them, and the list is refetched off
+      // update:contact-list, which a restore emits when it swaps the table.
+      case 'backup': {
+        deps.onBackupProgress(evt.payload);
+        break;
+      }
+
+      case 'restore': {
+        deps.onRestoreProgress(evt.payload);
         break;
       }
 
