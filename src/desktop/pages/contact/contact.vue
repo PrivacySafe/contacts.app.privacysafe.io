@@ -55,6 +55,7 @@
     saveContact,
     cancel,
     showQRcode,
+    canShowQr,
   } = useContact();
 
   const routeWatching: WatchHandle = watch(
@@ -201,6 +202,7 @@
             icon="round-qr-code"
             icon-size="16"
             icon-color="var(--color-icon-button-primary-default)"
+            :disabled="!canShowQr"
             @click="showQRcode(contact!.id)"
           />
         </ui3n-tooltip>

@@ -160,10 +160,8 @@ export const en = {
   reachability: {
     'not-present-at-domain':
       'There is no such account at that domain, so {mail} cannot receive messages. Check the address.',
-    'no-service-for-domain':
-      'That domain runs no 3NWeb messaging service, so {mail} cannot receive messages.',
-    'access-restricted':
-      '{mail} exists but restricts who may write to it, so your message may not be accepted.',
+    'no-service-for-domain': 'That domain runs no 3NWeb messaging service, so {mail} cannot receive messages.',
+    'access-restricted': '{mail} exists but restricts who may write to it, so your message may not be accepted.',
     offline: 'Available when online.',
     'contact-not-saved': 'Available after the contact is saved.',
   },
@@ -171,8 +169,7 @@ export const en = {
     passphrase: {
       createTitle: 'Protect the backup',
       openTitle: 'Passphrase required',
-      createHint:
-        'A passphrase encrypts the archive. Leave both fields empty to save it unencrypted.',
+      createHint: 'A passphrase encrypts the archive. Leave both fields empty to save it unencrypted.',
       openHint: 'This backup archive is encrypted. Enter the passphrase it was created with.',
       label: 'Passphrase',
       repeatLabel: 'Repeat passphrase',
@@ -184,8 +181,7 @@ export const en = {
       mismatch: 'The two passphrases do not match.',
       tooShort: 'A passphrase has to be at least {count} characters long.',
       noRecovery: 'A forgotten passphrase cannot be recovered: the archive stays unreadable.',
-      optional:
-        'Without a passphrase the archive is only as private as the place you keep it in.',
+      optional: 'Without a passphrase the archive is only as private as the place you keep it in.',
     },
     create: {
       dialogTitle: 'Creating backup',
@@ -242,5 +238,9 @@ export const en = {
     'copy-link-text': 'Link Copied',
     'save-success': 'QR Code save successfully',
     'save-invalid': 'Invalid image format',
+    'color-qr-tooltip': 'Change Color',
+    'color-close-panel': 'Close',
+    'copy-link-error': 'Error copying link',
+    'download-qr-error': 'Error saving QR Code image',
   },
 };

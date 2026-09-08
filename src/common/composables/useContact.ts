@@ -57,7 +57,6 @@ import ContactKeysInfoDialog from '@main/common/components/dialogs/contact-keys-
 import ShareQrDialog from '@main/common/components/dialogs/share-qr-code-dialog.vue';
 
 export function useContact() {
-
   const route = useRoute();
   const router = useRouter();
 
@@ -94,31 +93,31 @@ export function useContact() {
    * the user types, which used to be enough to enable the buttons for something
    * the other apps have no record of.
    */
-  const canReachOtherApps = computed(() => (
-    (connectivityStatus.value === 'online')
-    && !!contact.value?.mail
-    && !isUserAddress.value
-    && !isContactNew.value
-  ));
+  const canReachOtherApps = computed(
+    () =>
+      connectivityStatus.value === 'online' &&
+      !!contact.value?.mail &&
+      !isUserAddress.value &&
+      !isContactNew.value,
+  );
 
   /**
    * Keys are looked up for an existing correspondent, so there is nothing to
    * show for a contact that has not been saved. Unlike the two above this needs
    * no network: what is displayed comes from the keyring.
    */
-  const canShowContactKeys = computed(() => (
-    !isUserAddress.value && !isContactNew.value
-  ));
+  const canShowContactKeys = computed(() => !isUserAddress.value && !isContactNew.value);
 
+  const canShowQr = computed(() => !isContactNew.value);
   /**
    * Why an action that needs a real correspondent is disabled. Both reasons
    * look the same to the eye - a greyed out button - so the tooltip has to say
    * which one it is; saying "available when online" to someone who simply has
    * not saved the contact yet sends them looking for a network problem.
    */
-  const disabledActionReason = computed(() => (
-    isContactNew.value ? t('reachability.contact-not-saved') : t('reachability.offline')
-  ));
+  const disabledActionReason = computed(() =>
+    isContactNew.value ? t('reachability.contact-not-saved') : t('reachability.offline'),
+  );
   const contactDisplayName = computed(() =>
     isUserAddress.value ? t('contact.myself.name') : contact.value?.name || contact.value?.mail || ' ',
   );
@@ -329,19 +328,19 @@ export function useContact() {
   }
 
   async function openChat() {
-    await withReachabilityCheck(() => w3n.shell!.startAppWithParams!(
-      chatApp.domain, chatApp.openCmd, {
+    await withReachabilityCheck(() =>
+      w3n.shell!.startAppWithParams!(chatApp.domain, chatApp.openCmd, {
         peerAddress: contact.value!.mail,
-      } as OpenChatCmdArg,
-    ));
+      } as OpenChatCmdArg),
+    );
   }
 
   async function openInbox() {
-    await withReachabilityCheck(() => w3n.shell!.startAppWithParams!(
-      inboxApp.domain, inboxApp.openCmd, {
+    await withReachabilityCheck(() =>
+      w3n.shell!.startAppWithParams!(inboxApp.domain, inboxApp.openCmd, {
         peerAddress: contact.value!.mail,
-      } as OpenInboxCmdArg,
-    ));
+      } as OpenInboxCmdArg),
+    );
   }
 
   async function showOwnKeysInfo() {
@@ -378,6 +377,7 @@ export function useContact() {
         confirmButton: false,
         cancelButton: false,
         closeOnClickOverlay: true,
+        width: 350,
       },
     });
   }
@@ -502,5 +502,6 @@ export function useContact() {
     uploadImage,
     deleteImage,
     showQRcode,
+    canShowQr,
   };
 }

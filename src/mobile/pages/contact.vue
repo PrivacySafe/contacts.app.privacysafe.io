@@ -24,8 +24,8 @@
   import ContactBody from '@main/common/components/contact-content.vue';
   import OwnKeysInfoDialog from '@main/common/components/dialogs/own-keys-info-dialog.vue';
   import ContactKeysInfoDialog from '@main/common/components/dialogs/contact-keys-info-dialog.vue';
-  import { EMPTY_CONTACT } from '@main/common/constants';
   import ShareQrDialog from '@main/common/components/dialogs/share-qr-code-dialog.vue';
+  import { EMPTY_CONTACT } from '@main/common/constants';
 
   const { goToList, goToContact, getEditStateFromRoute, goBack } = useRouting();
   const { t } = useI18n();
