@@ -84,11 +84,25 @@ describe('personValueToSqlInsertParams', () => {
   it('stringifies the array/object shapes carried by Person', () => {
     const params = paramsOf(person({
       activities: [{ id: 'a1' }] as unknown as Person['activities'],
-      settings: { s: 1 } as unknown as Person['settings'],
+      settings: { s: 1 },
     }));
 
     expect(params.$activities).toBe('[{"id":"a1"}]');
     expect(params.$settings).toBe('{"s":1}');
+  });
+
+  // `settings` is a typed object now, so the one key the app actually reads
+  // has to survive the trip through the TEXT column unchanged.
+  it('round-trips the blockUser settings flag', () => {
+    const params = paramsOf(person({ settings: { blockUser: true } }));
+
+    expect(params.$settings).toBe('{"blockUser":true}');
+
+    const read = queryResultToPerson(queryResult([
+      ['c1', 'ann@3nweb.com', 'Ann', null, 42, null, null, null, params.$settings],
+    ]));
+
+    expect(read.settings).toEqual({ blockUser: true });
   });
 
   it('passes through the string shapes carried by RawPerson', () => {

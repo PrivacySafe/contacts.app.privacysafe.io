@@ -17,6 +17,7 @@
 <script setup lang="ts">
   import { computed, inject, onBeforeMount, onBeforeUnmount, ref, watch } from 'vue';
   import { useRouter } from 'vue-router';
+  import { useI18n } from 'vue-i18n';
   import { storeToRefs } from 'pinia';
   import { Ui3nIcon } from '@v1nt1248/3nclient-lib';
   import { VUEBUS_KEY, type VueBusPlugin } from '@v1nt1248/3nclient-lib/plugins';
@@ -41,6 +42,7 @@
 
   const router = useRouter();
   const { $emitter } = inject<VueBusPlugin<AppGlobalEvents>>(VUEBUS_KEY)!;
+  const { t } = useI18n();
   const { user } = storeToRefs(useAppStore());
 
   const isLoading = ref(false);
@@ -55,6 +57,8 @@
 
     return { backgroundImage: `url(${img.value})` };
   });
+
+  const isContactBlocked = computed(() => !!props.item.settings?.blockUser);
 
   async function getAvatar() {
     if (imgGettingAttemptsNumber.value >= 3) {
@@ -190,6 +194,13 @@
       <span>{{ item.displayName }}</span>
       <i>{{ item.mail }}</i>
     </div>
+
+    <div
+      v-if="isContactBlocked"
+      :class="$style.banned"
+    >
+      {{ t('contact.block.mark') }}
+    </div>
   </div>
 </template>
 
@@ -201,13 +212,15 @@
     --contact-list-item-icon-size: 32px;
 
     position: relative;
-    width: calc(100% - 16px);
+    width: calc(100% - 24px);
     height: var(--contact-list-item-height);
     display: flex;
     justify-content: flex-start;
     align-items: center;
     column-gap: var(--spacing-s);
-    padding: 0 var(--spacing-m) 0 var(--spacing-l);
+    border-radius: 4px;
+    margin-left: 8px;
+    padding: 0 var(--spacing-m);
     font-size: var(--font-14);
     font-weight: 500;
     color: var(--color-text-control-primary-default);
@@ -215,7 +228,8 @@
     user-select: none;
 
     &.contactListItemMobile {
-      padding-left: var(--spacing-m);
+      width: calc(100% - 12px);
+      margin-left: 0;
     }
 
     &:hover {
@@ -325,6 +339,21 @@
         line-height: 1;
         color: var(--color-text-block-secondary-default);
       }
+    }
+
+    .banned {
+      position: absolute;
+      height: var(--spacing-m);
+      right: var(--spacing-m);
+      top: 50%;
+      transform: translateY(-50%);
+      padding: 0 var(--spacing-s);
+      border-radius: 2px;
+      background-color: var(--warning-fill-default);
+      font-size: var(--font-10);
+      line-height: var(--spacing-m);
+      font-weight: 700;
+      color: var(--warning-content-default);
     }
   }
 </style>

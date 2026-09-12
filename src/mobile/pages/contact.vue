@@ -18,7 +18,7 @@
   import { computed, onBeforeUnmount, ref, watch, type WatchHandle } from 'vue';
   import { useI18n } from 'vue-i18n';
   import cloneDeep from 'lodash/cloneDeep';
-  import { Ui3nButton, Ui3nProgressCircular } from '@v1nt1248/3nclient-lib';
+  import { Ui3nButton, Ui3nIcon, Ui3nProgressCircular } from '@v1nt1248/3nclient-lib';
   import { useContact } from '@main/common/composables/useContact';
   import { useRouting } from '@main/mobile/composables/useRouting';
   import ContactBody from '@main/common/components/contact-content.vue';
@@ -27,10 +27,11 @@
   import ShareQrDialog from '@main/common/components/dialogs/share-qr-code-dialog.vue';
   import { EMPTY_CONTACT } from '@main/common/constants';
 
-  const { goToList, goToContact, getEditStateFromRoute, goBack } = useRouting();
+  const { goToList, goToContact, getEditStateFromRoute } = useRouting();
   const { t } = useI18n();
 
   const {
+    isLoading,
     isUserAddress,
     isContactNew,
     contact,
@@ -43,6 +44,7 @@
     contactDisplayName,
     rules,
     imageProcessing,
+    contactSettings,
     getContactData,
     openChat,
     openInbox,
@@ -53,6 +55,7 @@
     onFieldUpdate,
     uploadImage,
     deleteImage,
+    setUpContactBlocking,
   } = useContact();
 
   const isOwnKeysInfoOpen = ref(false);
@@ -107,7 +110,7 @@
           icon="round-arrow-back"
           icon-color="var(--color-icon-block-primary-default)"
           icon-size="28"
-          @click="goBack"
+          @click="goToList"
         />
 
         <ui3n-button
@@ -202,6 +205,23 @@
 
         <template v-else>
           <ui3n-button
+            type="icon"
+            color="var(--color-bg-block-primary-default)"
+            :icon="contactSettings.blockUser ? 'outline-account-circle' : 'outline-account-off-circle'"
+            icon-size="28"
+            icon-color="var(--warning-content-default)"
+            :disabled="isLoading"
+            @click="
+              () =>
+                setUpContactBlocking({
+                  id: contact!.id,
+                  contactName: contact!.name ?? contact!.mail,
+                  value: !contactSettings.blockUser,
+                })
+            "
+          />
+
+          <ui3n-button
             v-if="!isUserAddress && !isContactNew"
             type="icon"
             color="var(--color-bg-block-primary-default)"
@@ -230,6 +250,14 @@
             size="48"
           />
         </div>
+
+        <ui3n-icon
+          v-if="contactSettings.blockUser"
+          icon="round-lock"
+          color="var(--warning-content-default)"
+          size="32"
+          :class="$style.banned"
+        />
       </div>
 
       <div :class="$style.avatarBtns">
@@ -333,6 +361,16 @@
         />
       </div>
     </div>
+
+    <div
+      v-if="isLoading"
+      :class="$style.loader"
+    >
+      <ui3n-progress-circular
+        indeterminate
+        size="48"
+      />
+    </div>
   </div>
 </template>
 
@@ -396,6 +434,12 @@
     font-size: 50px;
     font-weight: 500;
     cursor: pointer;
+
+    .banned {
+      position: absolute;
+      top: 0;
+      right: 0;
+    }
   }
 
   .progress {
@@ -478,5 +522,15 @@
   .editFormBody {
     overflow-y: auto;
     height: 100dvh;
+  }
+
+  .loader {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: rgb(0, 0, 0, 0.15);
   }
 </style>

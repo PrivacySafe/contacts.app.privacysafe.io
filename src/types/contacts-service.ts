@@ -160,14 +160,19 @@ export interface PersonView {
   mail: string;
   avatarId?: string;
   avatarImage?: string;
+  settings?: PersonSettings | null;
   timestamp: number;
+}
+
+export interface PersonSettings {
+  blockUser?: boolean;
+  [key: string]: unknown;
 }
 
 export interface Person extends PersonView {
   notice?: string;
   phone?: string;
   activities?: string[] | null;
-  settings?: unknown | null;
 }
 
 export interface RawPerson extends Omit<Person, 'activities' | 'settings' | 'avatarImage'> {

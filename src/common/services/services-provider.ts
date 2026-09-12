@@ -32,7 +32,9 @@ export async function initializeServices() {
         'upsertContact',
         'deleteContact',
         'getContactList',
+        'getContactBlacklist',
         'checkAddressReachability',
+        'changeContactBlockingSettings',
 
         'createBackupArchive',
         'cancelBackupArchive',

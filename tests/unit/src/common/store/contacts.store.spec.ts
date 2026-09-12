@@ -45,6 +45,7 @@ interface ServiceContact {
   avatarId?: string;
   avatarImage?: string;
   timestamp?: number;
+  settings?: Record<string, unknown> | null;
 }
 
 function serviceContact(id: string, over: Partial<ServiceContact> = {}): ServiceContact {
@@ -112,6 +113,33 @@ describe('useContactsStore', () => {
 
       expect(store.contacts).toHaveLength(1);
       expect(store.contacts[0].name).toBe('Annabel');
+      expect(store.contacts[0].displayName).toBe('Annabel');
+      app.unmount();
+    });
+
+    it('updates displayName in place when an unnamed contact gets a new mail address', async () => {
+      const { store, app } = bootStore();
+      srv.getContactList.mockResolvedValue([serviceContact('a', { name: '', mail: 'old@3nweb.com' })]);
+      await store.fetchContacts({});
+      expect(store.contacts[0].displayName).toBe('old@3nweb.com');
+
+      srv.getContactList.mockResolvedValue([serviceContact('a', { name: '', mail: 'new@3nweb.com' })]);
+      await store.fetchContacts({});
+
+      expect(store.contacts[0].mail).toBe('new@3nweb.com');
+      expect(store.contacts[0].displayName).toBe('new@3nweb.com');
+      app.unmount();
+    });
+
+    it('updates settings of an existing contact in place', async () => {
+      const { store, app } = bootStore();
+      srv.getContactList.mockResolvedValue([serviceContact('a', { settings: {} })]);
+      await store.fetchContacts({});
+
+      srv.getContactList.mockResolvedValue([serviceContact('a', { settings: { blockUser: true } })]);
+      await store.fetchContacts({});
+
+      expect(store.contacts[0].settings).toEqual({ blockUser: true });
       app.unmount();
     });
 
@@ -415,17 +443,49 @@ describe('useContactsStore', () => {
 
   describe('upsertContact', () => {
 
-    it('refreshes the list after a successful upsert and returns the service result', async () => {
+    it('appends a new contact to the list in place without refetching', async () => {
       const { store, app } = bootStore();
-      const saved = { id: 'a1b2c3d4', mail: 'ann@3nweb.com', timestamp: 5 };
+      const saved = { id: 'a1b2c3d4', mail: 'ann@3nweb.com', name: 'Ann', timestamp: 5 };
       srv.upsertContact.mockResolvedValue(saved);
-      srv.getContactList.mockResolvedValue([serviceContact('a1b2c3d4', { mail: 'ann@3nweb.com' })]);
 
-      const result = await store.upsertContact({ id: 'new', mail: 'ann@3nweb.com' } as never);
+      const result = await store.upsertContact({ id: 'new', mail: 'ann@3nweb.com', name: 'Ann' } as never);
 
       expect(result).toBe(saved);
-      expect(srv.getContactList).toHaveBeenCalled();
-      expect(store.contacts.map(c => c.id)).toEqual(['a1b2c3d4']);
+      expect(srv.getContactList).not.toHaveBeenCalled();
+      expect(store.contacts).toHaveLength(1);
+      expect(store.contacts[0]).toMatchObject({
+        id: 'a1b2c3d4',
+        mail: 'ann@3nweb.com',
+        name: 'Ann',
+        displayName: 'Ann',
+        timestamp: 5,
+      });
+      app.unmount();
+    });
+
+    it('updates an existing contact in place and preserves avatarImage when avatarId is unchanged', async () => {
+      const { store, app } = bootStore();
+      srv.getContactList.mockResolvedValue([
+        serviceContact('a', { name: 'Ann', avatarId: 'av1', avatarImage: 'data:image/png;base64,existing' }),
+      ]);
+      await store.fetchContacts({ withImage: true });
+
+      const updated = { id: 'a', mail: 'ann@3nweb.com', name: 'Annabel', avatarId: 'av1', timestamp: 10 };
+      srv.upsertContact.mockResolvedValue(updated);
+
+      const result = await store.upsertContact({ id: 'a', mail: 'ann@3nweb.com', name: 'Annabel', avatarId: 'av1' } as never);
+
+      expect(result).toBe(updated);
+      expect(srv.getContactList).toHaveBeenCalledTimes(1);
+      expect(store.contacts).toHaveLength(1);
+      expect(store.contacts[0]).toMatchObject({
+        id: 'a',
+        name: 'Annabel',
+        displayName: 'Annabel',
+        avatarId: 'av1',
+        avatarImage: 'data:image/png;base64,existing',
+        timestamp: 10,
+      });
       app.unmount();
     });
 
@@ -433,14 +493,18 @@ describe('useContactsStore', () => {
     // than by rejecting, and the store forwards it untouched. Callers must
     // check for `errorType` — the tests/app spec that expects a rejection with
     // `contactAlreadyExists` is testing a different contract.
-    it('forwards a service-reported error object without throwing', async () => {
+    it('forwards a service-reported error object without modifying the list', async () => {
       const { store, app } = bootStore();
+      srv.getContactList.mockResolvedValue([serviceContact('existing')]);
+      await store.fetchContacts({});
+
       const failure = { errorType: 'exists', errorMessage: 'There is already the contact' };
       srv.upsertContact.mockResolvedValue(failure);
 
-      const result = await store.upsertContact({ id: 'new', mail: 'ann@3nweb.com' } as never);
+      const result = await store.upsertContact({ id: 'new', mail: 'existing@3nweb.com' } as never);
 
       expect(result).toBe(failure);
+      expect(store.contacts.map(c => c.id)).toEqual(['existing']);
       app.unmount();
     });
 

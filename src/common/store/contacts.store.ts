@@ -15,28 +15,31 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { defineStore } from 'pinia';
 import isEmpty from 'lodash/isEmpty';
+import cloneDeep from 'lodash/cloneDeep';
+import set from 'lodash/set';
 import difference from 'lodash/difference';
 import { appContactsSrvProxy } from '@main/common/services/services-provider';
+import { includesMailAddress } from '@main/common/utils/mail-address';
 import { useAppStore } from '@main/common/store/app.store';
 import type { Person, PersonView, ContactListItem } from '@main/types';
-import { useI18n } from 'vue-i18n';
-import { includesMailAddress } from '@main/common/utils/mail-address';
 
 const contactFields: {
   field: Exclude<keyof ContactListItem, 'id'>;
   extraCheck?: boolean;
 }[] = [
   { field: 'name' },
+  { field: 'displayName' },
   { field: 'mail' },
   { field: 'avatarId' },
   { field: 'avatarImage' },
   { field: 'timestamp' },
+  { field: 'settings', extraCheck: true },
 ];
 
 export const useContactsStore = defineStore('contacts', () => {
-
   const appStore = useAppStore();
   const { t } = useI18n();
 
@@ -63,7 +66,7 @@ export const useContactsStore = defineStore('contacts', () => {
         if (nameA === nameB) {
           return 0;
         }
-        return ((nameA > nameB) ? 1 : -1);
+        return nameA > nameB ? 1 : -1;
       })
       .reduce(
         (res, item) => {
@@ -82,10 +85,22 @@ export const useContactsStore = defineStore('contacts', () => {
    * ends up as two contacts. The service's own duplicate check does the same.
    */
   function isMailAddressInUse(mail: string, ignoredMailAddresses?: string[]): boolean {
-    const stillTaken = mailAddressesUsed.value.filter(
-      a => !includesMailAddress(ignoredMailAddresses || [], a),
-    );
+    const stillTaken = mailAddressesUsed.value.filter(a => !includesMailAddress(ignoredMailAddresses || [], a));
     return includesMailAddress(stillTaken, mail);
+  }
+
+  function buildContactListItem(item: PersonView | Person, existing?: ContactListItem): ContactListItem {
+    const isMyself = item.mail === appStore.user;
+    return {
+      id: item.id,
+      name: isMyself ? t('contact.myself.name') : item.name,
+      displayName: isMyself ? t('contact.myself.name') : item.name || item.mail,
+      mail: item.mail,
+      avatarId: item.avatarId || '',
+      avatarImage: existing && existing.avatarId === item.avatarId ? existing.avatarImage : (item.avatarImage || ''),
+      timestamp: item.timestamp || 0,
+      settings: item.settings || {},
+    };
   }
 
   async function upsertContact(contact: Omit<Person, 'timestamp' | 'avatarImage'>): Promise<
@@ -97,7 +112,15 @@ export const useContactsStore = defineStore('contacts', () => {
   > {
     const res = await appContactsSrvProxy.upsertContact(contact);
 
-    await fetchContacts({});
+    if (res && !('errorType' in res)) {
+      const index = contacts.value.findIndex(c => c.id === res.id);
+      if (index >= 0) {
+        contacts.value[index] = buildContactListItem(res, contacts.value[index]);
+      } else {
+        contacts.value.push(buildContactListItem(res));
+      }
+    }
+
     return res;
   }
 
@@ -121,15 +144,7 @@ export const useContactsStore = defineStore('contacts', () => {
 
     const { newIds, newContacts } = list.reduce(
       (res, item) => {
-        const newContact: ContactListItem = {
-          id: item.id,
-          name: item.mail === appStore.user ? t('contact.myself.name') : item.name,
-          displayName: item.mail === appStore.user ? t('contact.myself.name') : item.name || item.mail,
-          mail: item.mail,
-          avatarId: item.avatarId || '',
-          avatarImage: item.avatarImage || '',
-          timestamp: item.timestamp || 0,
-        };
+        const newContact = buildContactListItem(item);
 
         res.newIds.push(newContact.id);
         res.newContacts.push(newContact);
@@ -210,6 +225,18 @@ export const useContactsStore = defineStore('contacts', () => {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function updateContactField(id: string, path: string | string[], value: any) {
+    const index = contacts.value.findIndex(item => item.id === id);
+    if (index < 0) {
+      return;
+    }
+
+    const contact = cloneDeep(contacts.value[index]);
+    set(contact, path, value);
+    contacts.value[index] = contact;
+  }
+
   async function deleteContact(contactId: string, withoutParentUpload?: boolean): Promise<void> {
     if (contactId) {
       await appContactsSrvProxy.deleteContact(contactId, withoutParentUpload);
@@ -231,18 +258,22 @@ export const useContactsStore = defineStore('contacts', () => {
     }
   }
 
+  async function changeContactBlockingSettings(id: string, value: boolean) {
+    return await appContactsSrvProxy.changeContactBlockingSettings({ id, value });
+  }
+
   return {
     contacts,
     contactDataFromCmd,
     contactList,
     isMailAddressInUse,
     upsertContactListItem,
+    updateContactField,
     fetchContacts,
     getContact,
     upsertContact,
     deleteContact,
     deleteContacts,
+    changeContactBlockingSettings,
   };
 });
-
-export type ContactsStore = ReturnType<typeof useContactsStore>;

@@ -14,8 +14,10 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
+// A type predicate rather than a plain boolean: callers narrow a string-or-object
+// field on it, and without the narrowing each such branch needs its own cast.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function isPlainObject(arg: any): boolean {
+export function isPlainObject(arg: any): arg is Record<string, unknown> {
   return typeof arg === 'object' && arg !== null && !Array.isArray(arg);
 }
 

@@ -112,8 +112,8 @@ async function openContactsDb(fs: web3n.files.WritableFS): Promise<SQLiteOn3NSto
     try {
       return await SQLiteOn3NStorage.makeAndStart(file);
     } catch (err) {
-      const isConnectErr = ((err as web3n.ConnectException).type === 'connect');
-      if (!isConnectErr || !isDbFileKnown || (attempt >= DB_OPEN_ATTEMPTS)) {
+      const isConnectErr = (err as web3n.ConnectException).type === 'connect';
+      if (!isConnectErr || !isDbFileKnown || attempt >= DB_OPEN_ATTEMPTS) {
         throw err;
       }
 
@@ -129,9 +129,8 @@ async function openContactsDb(fs: web3n.files.WritableFS): Promise<SQLiteOn3NSto
 }
 
 async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
-  // Set up before anything touches storage: the root reconciliation below
-  // already reports its progress through emitStorageEvent.
   const updateEventsObservers = new ObserversSet<ContactEvent>();
+  const updateContactBlacklist = new ObserversSet<Person[]>();
 
   setupGlobalReportingOfUnhandledErrors(true);
 
@@ -142,6 +141,24 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
   function watchEvent(obs: web3n.Observer<ContactEvent>): () => void {
     updateEventsObservers.add(obs);
     return () => updateEventsObservers.delete(obs);
+  }
+
+  function changeContactBlacklist(list: Person[]) {
+    updateContactBlacklist.next(list);
+  }
+
+  function watchContactBlacklistChanging(obs: web3n.Observer<Person[]>) {
+    let active = true;
+    updateContactBlacklist.add(obs);
+    void getContactBlacklist(false).then(list => {
+      if (active) {
+        obs.next?.(list);
+      }
+    });
+    return () => {
+      active = false;
+      updateContactBlacklist.delete(obs);
+    };
   }
 
   const fs = await openSyncedRoot();
@@ -403,10 +420,6 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
         data: addedContact,
       },
     });
-    // No upload is started here: insertContactInto -> saveDbToFile already
-    // scheduled the debounced one. Starting a second upload of the same file
-    // makes the platform reject it with fs-sync/alreadyUploading, which used to
-    // fail this whole call - see scheduleDbUpload.
     return addedContact;
   }
 
@@ -441,6 +454,7 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
   }
 
   /**
+   * @param id
    * @param withoutParentUpload is kept for callers that delete in a batch, so
    * that only the last deletion asks the db to be saved to file - and with it,
    * uploaded. The upload itself is the debounced one; see addContact.
@@ -451,6 +465,7 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
       event: 'remove:contact',
       payload: { id },
     });
+    void getContactBlacklist(false).then(changeContactBlacklist);
   }
 
   async function getContactList(withImage?: boolean): Promise<Person[]> {
@@ -466,6 +481,14 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
       }
     }
     return list;
+  }
+
+  async function getContactBlacklist(withImage?: boolean): Promise<Person[]> {
+    const list = await getContactList(withImage);
+    return list.filter(contact => {
+      const { settings = {} } = contact;
+      return settings?.blockUser;
+    });
   }
 
   async function getContact(id: string): Promise<Person | undefined> {
@@ -502,6 +525,43 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
     return contact;
   }
 
+  async function changeContactBlockingSettings({
+    id,
+    mail,
+    value,
+  }: {
+    id?: string;
+    mail?: string;
+    value: boolean;
+  }) {
+    if (!id && !mail) {
+      await w3n.log(
+        'error',
+        '[changeContactBlockingSettings] You must specify either the contact ID or the mail address.',
+      );
+      throw new Error('You must specify either the contact ID or the mail address.');
+    }
+
+    const contact = id ? await getContact(id) : await getContactByMail(mail!);
+    if (!contact) {
+      throw new Error(
+        `[changeContactBlockingSettings] The contact with ${id ? 'ID' : 'MAIL'} "${id || mail}" not found.`,
+      );
+    }
+
+    if (!contact.settings) {
+      contact.settings = {};
+    }
+
+    contact.settings.blockUser = value;
+    await updateContact(contact);
+
+
+    const contactBlacklist = await getContactBlacklist(false);
+    changeContactBlacklist(contactBlacklist);
+    return contact;
+  }
+
   /**
    * Asks ASMail whether an address can receive at all. Lives here because only
    * the deno component is granted `mail: { preflightsTo }` - the GUI windows are
@@ -511,9 +571,7 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
    * e.g. offline: the caller treats "could not verify" as "carry on", and being
    * unable to check must not turn into a refusal to act.
    */
-  async function checkAddressReachability(
-    addr: string,
-  ): Promise<AddressCheckResult | undefined> {
+  async function checkAddressReachability(addr: string): Promise<AddressCheckResult | undefined> {
     try {
       return await checkAddressExistenceForASMail(addr);
     } catch (err) {
@@ -528,9 +586,7 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
     // whose db has not been reconciled with the server yet, that is every
     // avatar just downloaded. See prepareSyncedRoot.
     if (!rootState.verified) {
-      await w3n.log(
-        'info', 'Sweep of unused image files is skipped: the root folder is not verified yet',
-      );
+      await w3n.log('info', 'Sweep of unused image files is skipped: the root folder is not verified yet');
       return;
     }
 
@@ -539,9 +595,7 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
     // window deletes every picture the restore just wrote, silently. The
     // restore lifts this flag before running the sync pass that sweeps.
     if (restoreInProgress) {
-      await w3n.log(
-        'info', 'Sweep of unused image files is skipped: a restore is running',
-      );
+      await w3n.log('info', 'Sweep of unused image files is skipped: a restore is running');
       return;
     }
 
@@ -561,9 +615,7 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
 
   async function runInitialSyncProcess(): Promise<void> {
     if (areUploadsHeld()) {
-      await w3n.log(
-        'info', 'Initial synchronization is postponed: the root folder is not verified yet',
-      );
+      await w3n.log('info', 'Initial synchronization is postponed: the root folder is not verified yet');
       return;
     }
 
@@ -622,9 +674,13 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
           fs,
           emitStorageEvent,
           quiet: true,
-          resolveConflict: () => resolveRootFolderConflict({
-            fs, sqlite, contactDbSrv, emitStorageEvent,
-          }),
+          resolveConflict: () =>
+            resolveRootFolderConflict({
+              fs,
+              sqlite,
+              contactDbSrv,
+              emitStorageEvent,
+            }),
         });
       } catch (err) {
         // Logged and retried, never abandoned: giving up here would keep the
@@ -645,7 +701,7 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
       }
 
       failuresWhileOnline += 1;
-      if (!isReportedStuck && (failuresWhileOnline >= STUCK_AFTER_ONLINE_ATTEMPTS)) {
+      if (!isReportedStuck && failuresWhileOnline >= STUCK_AFTER_ONLINE_ATTEMPTS) {
         isReportedStuck = true;
         await w3n.log(
           'warning',
@@ -698,6 +754,7 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
     fs,
     emitStorageEvent,
     watchEvent,
+    watchContactBlacklistChanging,
 
     addImage,
     getImage,
@@ -708,8 +765,10 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
     upsertContact,
     deleteContact,
     getContactList,
+    getContactBlacklist,
     getContact,
     getContactByMail,
+    changeContactBlockingSettings,
 
     checkAddressReachability,
 
@@ -733,7 +792,9 @@ contactsDenoSrv()
       'upsertContact',
       'deleteContact',
       'getContactList',
+      'getContactBlacklist',
       'getContact',
+      'changeContactBlockingSettings',
 
       'checkAddressReachability',
 
@@ -754,6 +815,11 @@ contactsDenoSrv()
       'upsertContact',
       'getContact',
       'getContactList',
+      'getContactBlacklist',
+      'changeContactBlockingSettings',
+    ]);
+    srvWrap.exposeObservableMethods<Pick<ContactsDenoSrv, 'watchContactBlacklistChanging'>>(srv, [
+      'watchContactBlacklistChanging',
     ]);
     srvWrap.startIPC();
   })

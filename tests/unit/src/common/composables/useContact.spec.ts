@@ -21,16 +21,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { nextTick, type Plugin } from 'vue';
 import { createMemoryHistory, createRouter, type Router } from 'vue-router';
 import { DIALOGS_KEY, NOTIFICATIONS_KEY } from '@v1nt1248/3nclient-lib/plugins';
+import type { Person } from '@main/types';
 
 vi.mock('@main/common/services/services-provider', () => ({
   appContactsSrvProxy: {
     getContact: vi.fn(),
     getContactList: vi.fn(async () => []),
     checkAddressReachability: vi.fn(),
+    changeContactBlockingSettings: vi.fn(),
   },
   initializeServices: vi.fn(),
 }));
 
+const { appContactsSrvProxy } = await import('@main/common/services/services-provider');
 const { useContact } = await import('@main/common/composables/useContact');
 const { withSetup } = await import('../../../helpers/app-context.ts');
 const { installFakeW3n } = await import('../../../helpers/fake-w3n.ts');
@@ -39,6 +42,8 @@ const { NEW_EMPTY_CONTACT_ID } = await import('@main/common/constants');
 const SAVED_CONTACT = { id: 'c1', mail: 'ann@3nweb.com', timestamp: 1 };
 const NEW_CONTACT = { id: NEW_EMPTY_CONTACT_ID, mail: 'ann@3nweb.com', timestamp: 0 };
 
+let dialogConfirmResult: { event: string } = { event: 'confirm' };
+
 /** The plugins useContact needs in order to run outside a real app. */
 function pluginsFor(router: Router): Plugin[] {
   const provide: Plugin = {
@@ -46,7 +51,9 @@ function pluginsFor(router: Router): Plugin[] {
       // Neither is reached by what is asserted below; they only have to be
       // present, because useContact injects both unconditionally.
       app.provide(NOTIFICATIONS_KEY, { $createNotice: vi.fn() });
-      app.provide(DIALOGS_KEY, {} as never);
+      app.provide(DIALOGS_KEY, {
+        $openDialog: vi.fn(async () => dialogConfirmResult),
+      } as never);
     },
   };
   return [router, provide];
@@ -73,6 +80,7 @@ async function setup() {
 }
 
 beforeEach(() => {
+  vi.clearAllMocks();
   w3n = installFakeW3n();
 });
 
@@ -146,6 +154,79 @@ describe('useContact, gating of the header actions', () => {
       expect(contactUse.canReachOtherApps.value).toBe(false);
       expect(contactUse.canShowContactKeys.value).toBe(true);
       expect(contactUse.disabledActionReason.value).toBe('Available when online.');
+    });
+
+  });
+
+  describe('setUpContactBlocking', () => {
+
+    it('blocks contact and immediately updates local settings and contactSettings', async () => {
+      const contactUse = await setup();
+      contactUse.contact.value = { ...SAVED_CONTACT, settings: {} } as unknown as Person;
+      contactUse.initialContact.value = { ...SAVED_CONTACT, settings: {} } as unknown as Person;
+      await nextTick();
+
+      expect(contactUse.contactSettings.value.blockUser).toBeFalsy();
+
+      await contactUse.setUpContactBlocking({
+        id: 'c1',
+        contactName: 'Ann',
+        value: true,
+      });
+
+      expect(appContactsSrvProxy.changeContactBlockingSettings).toHaveBeenCalledWith({
+        id: 'c1',
+        value: true,
+      });
+      expect(contactUse.contact.value!.settings?.blockUser).toBe(true);
+      expect(contactUse.initialContact.value!.settings?.blockUser).toBe(true);
+      expect(contactUse.contactSettings.value.blockUser).toBe(true);
+      expect(contactUse.whetherContactChanged.value).toBe(false);
+    });
+
+    it('unblocks contact and immediately updates local settings and contactSettings', async () => {
+      const contactUse = await setup();
+      contactUse.contact.value = { ...SAVED_CONTACT, settings: { blockUser: true } } as unknown as Person;
+      contactUse.initialContact.value = { ...SAVED_CONTACT, settings: { blockUser: true } } as unknown as Person;
+      await nextTick();
+
+      expect(contactUse.contactSettings.value.blockUser).toBe(true);
+
+      await contactUse.setUpContactBlocking({
+        id: 'c1',
+        contactName: 'Ann',
+        value: false,
+      });
+
+      expect(appContactsSrvProxy.changeContactBlockingSettings).toHaveBeenCalledWith({
+        id: 'c1',
+        value: false,
+      });
+      expect(contactUse.contact.value!.settings?.blockUser).toBe(false);
+      expect(contactUse.initialContact.value!.settings?.blockUser).toBe(false);
+      expect(contactUse.contactSettings.value.blockUser).toBe(false);
+      expect(contactUse.whetherContactChanged.value).toBe(false);
+    });
+
+    it('does nothing when confirmation dialog is cancelled', async () => {
+      const contactUse = await setup();
+      contactUse.contact.value = { ...SAVED_CONTACT, settings: {} } as unknown as Person;
+      contactUse.initialContact.value = { ...SAVED_CONTACT, settings: {} } as unknown as Person;
+      await nextTick();
+
+      dialogConfirmResult = { event: 'cancel' };
+      try {
+        await contactUse.setUpContactBlocking({
+          id: 'c1',
+          contactName: 'Ann',
+          value: true,
+        });
+
+        expect(appContactsSrvProxy.changeContactBlockingSettings).not.toHaveBeenCalled();
+        expect(contactUse.contactSettings.value.blockUser).toBeFalsy();
+      } finally {
+        dialogConfirmResult = { event: 'confirm' };
+      }
     });
 
   });

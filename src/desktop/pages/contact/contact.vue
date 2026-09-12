@@ -18,7 +18,7 @@
   import { inject, onBeforeMount, onBeforeUnmount, watch, type WatchHandle } from 'vue';
   import { useI18n } from 'vue-i18n';
   import { VUEBUS_KEY, type VueBusPlugin } from '@v1nt1248/3nclient-lib/plugins';
-  import { Ui3nProgressCircular, Ui3nButton, Ui3nTooltip } from '@v1nt1248/3nclient-lib';
+  import { Ui3nProgressCircular, Ui3nButton, Ui3nIcon, Ui3nTooltip } from '@v1nt1248/3nclient-lib';
   import { useContact } from '@main/common/composables/useContact';
   import type { AppGlobalEvents } from '@main/types';
   import ContactBody from '@main/common/components/contact-content.vue';
@@ -40,6 +40,7 @@
     imageProcessing,
     contactValid,
     rules,
+    contactSettings,
     getContactData,
     delContact,
     uploadImage,
@@ -56,6 +57,7 @@
     cancel,
     showQRcode,
     canShowQr,
+    setUpContactBlocking,
   } = useContact();
 
   const routeWatching: WatchHandle = watch(
@@ -84,16 +86,48 @@
 <template>
   <div :class="$style.contact">
     <div :class="$style.header">
-      <ui3n-button
+      <div
         v-if="!isUserAddress && !isContactNew"
-        type="icon"
-        color="transparent"
-        icon="outline-delete"
-        icon-size="18"
-        icon-color="var(--warning-content-default)"
-        :class="$style.delBtn"
-        @click="() => delContact()"
-      />
+        :class="$style.actions"
+      >
+        <ui3n-tooltip
+          :content="t('contact.action.delete')"
+          position-strategy="fixed"
+          placement="top-end"
+        >
+          <ui3n-button
+            type="icon"
+            color="var(--color-bg-block-primary-default)"
+            icon="outline-delete"
+            icon-size="20"
+            icon-color="var(--warning-content-default)"
+            @click="() => delContact()"
+          />
+        </ui3n-tooltip>
+
+        <ui3n-tooltip
+          :content="contactSettings.blockUser ? t('contact.action.unblock') : t('contact.action.block')"
+          position-strategy="fixed"
+          placement="top-end"
+        >
+          <ui3n-button
+            type="icon"
+            color="var(--color-bg-block-primary-default)"
+            :icon="contactSettings.blockUser ? 'outline-account-circle' : 'outline-account-off-circle'"
+            icon-size="20"
+            icon-color="var(--warning-content-default)"
+            :disabled="isLoading"
+            @click="
+              () =>
+                setUpContactBlocking({
+                  id: contact!.id,
+                  contactName: contact!.name ?? contact!.mail,
+                  value: !contactSettings.blockUser,
+                })
+            "
+          />
+        </ui3n-tooltip>
+      </div>
 
       <div
         :class="$style.avatar"
@@ -126,6 +160,14 @@
             size="32"
           />
         </div>
+
+        <ui3n-icon
+          v-if="contactSettings.blockUser"
+          icon="round-lock"
+          color="var(--warning-content-default)"
+          size="32"
+          :class="$style.banned"
+        />
       </div>
 
       <div :class="$style.headerActions">
@@ -226,7 +268,7 @@
       </custom-scroll-bar>
     </div>
 
-    <div :class="$style.actions">
+    <div :class="$style.footer">
       <ui3n-button
         type="secondary"
         @click="cancel"
@@ -273,10 +315,15 @@
     height: var(--contact-header-height);
   }
 
-  .delBtn {
+  .actions {
     position: absolute;
     top: 0;
     right: var(--spacing-s);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    row-gap: var(--spacing-s);
   }
 
   .avatar {
@@ -297,6 +344,12 @@
     font-size: 50px;
     font-weight: 500;
     cursor: pointer;
+
+    .banned {
+      position: absolute;
+      top: 0;
+      right: 0;
+    }
 
     &:hover {
       .avatarBtn {
@@ -341,7 +394,7 @@
     padding: 0 0 0 var(--spacing-m);
   }
 
-  .actions {
+  .footer {
     display: flex;
     height: var(--contact-actions-height);
     justify-content: flex-end;

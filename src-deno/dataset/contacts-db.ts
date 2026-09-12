@@ -14,11 +14,11 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-empty-function */
-
 // @deno-types="../../shared-libs/sqlite-on-3nstorage/index.d.ts"
+
+/* eslint-disable @typescript-eslint/no-empty-function */
 import { SQLiteOn3NStorage } from '../../shared-libs/sqlite-on-3nstorage/index.js';
-import type { Person, PersonView, RawPerson } from '../../src/types/index.ts';
+import type { Person, PersonSettings, PersonView, RawPerson } from '../../src/types/index.ts';
 import { randomStr } from '../../src/common/services/base/random.ts';
 import { makeContactsException } from '../utils/exceptions.ts';
 import { safeJsonParse } from '../utils/obj-processing.ts';
@@ -158,8 +158,13 @@ export async function contactDb(
       return undefined;
     }
 
-    return objectFromQueryExecResult<Person>(sqlValue)
-    .find(contact => (canonicalMail(contact.mail) === canonical));
+    for (let i = 0; i < sqlValue.values.length; i++) {
+      const person = queryResultToPerson(sqlValue, i) as Person;
+      if (canonicalMail(person.mail) === canonical) {
+        return person;
+      }
+    }
+    return undefined;
   }
 
   async function updateContactInto(
@@ -226,13 +231,13 @@ export async function contactDb(
         updatedContact.activities === null
           ? null
           : typeof updatedContact.activities === 'string'
-            ? safeJsonParse(updatedContact.activities)
+            ? safeJsonParse<Person['activities']>(updatedContact.activities)
             : updatedContact.activities,
       settings:
         updatedContact.settings === null
           ? null
           : typeof updatedContact.settings === 'string'
-            ? safeJsonParse(updatedContact.settings)
+            ? safeJsonParse<PersonSettings>(updatedContact.settings)
             : updatedContact.settings,
     };
   }
@@ -271,10 +276,21 @@ export async function contactDb(
   function listAllContactsFrom(): Omit<PersonView, 'avatarImage'>[] {
     const [sqlValue] = sqlite.db.exec(
       `--sql
-      SELECT id, name, mail, avatarId, timestamp
+      SELECT id, name, mail, avatarId, timestamp, settings
       FROM contacts`,
     );
-    return objectFromQueryExecResult<Omit<PersonView, 'avatarImage'>>(sqlValue);
+    if (!sqlValue || !sqlValue.values) {
+      return [];
+    }
+
+    const rows = objectFromQueryExecResult<Omit<PersonView, 'avatarImage'>>(sqlValue);
+
+    for (const row of rows) {
+      row.settings = row.settings
+        ? (typeof row.settings === 'string' ? (safeJsonParse<PersonSettings>(row.settings) ?? {}) : row.settings)
+        : {};
+    }
+    return rows;
   }
 
   function getIdsOfAllFilesInUse(): string[] {

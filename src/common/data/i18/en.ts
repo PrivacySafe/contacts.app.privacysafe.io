@@ -47,6 +47,7 @@ export const en = {
       },
     },
     warning: {
+      label: 'Warning',
       'sync-stuck':
         'Synchronization has not resumed, although this device is online. Changes are being kept on this device. Restart the app to sync them.',
       'first-run-needs-network':
@@ -89,6 +90,22 @@ export const en = {
     },
   },
   contact: {
+    action: {
+      delete: 'Delete the contact',
+      block: 'Add to the blacklist',
+      unblock: 'Remove from the blacklist',
+    },
+    block: {
+      dialogText: 'You try to Move {contact} to the Blacklist',
+      error: 'Error while blocking the contact with ID "{id}"',
+      confirmBtn: 'Ban',
+      mark: 'Banned',
+    },
+    unblock: {
+      dialogText: 'You try to Remove {contact} from the Blacklist',
+      error: 'Error while unblocking the contact with ID "{id}"',
+      confirmBtn: 'Unban',
+    },
     delete: {
       title: 'Delete Contact | Delete Contacts',
       confirmBtn: 'Delete',

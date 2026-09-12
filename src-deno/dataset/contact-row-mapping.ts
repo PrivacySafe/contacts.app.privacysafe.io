@@ -42,9 +42,7 @@ export function objectFromQueryExecResult<T>(sqlResult: QueryExecResult): T[] {
  * them already as strings (passed through as they are). Anything else becomes
  * null.
  */
-export function personValueToSqlInsertParams(
-  value: Omit<Person, 'avatarImage'> | RawPerson,
-): BindParams {
+export function personValueToSqlInsertParams(value: Omit<Person, 'avatarImage'> | RawPerson): BindParams {
   return {
     $id: value.id,
     $name: value.name || null,
@@ -61,7 +59,7 @@ export function personValueToSqlInsertParams(
     $settings: isPlainObject(value.settings)
       ? JSON.stringify(value.settings)
       : typeof value.settings === 'string'
-        ? (value.settings as string)
+        ? value.settings
         : null,
   };
 }
@@ -74,14 +72,12 @@ export function personValueToSqlInsertParams(
  * way out. A column that cannot be parsed falls back to the empty shape, so a
  * single damaged row costs its own activities or settings and not the contact.
  */
-export function queryResultToPerson(
-  sqlResult: QueryExecResult, row = 0,
-): Omit<Person, 'avatarImage'> {
+export function queryResultToPerson(sqlResult: QueryExecResult, row = 0): Omit<Person, 'avatarImage'> {
   const person = objectFromQueryExecResult<Omit<Person, 'avatarImage'>>(sqlResult)[row];
-  person.activities = (person.activities !== null)
+  person.activities = (person.activities !== null && person.activities !== undefined)
     ? (safeJsonParse<Person['activities']>(person.activities as unknown as string) ?? [])
     : [];
-  person.settings = (person.settings !== null)
+  person.settings = (person.settings !== null && person.settings !== undefined)
     ? (safeJsonParse<Person['settings']>(person.settings as unknown as string) ?? {})
     : {};
   return person;

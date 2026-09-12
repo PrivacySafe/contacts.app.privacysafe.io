@@ -50,7 +50,7 @@ import {
   NEW_EMPTY_CONTACT_ID,
   NEW_POPULATED_CONTACT_ID,
 } from '@main/common/constants';
-import type { ContactContent, OpenChatCmdArg, OpenInboxCmdArg, Person } from '@main/types';
+import { ContactTextField, OpenChatCmdArg, OpenInboxCmdArg, Person, PersonSettings } from '@main/types';
 import ConfirmationDialog from '@main/common/components/dialogs/confirmation-dialog.vue';
 import OwnKeysInfoDialog from '@main/common/components/dialogs/own-keys-info-dialog.vue';
 import ContactKeysInfoDialog from '@main/common/components/dialogs/contact-keys-info-dialog.vue';
@@ -66,8 +66,16 @@ export function useContact() {
 
   const { user } = storeToRefs(useAppStore());
   const contactsStore = useContactsStore();
-  const { isMailAddressInUse, getContact, fetchContacts, deleteContact, upsertContact, upsertContactListItem } =
-    contactsStore;
+  const {
+    isMailAddressInUse,
+    getContact,
+    fetchContacts,
+    deleteContact,
+    upsertContact,
+    upsertContactListItem,
+    updateContactField,
+    changeContactBlockingSettings,
+  } = contactsStore;
   const { contactDataFromCmd } = storeToRefs(contactsStore);
 
   const contentEl = ref<HTMLDivElement | null>(null);
@@ -83,6 +91,8 @@ export function useContact() {
   const isUserAddress = computed(() => contact.value?.id === user.value || contact.value?.mail === user.value);
 
   const { connectivityStatus } = useConnectivityStatus();
+
+  const contactSettings = computed(() => contact.value?.settings || ({} as PersonSettings));
 
   /**
    * Whether handing this contact to the chat or the inbox app makes sense.
@@ -281,7 +291,7 @@ export function useContact() {
       // isContactNew && await cancel();
       await cancel();
     } catch (e) {
-      console.error('#SE => ', e);
+      w3n.log('error', `[saveContact] A saving error. `, e);
 
       notification.$createNotice({
         type: 'error',
@@ -300,6 +310,98 @@ export function useContact() {
       await router.push({ name: 'contacts' });
     } else {
       appContactsSrvProxy.removeUnnecessaryImageFiles();
+    }
+  }
+
+  async function blockContact(id: string) {
+    try {
+      isLoading.value = true;
+      await changeContactBlockingSettings(id, true);
+      updateContactField(id, ['settings', 'blockUser'], true);
+      if (contact.value && contact.value.id === id) {
+        contact.value.settings = {
+          ...(contact.value.settings || {}),
+          blockUser: true,
+        };
+      }
+      if (initialContact.value && initialContact.value.id === id) {
+        initialContact.value.settings = {
+          ...(initialContact.value.settings || {}),
+          blockUser: true,
+        };
+      }
+    } catch (e) {
+      w3n.log('error', `[blockContact] Error while blocking the contact with ID "${id}". `, e);
+
+      notification.$createNotice({
+        type: 'error',
+        content: t('contact.block.error', { id }),
+      });
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  async function unblockContact(id: string) {
+    try {
+      isLoading.value = true;
+      await changeContactBlockingSettings(id, false);
+      updateContactField(id, ['settings', 'blockUser'], false);
+      if (contact.value && contact.value.id === id) {
+        contact.value.settings = {
+          ...(contact.value.settings || {}),
+          blockUser: false,
+        };
+      }
+      if (initialContact.value && initialContact.value.id === id) {
+        initialContact.value.settings = {
+          ...(initialContact.value.settings || {}),
+          blockUser: false,
+        };
+      }
+    } catch (e) {
+      w3n.log('error', `[unblockContact] Error while unblocking the contact with ID "${id}". `, e);
+
+      notification.$createNotice({
+        type: 'error',
+        content: t('contact.unblock.error', { id }),
+      });
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  async function setUpContactBlocking({
+    id,
+    contactName,
+    value,
+  }: {
+    id: string;
+    contactName: string;
+    value: boolean;
+  }) {
+    const res = await dialog.$openDialog<boolean>(ConfirmationDialog, {
+      dialogText: value
+        ? t('contact.block.dialogText', { contact: `<b>${contactName}</b>` })
+        : t('contact.unblock.dialogText', { contact: `<b>${contactName}</b>` }),
+      dialogProps: {
+        icon: { icon: 'round-warning', color: 'var(--color-icon-control-warning-default)' },
+        title: t('app.warning.label'),
+        width: 300,
+        confirmButtonText: value ? t('contact.block.confirmBtn') : t('contact.unblock.confirmBtn'),
+        cancelButtonText: t('app.btn.cancel'),
+      },
+    });
+
+    const { event } = res;
+    if (event !== 'confirm') {
+      return;
+    }
+
+    if (value) {
+      await blockContact(id);
+    } else {
+      await unblockContact(id);
     }
   }
 
@@ -382,13 +484,7 @@ export function useContact() {
     });
   }
 
-  async function onFieldUpdate({
-    field,
-    val,
-  }: {
-    field: keyof (ContactContent | Omit<Person, 'timestamp'>);
-    val: string;
-  }) {
+  async function onFieldUpdate({ field, val }: { field: ContactTextField; val: string }) {
     contact.value![field] = val;
   }
 
@@ -480,6 +576,7 @@ export function useContact() {
     isUserAddress,
     canReachOtherApps,
     canShowContactKeys,
+    canShowQr,
     disabledActionReason,
     whetherContactChanged,
     contactValid,
@@ -487,6 +584,7 @@ export function useContact() {
     contactLetters,
     contactAvatarStyle,
     imageProcessing,
+    contactSettings,
     getContactData,
     fetchContacts,
     delContact,
@@ -502,6 +600,6 @@ export function useContact() {
     uploadImage,
     deleteImage,
     showQRcode,
-    canShowQr,
+    setUpContactBlocking,
   };
 }

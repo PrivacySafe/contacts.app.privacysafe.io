@@ -11,6 +11,7 @@ export interface ContactsDenoSrv {
   fs: web3n.files.WritableFS;
   emitStorageEvent: (event: ContactEvent) => void;
   watchEvent: (obs: web3n.Observer<ContactEvent>) => () => void;
+  watchContactBlacklistChanging: (obs: web3n.Observer<Person[]>) => () => void;
 
   addImage: ({
     base64,
@@ -45,8 +46,18 @@ export interface ContactsDenoSrv {
         errorMessage: string;
       }
   >;
+  changeContactBlockingSettings: ({
+    id,
+    mail,
+    value,
+  }: {
+    id?: string;
+    mail?: string;
+    value: boolean;
+  }) => Promise<Person>;
   deleteContact: (id: string, withoutParentUpload?: boolean) => Promise<void>;
   getContactList: (withImage?: boolean) => Promise<Person[]>;
+  getContactBlacklist: (withImage?: boolean) => Promise<Person[]>;
   getContact: (id: string) => Promise<Person | undefined>;
   getContactByMail: (mail: string) => Promise<Person | undefined>;
 
@@ -64,16 +75,17 @@ export interface ContactsDenoSrv {
    * `skippedImages` comes back too, since only this side knows what had to be
    * left out of the archive.
    */
-  createBackupArchive: (
-    opts?: { forEncryption?: boolean },
-  ) => Promise<{ bytes: Uint8Array; skippedImages: string[] }>;
+  createBackupArchive: (opts?: {
+    forEncryption?: boolean;
+  }) => Promise<{ bytes: Uint8Array; skippedImages: string[] }>;
   cancelBackupArchive: () => Promise<boolean>;
   /**
    * Takes the archive already decrypted by the gui. An encrypted archive keeps
    * its metadata in the container outside, so the gui passes it in.
    */
   validateBackupArchive: (
-    archiveBytes: Uint8Array, outerMetadata?: BackupMetadataContent,
+    archiveBytes: Uint8Array,
+    outerMetadata?: BackupMetadataContent,
   ) => Promise<BackupValidationResult>;
   restoreBackupArchive: (archiveBytes: Uint8Array) => Promise<boolean>;
 
@@ -88,5 +100,12 @@ export type ContactsDenoSrvInternal = Omit<
 
 export type ContactsDenoSrvExternal = Pick<
   ContactsDenoSrv,
-  'getContactByMail' | 'addContact' | 'upsertContact' | 'getContact' | 'getContactList'
+  | 'getContactByMail'
+  | 'addContact'
+  | 'upsertContact'
+  | 'getContact'
+  | 'getContactList'
+  | 'getContactBlacklist'
+  | 'changeContactBlockingSettings'
+  | 'watchContactBlacklistChanging'
 >;

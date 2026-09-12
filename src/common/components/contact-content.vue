@@ -20,7 +20,7 @@
   import isEmpty from 'lodash/isEmpty';
   import get from 'lodash/get';
   import { Ui3nInput, Ui3nText } from '@v1nt1248/3nclient-lib';
-  import type { ContactContent, Person } from '@main/types';
+  import type { ContactContent, ContactTextField, Person } from '@main/types';
 
   const props = defineProps<{
     contact: ContactContent | Person;
@@ -33,12 +33,12 @@
 
   const emits = defineEmits<{
     (event: 'update:valid', value: boolean): void;
-    (event: 'update:field', value: { field: keyof (ContactContent | Person); val: string }): void;
+    (event: 'update:field', value: { field: ContactTextField; val: string }): void;
   }>();
 
   const { t } = useI18n();
 
-  const isValid = ref<Record<keyof Pick<ContactContent, 'mail' | 'name' | 'phone' | 'notice'>, boolean>>({
+  const isValid = ref<Record<ContactTextField, boolean>>({
     name: fieldValidate('name'),
     mail: fieldValidate('mail'),
     phone: fieldValidate('phone'),
@@ -47,7 +47,7 @@
 
   const innerValidValue = computed(() => Object.values(isValid.value).every(v => !!v));
 
-  function fieldValidate(field: keyof (ContactContent | Person), value?: string) {
+  function fieldValidate(field: ContactTextField, value?: string) {
     const rules = getRules(field);
     if (isEmpty(rules)) {
       return true;
@@ -57,21 +57,13 @@
     }
   }
 
-  function onInput(ev: string, field: keyof (ContactContent | Person)) {
+  function onInput(ev: string, field: ContactTextField) {
     emits('update:field', { field, val: ev });
 
-    Object.keys(isValid.value).forEach(f => {
-      if (f === field) {
-        isValid.value[f as keyof Pick<ContactContent, 'mail' | 'name' | 'phone' | 'notice'>] = fieldValidate(
-          f,
-          ev,
-        );
-      } else {
-        isValid.value[f as keyof Pick<ContactContent, 'mail' | 'name' | 'phone' | 'notice'>] = fieldValidate(
-          f as keyof (ContactContent | Person),
-          props.contact[f as keyof (ContactContent | Person)] as string,
-        );
-      }
+    (Object.keys(isValid.value) as ContactTextField[]).forEach(f => {
+      isValid.value[f] = (f === field)
+        ? fieldValidate(f, ev)
+        : fieldValidate(f, props.contact[f]);
     });
   }
 
