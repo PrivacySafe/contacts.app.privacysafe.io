@@ -145,15 +145,40 @@ export async function handleImagesFolderSyncStatus({ fs, emitStorageEvent }: {
       }
 
       case 'conflicting': {
-        emitStorageEvent({
-          event: 'sync:start',
-          payload: { path: IMAGES_FOLDER },
-        });
-        await fs.v?.sync?.absorbRemoteFolderChanges(IMAGES_FOLDER, { postfixForNameOverlaps: '_[ keep ]' });
-        wasAnythingDownloaded = await downloadImagesIfItNeed(fs, emitStorageEvent);
-        emitStorageEvent({
-          event: 'sync:end',
-          payload: { path: IMAGES_FOLDER },
+        const remoteVersion = imagesFolderSyncStatus.remote!.latest!;
+
+        // Absorbing is what merges the two branches, but it writes a NEW local
+        // folder version every time it is called - including when there is
+        // nothing on the remote side to take. While the upload below cannot get
+        // through, this pass runs once a minute, and in the live test of
+        // 2026-09-14 that took the local folder version to 75 against a remote
+        // of 3. So the diff decides whether there is anything to absorb.
+        const diff = await fs.v?.sync?.diffCurrentAndRemoteFolderVersions(
+          IMAGES_FOLDER, remoteVersion,
+        );
+        const isThereAnythingRemoteOnly = !!diff && (
+          !!diff.added?.inRemote?.length
+          || !!diff.removed?.inRemote?.length
+          || !!diff.nameOverlaps?.length
+        );
+
+        if (isThereAnythingRemoteOnly) {
+          await fs.v?.sync?.absorbRemoteFolderChanges(IMAGES_FOLDER, { postfixForNameOverlaps: '_[ keep ]' });
+          wasAnythingDownloaded = await downloadImagesIfItNeed(fs, emitStorageEvent);
+        }
+
+        // And the merged folder has to be PUBLISHED, which this branch never
+        // did - unlike the `unsynced` one above. Without it the folder stayed
+        // `conflicting` for the life of the process, and the watchdog kept
+        // reporting unpublished changes while every pass absorbed again.
+        // Out of a conflicting state the platform requires the version to be
+        // named, hence remoteVersion + 1.
+        await syncUpload({
+          fs,
+          path: IMAGES_FOLDER,
+          opts: { uploadVersion: remoteVersion + 1 },
+          emitStorageEvent,
+          immediately: true,
         });
         break;
       }

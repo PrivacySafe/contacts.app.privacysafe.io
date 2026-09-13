@@ -15,7 +15,15 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 import type { ContactEvent } from '../../src/types/index.ts';
-import { needsExplicitUploadVersion, syncStatusOf } from './upload-state.ts';
+import {
+  isUploadInFlight, needsExplicitUploadVersion, syncStatusOf,
+} from './upload-state.ts';
+
+/**
+ * Paths already reported as unpublishable, so that a watchdog asking once a
+ * minute does not fill the log with the same line.
+ */
+const reportedStuckUploads = new Set<string>();
 
 export async function syncUpload({ fs, path, opts, emitStorageEvent, immediately }: {
   fs: web3n.files.WritableFS;
@@ -59,28 +67,37 @@ export async function syncUpload({ fs, path, opts, emitStorageEvent, immediately
     return undefined;
   }
 
+  // A path already known to be unpublishable still gets its attempt - it costs
+  // nothing and leaves room for the platform to recover - but it must not keep
+  // announcing a transfer that will not happen. Without this the watchdog's
+  // once-a-minute pass made the progress bar blink for the rest of the session.
+  const isKnownStuck = reportedStuckUploads.has(path);
+
+  function announce(event: 'sync:start' | 'sync:end'): void {
+    if (isKnownStuck) {
+      return;
+    }
+    emitStorageEvent({ event, payload: { path: path || 'root' } });
+  }
+
   try {
-    emitStorageEvent({
-      event: 'sync:start',
-      payload: { path: path || 'root' },
-    });
+    announce('sync:start');
 
     if (immediately) {
       const res = await fs.v?.sync?.upload(path, opts);
-      emitStorageEvent({
-        event: 'sync:end',
-        payload: { path: path || 'root' },
-      });
+      announce('sync:end');
+      reportedStuckUploads.delete(path);
       return res;
     }
 
-    return await fs.v?.sync?.startUpload(path, opts);
+    const res = await fs.v?.sync?.startUpload(path, opts);
+    // It went through after all: the platform has let go of whatever was
+    // blocking this path, so the next failure deserves to be reported afresh.
+    reportedStuckUploads.delete(path);
+    return res;
   } catch (err) {
     if ((err as web3n.ConnectException).type === 'connect') {
-      emitStorageEvent({
-        event: 'sync:end',
-        payload: { path: path || 'root' },
-      });
+      announce('sync:end');
       return undefined;
     }
 
@@ -93,6 +110,27 @@ export async function syncUpload({ fs, path, opts, emitStorageEvent, immediately
     // contract the implementation does not keep.
     if ((err as web3n.files.FSSyncException).type === 'fs-sync'
     && (err as web3n.files.FSSyncException).alreadyUploading) {
+      // ... unless nothing is actually uploading. Then this is not a race but
+      // a failed upload task the platform never took out of its map: it
+      // removes a task only on the success path, so after ANY failure every
+      // later upload of that file is refused with alreadyUploading for the
+      // life of the platform process. Nothing here can clear it - what this
+      // branch can do is stop pretending an upload was scheduled, close the
+      // indicator that would otherwise spin forever, and say so once.
+      if (!(await isUploadInFlight(fs, path))) {
+        if (!isKnownStuck) {
+          reportedStuckUploads.add(path);
+          await w3n.log(
+            'warning',
+            `The platform refuses to upload '${path || 'root'}': it reports an`
+            + ` upload in flight while its own status says there is none. An`
+            + ` upload of this file failed earlier, and the platform kept the`
+            + ` dead task, so nothing can publish it until the app is`
+            + ` restarted - see plans/platform-findings-2026-09-13.md.`,
+          );
+        }
+        announce('sync:end');
+      }
       return undefined;
     }
 

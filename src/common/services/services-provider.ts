@@ -44,6 +44,7 @@ export async function initializeServices() {
         'removeUnnecessaryImageFiles',
         'initialSyncProcess',
       ],
+      ['watchContactBlacklistChanging'],
     ) as ContactsDenoSrvInternal;
 
     console.info('<- SERVICES ARE INITIALIZED ->');

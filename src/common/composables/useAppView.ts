@@ -77,8 +77,22 @@ export function useAppView() {
    */
   const persistentWarning = ref<string | undefined>(undefined);
 
-  function setSyncStuck(isStuck: boolean) {
-    persistentWarning.value = isStuck ? t('app.warning.sync-stuck') : undefined;
+  /**
+   * The two reasons need different words because the remedy differs. A root
+   * that will not verify usually clears itself once the server answers, while
+   * changes that cannot be published stay unpublished for the life of the
+   * process: the platform keeps a failed upload task in its map and refuses
+   * every later upload of that file, so only a restart resumes publishing.
+   */
+  function setSyncStuck(isStuck: boolean, reason?: string) {
+    if (!isStuck) {
+      persistentWarning.value = undefined;
+      return;
+    }
+
+    persistentWarning.value = ((reason === 'local-version-not-published')
+      ? t('app.warning.changes-not-published')
+      : t('app.warning.sync-stuck'));
   }
 
   /**

@@ -26,6 +26,7 @@ import {
   makeEventCollector,
   makeFakeFs,
 } from '../../helpers/fake-fs.ts';
+import { installFakeW3n } from '../../helpers/fake-w3n.ts';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -213,6 +214,10 @@ describe('syncUpload', () => {
     it('is tolerated when it starts between the check and the call', async () => {
       const { fs, sync } = makeFakeFs();
       const collector = makeEventCollector();
+      sync.status.mockResolvedValueOnce({ state: 'unsynced' } as never);
+      sync.status.mockResolvedValue({
+        state: 'unsynced', uploading: { localVersion: 2 },
+      } as never);
       sync.startUpload.mockRejectedValue(alreadyUploadingException());
 
       const result = await syncUpload({
@@ -225,11 +230,96 @@ describe('syncUpload', () => {
 
     it('is tolerated in immediate mode as well', async () => {
       const { fs, sync } = makeFakeFs();
+      sync.status.mockResolvedValueOnce({ state: 'unsynced' } as never);
+      sync.status.mockResolvedValue({
+        state: 'unsynced', uploading: { localVersion: 2 },
+      } as never);
       sync.upload.mockRejectedValue(alreadyUploadingException());
 
       await expect(syncUpload({
         fs, path: CONTACTS_DB_FILE, emitStorageEvent: () => undefined, immediately: true,
       })).resolves.toBeUndefined();
+    });
+
+    // The same rejection means something else entirely when the platform's own
+    // status says nothing is uploading: a failed upload task that the platform
+    // never took out of its map. It refuses every later upload of that file for
+    // the life of the process, so the indicator must not be left running under
+    // a transfer that will never happen. Seen in the live test of 2026-09-13,
+    // where a device sat in `conflicting` for half an hour being told
+    // `alreadyUploading` once a minute.
+    it('closes the indicator when nothing is actually uploading', async () => {
+      const { fs, sync } = makeFakeFs();
+      const collector = makeEventCollector();
+      const w3n = installFakeW3n();
+      sync.status.mockResolvedValue({ state: 'unsynced' } as never);
+      sync.startUpload.mockRejectedValue(alreadyUploadingException());
+
+      try {
+        await syncUpload({
+          fs, path: 'stuck-path', emitStorageEvent: collector.emitStorageEvent,
+        });
+
+        expect(collector.names()).toEqual(['sync:start', 'sync:end']);
+        expect(w3n.w3n.log)
+        .toHaveBeenCalledWith('warning', expect.stringContaining('stuck-path'));
+      } finally {
+        w3n.uninstall();
+      }
+    });
+
+    // The watchdog asks once a minute for the rest of the session; one line is
+    // a report, sixty an hour buries everything else in the log.
+    it('reports an unpublishable path once, not once per attempt', async () => {
+      const { fs, sync } = makeFakeFs();
+      const collector = makeEventCollector();
+      const w3n = installFakeW3n();
+      sync.status.mockResolvedValue({ state: 'unsynced' } as never);
+      sync.startUpload.mockRejectedValue(alreadyUploadingException());
+
+      try {
+        for (let i = 0; i < 3; i++) {
+          await syncUpload({
+            fs, path: 'noisy-path', emitStorageEvent: collector.emitStorageEvent,
+          });
+        }
+
+        expect(w3n.w3n.log).toHaveBeenCalledOnce();
+        // Only the first attempt announced anything. The watchdog asks again
+        // every minute, and a pair of events per ask made the progress bar
+        // blink for the rest of the session.
+        expect(collector.names()).toEqual(['sync:start', 'sync:end']);
+      } finally {
+        w3n.uninstall();
+      }
+    });
+
+    // Giving up on the path entirely would be wrong: the block is the
+    // platform's, and a later attempt can find it gone.
+    it('announces again once an attempt gets through', async () => {
+      const { fs, sync } = makeFakeFs();
+      const collector = makeEventCollector();
+      const w3n = installFakeW3n();
+      sync.status.mockResolvedValue({ state: 'unsynced' } as never);
+      sync.startUpload.mockRejectedValueOnce(alreadyUploadingException());
+
+      try {
+        await syncUpload({
+          fs, path: 'recovering-path', emitStorageEvent: collector.emitStorageEvent,
+        });
+        await syncUpload({
+          fs, path: 'recovering-path', emitStorageEvent: collector.emitStorageEvent,
+        });
+        await syncUpload({
+          fs, path: 'recovering-path', emitStorageEvent: collector.emitStorageEvent,
+        });
+
+        // First attempt: the pair that reported the block. Second: silent, and
+        // it succeeded, which clears the path. Third: announced normally again.
+        expect(collector.names()).toEqual(['sync:start', 'sync:end', 'sync:start']);
+      } finally {
+        w3n.uninstall();
+      }
     });
 
   });

@@ -29,7 +29,7 @@ export interface ContactEventHandlerDeps {
    * Tells the ui that synchronisation cannot be resumed although the device
    * reports being online. A STATE, not a notice: it is set and later cleared.
    */
-  setSyncStuck: (isStuck: boolean) => void;
+  setSyncStuck: (isStuck: boolean, reason?: string) => void;
   emitContactListUpdated: () => void;
   fetchContacts: () => Promise<unknown>;
   /** Name of the currently active route, or undefined when there is none. */
@@ -78,7 +78,7 @@ export function makeContactEventHandler(
       }
 
       case 'sync:stuck': {
-        deps.setSyncStuck(evt.payload.isStuck);
+        deps.setSyncStuck(evt.payload.isStuck, evt.payload.reason);
         break;
       }
 

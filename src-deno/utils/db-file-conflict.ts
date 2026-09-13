@@ -110,16 +110,33 @@ export function ensureUniqueContactIds(contacts: RawPerson[]): RawPerson[] {
  * by mail address. For a field present on both sides the value of the record
  * with the newer timestamp wins.
  *
- * `areThereDifferences` reports whether the remote side contributed anything
- * the local side did not have; the caller uses it to decide between rewriting
- * the table plus uploading, and simply adopting the remote version.
+ * The two flags say which side contributed to the result:
+ *
+ *  - `areThereDifferences` — did the REMOTE contribute anything the local side
+ *    did not have?
+ *  - `isLocalAheadOfRemote` — do WE hold anything the remote does not have? If
+ *    so the merge differs from the remote version and has to be published; the
+ *    remote version must never be adopted without writing the merge back
+ *    afterwards, since adopting replaces the table wholesale and everything
+ *    local-only is gone for good. Seen for real in the live test of
+ *    2026-09-13, where a contact created offline on one device vanished from it
+ *    a second after the merge had shown it.
+ *
+ * Rows matched on both sides with the SAME timestamp are taken to be the same
+ * row; the merge itself already resolves them that way, by giving the tie to
+ * the local record.
  */
 export function resolveDbFileConflict(
   contactListRemote: RawPerson[],
   contactList: RawPerson[],
-): { areThereDifferences: boolean; resolvedContactList: RawPerson[] } {
+): {
+  areThereDifferences: boolean;
+  isLocalAheadOfRemote: boolean;
+  resolvedContactList: RawPerson[];
+} {
   const resolvedContactList: RawPerson[] = [];
   let areThereDifferences = false;
+  let isLocalAheadOfRemote = false;
   const remoteMap = new Map(contactListRemote.map(p => [p.mail, p]));
 
   for (const localPerson of contactList) {
@@ -127,6 +144,7 @@ export function resolveDbFileConflict(
 
     if (!remotePerson) {
       resolvedContactList.push(localPerson);
+      isLocalAheadOfRemote = true;
     } else {
       const resolvedContact = { id: localPerson.id, mail: localPerson.mail } as RawPerson;
       const olderRecord = localPerson.timestamp >= remotePerson.timestamp ? localPerson : remotePerson;
@@ -143,6 +161,7 @@ export function resolveDbFileConflict(
         if (localPerson[field] && !remotePerson[field]) {
           // @ts-ignore
           resolvedContact[field] = localPerson[field];
+          isLocalAheadOfRemote = true;
         } else if (remotePerson[field] && !localPerson[field]) {
           // @ts-ignore
           resolvedContact[field] = remotePerson[field];
@@ -150,7 +169,11 @@ export function resolveDbFileConflict(
         } else {
           // @ts-ignore
           resolvedContact[field] = olderRecord[field];
-          remotePerson.timestamp > localPerson.timestamp && (areThereDifferences = true);
+          if (remotePerson.timestamp > localPerson.timestamp) {
+            areThereDifferences = true;
+          } else if (localPerson.timestamp > remotePerson.timestamp) {
+            isLocalAheadOfRemote = true;
+          }
         }
       }
 
@@ -165,5 +188,5 @@ export function resolveDbFileConflict(
     resolvedContactList.push(remotePerson);
   }
 
-  return { areThereDifferences, resolvedContactList };
+  return { areThereDifferences, isLocalAheadOfRemote, resolvedContactList };
 }

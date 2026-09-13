@@ -378,4 +378,174 @@ describe(`Contacts deno service`, () => {
 
   });
 
+  // The watcher exists for the OTHER apps: it is what tells them that an
+  // address may no longer be written to or accepted from. It used to be fed
+  // only by the two calls that block and unblock on this device, so everything
+  // else that changes the table - a plain edit, a restore, and above all the
+  // arrival of another device's change by synchronisation - left its
+  // subscribers holding a stale list. It is now fed by the state of the table
+  // itself, which is what these specs pin down.
+  describe(`contact blacklist`, () => {
+
+    /** How long a broadcast is given to travel back over ipc. */
+    const EVENT_WAIT_MS = 5000;
+    /** How long "nothing more arrives" is observed for. */
+    const QUIET_MS = 1500;
+
+    interface Subscription {
+      received: Person[][];
+      unsubscribe: () => void;
+      /** Waits until more than `count` lists have arrived, or gives up. */
+      waitForMoreThan: (count: number) => Promise<boolean>;
+    }
+
+    const subscriptions: (() => void)[] = [];
+
+    function subscribe(): Subscription {
+      const received: Person[][] = [];
+      const unsubscribe = appContactsSrvProxy.watchContactBlacklistChanging({
+        next: list => { received.push(list); },
+      });
+      subscriptions.push(unsubscribe);
+
+      return {
+        received,
+        unsubscribe,
+        waitForMoreThan: async count => {
+          const deadline = Date.now() + EVENT_WAIT_MS;
+          while (Date.now() < deadline) {
+            if (received.length > count) {
+              return true;
+            }
+            await sleep(100);
+          }
+          return false;
+        },
+      };
+    }
+
+    afterEach(() => {
+      while (subscriptions.length > 0) {
+        subscriptions.pop()!();
+      }
+    });
+
+    /** Blocks the contact and waits for the broadcast that follows. */
+    async function blockAndAwait(sub: Subscription, id: string, value: boolean): Promise<void> {
+      const before = sub.received.length;
+      await appContactsSrvProxy.changeContactBlockingSettings({ id, value });
+      expect(await sub.waitForMoreThan(before))
+      .withContext(`broadcast after setting blockUser to ${value}`).toBeTrue();
+    }
+
+    function idsOf(list: Person[]): string[] {
+      return list.map(({ id }) => id);
+    }
+
+    itCond(`hands a snapshot to a new subscriber`, async () => {
+      const sub = subscribe();
+
+      expect(await sub.waitForMoreThan(0))
+      .withContext(`snapshot on subscribing`).toBeTrue();
+      expect(Array.isArray(sub.received[0])).withContext(`a list`).toBeTrue();
+    }, SPEC_TIMEOUT);
+
+    itCond(`announces a blocked contact`, async () => {
+      const contact = await addContact('Spec Blocked');
+      const sub = subscribe();
+      await sub.waitForMoreThan(0);
+
+      await blockAndAwait(sub, contact.id, true);
+
+      expect(idsOf(sub.received[sub.received.length - 1]))
+      .withContext(`blocked contact is in the list`).toContain(contact.id);
+    }, SPEC_TIMEOUT);
+
+    // Deduplication is what keeps the synchronisation events from turning into
+    // a broadcast per arriving change of anything at all.
+    itCond(`says nothing when the flag is set to the value it already has`, async () => {
+      const contact = await addContact('Spec Reblocked');
+      const sub = subscribe();
+      await sub.waitForMoreThan(0);
+      await blockAndAwait(sub, contact.id, true);
+      const after = sub.received.length;
+
+      await appContactsSrvProxy.changeContactBlockingSettings({ id: contact.id, value: true });
+      await sleep(QUIET_MS);
+
+      expect(sub.received.length).withContext(`no further broadcast`).toBe(after);
+    }, SPEC_TIMEOUT);
+
+    // A plain edit never told the watchers anything, however the flag got there.
+    itCond(`announces a rename of a blocked contact`, async () => {
+      const contact = await addContact('Spec Renamed');
+      const sub = subscribe();
+      await sub.waitForMoreThan(0);
+      await blockAndAwait(sub, contact.id, true);
+      const after = sub.received.length;
+
+      await appContactsSrvProxy.upsertContact({ ...contact, name: 'Spec Renamed Twice' });
+
+      expect(await sub.waitForMoreThan(after))
+      .withContext(`broadcast after the rename`).toBeTrue();
+      const listed = sub.received[sub.received.length - 1].find(c => (c.id === contact.id));
+      expect(listed).withContext(`still listed`).toBeDefined();
+      expect(listed!.name).withContext(`under the new name`).toBe('Spec Renamed Twice');
+    }, SPEC_TIMEOUT);
+
+    itCond(`says nothing about an edit outside the blacklist`, async () => {
+      const contact = await addContact('Spec Unblocked');
+      const sub = subscribe();
+      await sub.waitForMoreThan(0);
+      const after = sub.received.length;
+
+      await appContactsSrvProxy.upsertContact({ ...contact, name: 'Spec Still Unblocked' });
+      await sleep(QUIET_MS);
+
+      expect(sub.received.length).withContext(`no broadcast`).toBe(after);
+    }, SPEC_TIMEOUT);
+
+    itCond(`announces the removal of a blocked contact`, async () => {
+      const contact = await addContact('Spec Deleted');
+      const sub = subscribe();
+      await sub.waitForMoreThan(0);
+      await blockAndAwait(sub, contact.id, true);
+      const after = sub.received.length;
+
+      await appContactsSrvProxy.deleteContact(contact.id);
+      contactIdsToClean.delete(contact.id);
+
+      expect(await sub.waitForMoreThan(after))
+      .withContext(`broadcast after the deletion`).toBeTrue();
+      expect(idsOf(sub.received[sub.received.length - 1]))
+      .withContext(`gone from the list`).not.toContain(contact.id);
+    }, SPEC_TIMEOUT);
+
+    itCond(`announces an unblocking`, async () => {
+      const contact = await addContact('Spec Unblocking');
+      const sub = subscribe();
+      await sub.waitForMoreThan(0);
+      await blockAndAwait(sub, contact.id, true);
+
+      await blockAndAwait(sub, contact.id, false);
+
+      expect(idsOf(sub.received[sub.received.length - 1]))
+      .withContext(`no longer listed`).not.toContain(contact.id);
+    }, SPEC_TIMEOUT);
+
+    itCond(`serves the same list through getContactBlacklist`, async () => {
+      const contact = await addContact('Spec Consistent');
+      const sub = subscribe();
+      await sub.waitForMoreThan(0);
+      await blockAndAwait(sub, contact.id, true);
+
+      const asked = await appContactsSrvProxy.getContactBlacklist();
+
+      expect(idsOf(asked).sort())
+      .withContext(`the reply matches what was broadcast`)
+      .toEqual(idsOf(sub.received[sub.received.length - 1]).sort());
+    }, SPEC_TIMEOUT);
+
+  });
+
 });

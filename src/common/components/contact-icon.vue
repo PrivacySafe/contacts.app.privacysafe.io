@@ -15,54 +15,62 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
 <script lang="ts" setup>
-import { computed } from 'vue';
-import { Ui3nIcon } from '@v1nt1248/3nclient-lib';
-import { generateColor } from '@main/common/utils/generate-color';
-import { initialsOf } from '@main/common/utils/contact-presentation';
+  import { computed } from 'vue';
+  import { Ui3nIcon } from '@v1nt1248/3nclient-lib';
+  import { generateColor } from '@main/common/utils/generate-color';
+  import { initialsOf } from '@main/common/utils/contact-presentation';
 
-const props = defineProps<{
-  size?: number;
-  name?: string;
-  photo?: string;
-  selected?: boolean;
-  readonly?: boolean;
-}>();
-const emit = defineEmits<{
-  (e: 'click', event: MouseEvent): void;
-}>();
+  const props = defineProps<{
+    size?: number;
+    name?: string;
+    photo?: string;
+    selected?: boolean;
+    readonly?: boolean;
+  }>();
+  const emit = defineEmits<{
+    (e: 'click', event: MouseEvent): void;
+  }>();
 
-const letters = computed<string>(() => (
-  props.photo ? '' : initialsOf(props.name)
-));
+  const letters = computed<string>(() => (props.photo ? '' : initialsOf(props.name)));
 
-const innerSize = computed<number>(() => props.size || 24);
-const checkIconSize = computed<number>(() => Math.max(8, Math.floor(innerSize.value / 3) - 2));
+  const innerSize = computed<number>(() => props.size || 24);
+  const checkIconSize = computed<number>(() => Math.max(8, Math.floor(innerSize.value / 3) - 2));
 
-const mainStyle = computed<Record<string, string>>(() => {
-  const styles: Record<string, string> = {
-    minWidth: `${innerSize.value}px`,
-    width: `${innerSize.value}px`,
-    minHeight: `${innerSize.value}px`,
-    height: `${innerSize.value}px`,
-    backgroundColor: generateColor(props.name || '?'),
+  const contactLetters = computed(() => {
+    if (!props.name) {
+      return '?';
+    }
+
+    return props.name.length > 1
+      ? `${props.name[0].toLocaleUpperCase()}${props.name[1].toLocaleLowerCase()}`
+      : props.name[0].toLocaleUpperCase();
+  });
+
+  const mainStyle = computed<Record<string, string>>(() => {
+    const styles: Record<string, string> = {
+      minWidth: `${innerSize.value}px`,
+      width: `${innerSize.value}px`,
+      minHeight: `${innerSize.value}px`,
+      height: `${innerSize.value}px`,
+      backgroundColor: generateColor(contactLetters.value),
+    };
+
+    if (props.photo) {
+      styles.backgroundImage = `url(${props.photo})`;
+    }
+
+    return styles;
+  });
+
+  const nameStyle = computed<Record<string, string>>(() => ({
+    fontSize: `${Math.max(8, Math.floor(innerSize.value * 0.6) - 6)}px`,
+  }));
+
+  const onClick = (ev: MouseEvent): void => {
+    if (!props.readonly) {
+      emit('click', ev);
+    }
   };
-
-  if (props.photo) {
-    styles.backgroundImage = `url(${props.photo})`;
-  }
-
-  return styles;
-});
-
-const nameStyle = computed<Record<string, string>>(() => ({
-  fontSize: `${Math.max(8, Math.floor(innerSize.value * 0.6) - 6)}px`,
-}));
-
-const onClick = (ev: MouseEvent): void => {
-  if (!props.readonly) {
-    emit('click', ev);
-  }
-};
 </script>
 
 <template>
@@ -94,67 +102,67 @@ const onClick = (ev: MouseEvent): void => {
 </template>
 
 <style lang="scss" module>
-.contactIcon {
-  position: relative;
-  box-sizing: border-box;
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-repeat: no-repeat;
-  background-position: 50% 50%;
-  background-size: cover;
-}
-
-.contactIconLetter {
-  -webkit-font-smoothing: antialiased;
-  color: var(--color-text-avatar-primary-default);
-  font-weight: 600;
-  line-height: 1;
-  z-index: 1;
-  pointer-events: none;
-  user-select: none;
-}
-
-.contactIconSelected {
-  &::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: transparent;
+  .contactIcon {
+    position: relative;
     box-sizing: border-box;
     border-radius: 50%;
-    border: 4px solid var(--default-fill-default);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-repeat: no-repeat;
+    background-position: 50% 50%;
+    background-size: cover;
   }
 
-  &::after {
-    content: "";
+  .contactIconLetter {
+    -webkit-font-smoothing: antialiased;
+    color: var(--color-text-avatar-primary-default);
+    font-weight: 600;
+    line-height: 1;
+    z-index: 1;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .contactIconSelected {
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: transparent;
+      box-sizing: border-box;
+      border-radius: 50%;
+      border: 4px solid var(--default-fill-default);
+    }
+
+    &::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: transparent;
+      box-sizing: border-box;
+      border-radius: 50%;
+      border: 2px solid var(--color-border-control-accent-default);
+    }
+  }
+
+  .contactIconIcon {
     position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: transparent;
-    box-sizing: border-box;
+    width: calc(100% / 3);
+    height: calc(100% / 3);
     border-radius: 50%;
-    border: 2px solid var(--color-border-control-accent-default);
+    background-color: var(--color-border-control-accent-default);
+    bottom: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1;
   }
-}
-
-.contactIconIcon {
-  position: absolute;
-  width: calc(100% / 3);
-  height: calc(100% / 3);
-  border-radius: 50%;
-  background-color: var(--color-border-control-accent-default);
-  bottom: 0;
-  right: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1;
-}
 </style>

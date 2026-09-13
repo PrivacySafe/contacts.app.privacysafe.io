@@ -20,7 +20,9 @@ import { CONTACTS_DB_FILE } from '../constants.ts';
 import { syncUpload } from './sync-upload.ts';
 import { syncAdopt } from './sync-adopt.ts';
 import { syncDownload } from './sync-download.ts';
-import { normalizeContactRow, resolveDbFileConflict } from './db-file-conflict.ts';
+import {
+  ensureUniqueContactIds, normalizeContactRow, resolveDbFileConflict,
+} from './db-file-conflict.ts';
 import  { ContactEvent, RawPerson } from '../../src/types/index.ts';
 
 export async function handleDbFileSyncStatus({ fs, sqlite, contactDbSrv, emitStorageEvent }: {
@@ -71,10 +73,12 @@ export async function handleDbFileSyncStatus({ fs, sqlite, contactDbSrv, emitSto
     }
 
     case 'conflicting': {
-      emitStorageEvent({
-        event: 'sync:start',
-        payload: { path: CONTACTS_DB_FILE },
-      });
+      // No sync:start of its own here. syncUpload and syncAdopt each open and
+      // close the indicator for what they do; an extra one opened here has no
+      // closer of its own, and in the branch below the only thing that would
+      // have closed it - an 'upload-done' event - never arrives when the
+      // upload cannot get through. The watchdog then re-opened it every minute
+      // and the progress bar ran for the rest of the session.
       const { bytes } = await fs.v!.readBytes(
         CONTACTS_DB_FILE,
         undefined,
@@ -90,12 +94,51 @@ export async function handleDbFileSyncStatus({ fs, sqlite, contactDbSrv, emitSto
       const contactList = objectFromQueryExecResult<RawPerson>(sqlValue)
         .map(normalizeContactRow);
 
-      const { areThereDifferences, resolvedContactList } = resolveDbFileConflict(
-        contactListRemote,
-        contactList,
-      );
-      if (areThereDifferences) {
-        await contactDbSrv.updateContactsTable(resolvedContactList);
+      const { areThereDifferences, isLocalAheadOfRemote, resolvedContactList } =
+        resolveDbFileConflict(contactListRemote, contactList);
+
+      if (isLocalAheadOfRemote) {
+        // THE INVARIANT: while this device holds rows the server does not, the
+        // remote version must not be adopted. adoptRemote drops the local
+        // branch outright, and the merge then exists only in memory - so any
+        // failure between the adoption and the write loses those rows for good.
+        //
+        // Adopting FIRST and writing the merge on top was tried, to keep the
+        // upload out of the conflicting state. It does not survive contact with
+        // the platform: after adopting version R the next local write takes
+        // number R+1, and the platform keeps written version numbers in a
+        // 60-second cache that its GC never clears, so the write fails with
+        // "Version R+1 already exists" whenever the dropped branch had got that
+        // far - which is the normal case after two local saves. The live test
+        // of 2026-09-13 lost a contact created offline exactly this way. See
+        // finding 4 in plans/platform-findings-2026-09-13.md.
+        //
+        // So the merge goes into the LOCAL branch, where it is durable, and is
+        // published from there. If the upload loses a race with the other
+        // device it stays unsynced and is published after a restart - slow, but
+        // nothing is ever lost.
+        //
+        // ensureUniqueContactIds because the merge keeps every remote-only row
+        // under the id it was created with on the other device, and two devices
+        // working offline can pick the same randomStr(8). Without it the insert
+        // of the clashing row throws contactAlreadyExists and the whole merge
+        // is lost.
+        //
+        // `true` makes it one save for the whole merge: insertContactInto saves
+        // the file after EVERY row otherwise, which wrote a local version per
+        // contact and ran the version numbers far ahead of the server's.
+        //
+        // And the table is rewritten only when the REMOTE brought something:
+        // otherwise the merge already equals the local table, and rewriting it
+        // would write a new local version for nothing. While an upload cannot
+        // get through, this pass runs once a minute - in the live test of
+        // 2026-09-14 that took the local version from 9 to 41 in half an hour,
+        // every one of them identical.
+        if (areThereDifferences) {
+          await contactDbSrv.updateContactsTable(
+            ensureUniqueContactIds(resolvedContactList), true,
+          );
+        }
         await syncUpload({
           fs,
           path: CONTACTS_DB_FILE,
@@ -103,6 +146,8 @@ export async function handleDbFileSyncStatus({ fs, sqlite, contactDbSrv, emitSto
           emitStorageEvent,
         });
       } else {
+        // Nothing of ours is at stake: the merge equals the remote version, so
+        // adopting it is both safe and the cheapest way out of the conflict.
         await syncAdopt({
           fs,
           path: CONTACTS_DB_FILE,

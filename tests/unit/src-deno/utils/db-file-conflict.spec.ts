@@ -153,6 +153,109 @@ describe('resolveDbFileConflict', () => {
     expect(areThereDifferences).toBe(false);
   });
 
+  // isLocalAheadOfRemote is what keeps the caller from adopting the remote
+  // version over a local-only row. Before it existed, a contact created while
+  // offline was dropped the moment the other device's version arrived: the
+  // remote had brought nothing new, so the merge reported no differences and
+  // the caller adopted the server's table wholesale.
+  describe('isLocalAheadOfRemote', () => {
+
+    it('is set by a contact that exists only locally', () => {
+      const { areThereDifferences, isLocalAheadOfRemote } = resolveDbFileConflict(
+        [rawPerson({ id: 'R1', mail: 'bob@3nweb.com', timestamp: 5 })],
+        [
+          rawPerson({ id: 'R1', mail: 'bob@3nweb.com', timestamp: 5 }),
+          rawPerson({ id: 'L2', mail: 'cid@3nweb.com', timestamp: 6 }),
+        ],
+      );
+
+      expect(isLocalAheadOfRemote).toBe(true);
+      expect(areThereDifferences).toBe(false);
+    });
+
+    it('is not set by a contact that exists only remotely', () => {
+      const { isLocalAheadOfRemote } = resolveDbFileConflict(
+        [rawPerson({ id: 'R1', name: 'Bob' })], [],
+      );
+
+      expect(isLocalAheadOfRemote).toBe(false);
+    });
+
+    it('is set by a field only the local side has', () => {
+      const { isLocalAheadOfRemote } = resolveDbFileConflict(
+        [rawPerson({ id: 'R1', timestamp: 5 })],
+        [rawPerson({ id: 'L1', name: 'Ann', timestamp: 5 })],
+      );
+
+      expect(isLocalAheadOfRemote).toBe(true);
+    });
+
+    it('is not set by a field only the remote side has', () => {
+      const { isLocalAheadOfRemote } = resolveDbFileConflict(
+        [rawPerson({ id: 'R1', name: 'Bob', timestamp: 5 })],
+        [rawPerson({ id: 'L1', timestamp: 5 })],
+      );
+
+      expect(isLocalAheadOfRemote).toBe(false);
+    });
+
+    it('is set when the local record is the newer one', () => {
+      const { isLocalAheadOfRemote } = resolveDbFileConflict(
+        [rawPerson({ id: 'R1', name: 'Bob', timestamp: 5 })],
+        [rawPerson({ id: 'L1', name: 'Ann', timestamp: 9 })],
+      );
+
+      expect(isLocalAheadOfRemote).toBe(true);
+    });
+
+    it('is not set when the remote record is the newer one', () => {
+      const { isLocalAheadOfRemote } = resolveDbFileConflict(
+        [rawPerson({ id: 'R1', name: 'Bob', timestamp: 9 })],
+        [rawPerson({ id: 'L1', name: 'Ann', timestamp: 5 })],
+      );
+
+      expect(isLocalAheadOfRemote).toBe(false);
+    });
+
+    // The tie resolves in favour of the local record, and that is not a reason
+    // to publish a version: both sides are taken to hold the same row.
+    it('is not set by an exact timestamp tie', () => {
+      const { isLocalAheadOfRemote } = resolveDbFileConflict(
+        [rawPerson({ id: 'R1', name: 'Bob', timestamp: 7 })],
+        [rawPerson({ id: 'L1', name: 'Ann', timestamp: 7 })],
+      );
+
+      expect(isLocalAheadOfRemote).toBe(false);
+    });
+
+    // Both devices adding a contact of their own while offline: each side has
+    // something the other lacks, so the merge must be both rewritten AND
+    // published.
+    it('is set together with areThereDifferences when both sides added a row', () => {
+      const { areThereDifferences, isLocalAheadOfRemote, resolvedContactList } =
+        resolveDbFileConflict(
+          [rawPerson({ id: 'R1', mail: 'dan@3nweb.com', timestamp: 6 })],
+          [rawPerson({ id: 'L1', mail: 'cid@3nweb.com', timestamp: 5 })],
+        );
+
+      expect(isLocalAheadOfRemote).toBe(true);
+      expect(areThereDifferences).toBe(true);
+      expect(resolvedContactList.map(c => c.mail))
+      .toEqual(['cid@3nweb.com', 'dan@3nweb.com']);
+    });
+
+    it('is not set when the two sides hold the same row', () => {
+      const { areThereDifferences, isLocalAheadOfRemote } = resolveDbFileConflict(
+        [rawPerson({ id: 'c1', mail: 'ann@3nweb.com', name: 'Ann', timestamp: 5 })],
+        [rawPerson({ id: 'c1', mail: 'ann@3nweb.com', name: 'Ann', timestamp: 5 })],
+      );
+
+      expect(isLocalAheadOfRemote).toBe(false);
+      expect(areThereDifferences).toBe(false);
+    });
+
+  });
+
   it('nulls a field that is empty on both sides', () => {
     const { resolvedContactList } = resolveDbFileConflict(
       [rawPerson({ id: 'R1', timestamp: 1 })],

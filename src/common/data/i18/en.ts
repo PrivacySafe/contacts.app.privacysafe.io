@@ -50,6 +50,8 @@ export const en = {
       label: 'Warning',
       'sync-stuck':
         'Synchronization has not resumed, although this device is online. Changes are being kept on this device. Restart the app to sync them.',
+      'changes-not-published':
+        'Changes made on this device are saved here, but the server keeps refusing them. They are not lost, and will be published as soon as it accepts them again. Restarting the app sometimes helps.',
       'first-run-needs-network':
         'This app has to be started once while online: its storage cannot be created on this device without the server. Connect and start the app again.',
       'service-unavailable': 'The contacts service did not start. Restart the app.',

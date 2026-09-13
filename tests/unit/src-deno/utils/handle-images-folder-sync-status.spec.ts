@@ -162,6 +162,7 @@ describe('handleImagesFolderSyncStatus', () => {
         [IMAGES_FOLDER]: { state: 'conflicting', remote: { latest: 9 } },
         [imgPath('av1')]: { state: 'synced', synced: { latest: 3 } },
       });
+      sync.diffCurrentAndRemoteFolderVersions.mockResolvedValue({ nameOverlaps: ['av1'] });
       sync.isRemoteVersionOnDisk.mockResolvedValue('complete');
 
       await handleImagesFolderSyncStatus({ fs, emitStorageEvent: collector.emitStorageEvent });
@@ -177,11 +178,48 @@ describe('handleImagesFolderSyncStatus', () => {
         [IMAGES_FOLDER]: { state: 'conflicting', remote: { latest: 9 } },
         [imgPath('av1')]: { state: 'synced', synced: { latest: 3 } },
       });
+      sync.diffCurrentAndRemoteFolderVersions.mockResolvedValue({ added: { inRemote: ['av1'] } });
       sync.isRemoteVersionOnDisk.mockResolvedValue('none');
 
       await handleImagesFolderSyncStatus({ fs, emitStorageEvent: () => undefined });
 
       expect(sync.startDownload).toHaveBeenCalledWith(imgPath('av1'), 3);
+    });
+
+    // Without this the folder stayed `conflicting` for the life of the process:
+    // the branch merged the two sides and then left the result sitting there.
+    // Out of a conflicting state the platform wants the version named.
+    it('publishes the merged folder past the remote version', async () => {
+      const { fs, sync } = makeFakeFs({ [IMAGES_FOLDER]: [fileEntry('av1')] });
+      scriptStatuses(sync, {
+        [IMAGES_FOLDER]: { state: 'conflicting', remote: { latest: 9 } },
+        [imgPath('av1')]: { state: 'synced', synced: { latest: 3 } },
+      });
+      sync.diffCurrentAndRemoteFolderVersions.mockResolvedValue({ added: { inRemote: ['av1'] } });
+      sync.isRemoteVersionOnDisk.mockResolvedValue('complete');
+
+      await handleImagesFolderSyncStatus({ fs, emitStorageEvent: () => undefined });
+
+      expect(sync.upload).toHaveBeenCalledWith(IMAGES_FOLDER, { uploadVersion: 10 });
+    });
+
+    // Absorbing writes a new local folder version every time it is called. The
+    // watchdog runs this pass once a minute while the upload cannot get
+    // through, and in the live test of 2026-09-14 that took the local version
+    // to 75 against a remote of 3.
+    it('does not absorb when the remote side brought nothing', async () => {
+      const { fs, sync } = makeFakeFs({ [IMAGES_FOLDER]: [fileEntry('av1')] });
+      scriptStatuses(sync, {
+        [IMAGES_FOLDER]: { state: 'conflicting', remote: { latest: 9 } },
+        [imgPath('av1')]: { state: 'synced', synced: { latest: 3 } },
+      });
+      sync.diffCurrentAndRemoteFolderVersions.mockResolvedValue({ added: { inLocal: ['av2'] } });
+
+      await handleImagesFolderSyncStatus({ fs, emitStorageEvent: () => undefined });
+
+      expect(sync.absorbRemoteFolderChanges).not.toHaveBeenCalled();
+      // The publishing attempt still happens - that is how the conflict ends.
+      expect(sync.upload).toHaveBeenCalledWith(IMAGES_FOLDER, { uploadVersion: 10 });
     });
 
   });
@@ -198,6 +236,7 @@ describe('handleImagesFolderSyncStatus', () => {
         [IMAGES_FOLDER]: { state: 'conflicting', remote: { latest: 9 } },
         [imgPath('av1')]: { state: 'synced', synced: { latest: 3 } },
       });
+      sync.diffCurrentAndRemoteFolderVersions.mockResolvedValue({ added: { inRemote: ['av1'] } });
       sync.isRemoteVersionOnDisk.mockResolvedValue('none');
 
       await handleImagesFolderSyncStatus({ fs, emitStorageEvent: collector.emitStorageEvent });

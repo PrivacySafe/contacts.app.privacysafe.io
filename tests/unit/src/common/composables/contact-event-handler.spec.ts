@@ -166,7 +166,20 @@ describe('contact event handler', () => {
         payload: { isStuck: true, reason: 'root-folder-not-verified' },
       } as ContactEvent);
 
-      expect(deps.setSyncStuck).toHaveBeenCalledWith(true);
+      expect(deps.setSyncStuck).toHaveBeenCalledWith(true, 'root-folder-not-verified');
+    });
+
+    // The reason travels with the flag: the two stuck states need different
+    // words, because only one of them clears itself.
+    it('passes the reason on', async () => {
+      const { deps, handle } = setup();
+
+      await handle({
+        event: 'sync:stuck',
+        payload: { isStuck: true, reason: 'local-version-not-published' },
+      } as ContactEvent);
+
+      expect(deps.setSyncStuck).toHaveBeenCalledWith(true, 'local-version-not-published');
     });
 
     it('passes the recovery on', async () => {
@@ -174,7 +187,7 @@ describe('contact event handler', () => {
 
       await handle({ event: 'sync:stuck', payload: { isStuck: false } } as ContactEvent);
 
-      expect(deps.setSyncStuck).toHaveBeenCalledWith(false);
+      expect(deps.setSyncStuck).toHaveBeenCalledWith(false, undefined);
     });
 
     // The sync list is about paths being uploaded right now; a stuck session is

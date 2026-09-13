@@ -32,6 +32,13 @@ import { handleDbFileSyncStatus } from './utils/handle-db-file-sync-status.ts';
 import { prepareSyncedRoot } from './utils/prepare-synced-root.ts';
 import { resolveRootFolderConflict } from './utils/resolve-root-folder-conflict.ts';
 import { waitForOnline, watchStorageReconnection } from './utils/storage-connection.ts';
+import { startConvergenceWatchdog } from './utils/convergence-watchdog.ts';
+import {
+  isBlacklistAffecting,
+  makeBlacklistBroadcaster,
+  selectBlacklisted,
+  type BlacklistBroadcaster,
+} from './utils/contact-blacklist.ts';
 import { randomStr } from '../src/common/services/base/random.ts';
 import { isNewContactId } from '../src/common/constants/index.ts';
 import { syncUpload } from './utils/sync-upload.ts';
@@ -41,6 +48,16 @@ import type { ContactsDenoSrv, ContactsDenoSrvInternal, ContactsDenoSrvExternal 
 
 /** How many times the db file is opened again while its bytes are missing. */
 const DB_OPEN_ATTEMPTS = 3;
+
+interface SyncPassOpts {
+  /**
+   * Leaves the sweep of unused image files out of the pass. Set by callers that
+   * run on a timer: the sweep is destructive housekeeping, and repeating it
+   * every minute catches the window in which an image is written but the
+   * contact referring to it is not saved yet.
+   */
+  skipImageSweep?: boolean;
+}
 
 /** Cap on a single wait for the connection, so that a retry always happens. */
 const CONNECTION_WAIT_MS = 60000;
@@ -132,10 +149,39 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
   const updateEventsObservers = new ObserversSet<ContactEvent>();
   const updateContactBlacklist = new ObserversSet<Person[]>();
 
+  /**
+   * Only ready once contactDbSrv exists. emitStorageEvent is handed to
+   * prepareSyncedRoot before that, so the hook below has to be able to answer
+   * "not yet" rather than reach for a binding still in its dead zone.
+   */
+  let blacklist: BlacklistBroadcaster | undefined;
+
   setupGlobalReportingOfUnhandledErrors(true);
 
+  /**
+   * The one point every rewrite of the contacts table passes through -
+   * including changes that arrived by synchronisation from another device of
+   * the user, and a restore from a backup. That is why the blacklist is
+   * recomputed HERE rather than at the call sites that block and unblock: it
+   * used to be announced only from changeContactBlockingSettings and
+   * deleteContact, so on the user's second device the watchers - and with them
+   * the other apps that rely on them - kept serving a stale list.
+   *
+   * The recomputation is synchronous, and both halves of that are load-bearing;
+   * see makeBlacklistBroadcaster.
+   */
   function emitStorageEvent(event: ContactEvent) {
     updateEventsObservers.next(event);
+
+    if (blacklist && isBlacklistAffecting(event)) {
+      // This function must not throw: it is called from the sync utils, and an
+      // exception here would tear down a phase that has already done its work.
+      try {
+        blacklist.broadcastIfChanged();
+      } catch (err) {
+        w3n.log('error', 'Could not recompute the contact blacklist', err);
+      }
+    }
   }
 
   function watchEvent(obs: web3n.Observer<ContactEvent>): () => void {
@@ -143,22 +189,18 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
     return () => updateEventsObservers.delete(obs);
   }
 
-  function changeContactBlacklist(list: Person[]) {
-    updateContactBlacklist.next(list);
-  }
-
   function watchContactBlacklistChanging(obs: web3n.Observer<Person[]>) {
-    let active = true;
     updateContactBlacklist.add(obs);
-    void getContactBlacklist(false).then(list => {
-      if (active) {
-        obs.next?.(list);
-      }
-    });
-    return () => {
-      active = false;
-      updateContactBlacklist.delete(obs);
-    };
+    // Taken and delivered synchronously. The snapshot used to arrive by promise
+    // AFTER the observer had joined the set, so a broadcast landing in between
+    // overtook it and left the subscriber holding a list OLDER than one it had
+    // already been given.
+    try {
+      obs.next?.(blacklist!.current());
+    } catch (err) {
+      w3n.log('info', 'A blacklist subscriber failed on its first snapshot', err);
+    }
+    return () => updateContactBlacklist.delete(obs);
   }
 
   const fs = await openSyncedRoot();
@@ -283,6 +325,21 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
 
   const contactDbSrv = await contactDb(sqlite, scheduleDbUpload);
 
+  // Switched on here, and not where it is declared: emitStorageEvent goes into
+  // prepareSyncedRoot above, before the db is open. The starting state is taken
+  // as the baseline without a broadcast, so that the first update:contact-list
+  // does not announce a list nobody changed. Nothing is missed by starting
+  // here - neither prepareSyncedRoot nor handleRootFolderSyncStatus emits any
+  // of the events the hook reacts to, and resolveRootFolderConflict runs below.
+  blacklist = makeBlacklistBroadcaster({
+    listContacts: contactDbSrv.listAllContactsFrom,
+    broadcast: updateContactBlacklist.next,
+    onError: err => {
+      w3n.log('error', 'Could not read the contact blacklist', err);
+    },
+  });
+  blacklist.prime();
+
   // Second phase of bringing the root in line with the server: the merge needs
   // contactDbSrv, and it has to happen BEFORE the first saveToFile below and
   // before watchTree starts reacting to remote changes - so that no local state
@@ -338,6 +395,15 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
               await handleImagesFolderSyncStatus({ fs, emitStorageEvent });
             } else {
               await handleRootFolderSyncStatus({ fs, sqlite, contactDbSrv, emitStorageEvent });
+              // The db file goes right after the root, in the same order the
+              // startup pass uses. Reconciling the root can adopt a remote
+              // version whose contacts-db is a newer object than the one on
+              // disk, and nothing here used to look at the file afterwards -
+              // so the contacts themselves only caught up on the next
+              // remote-change addressed to the file, or on the next startup
+              // pass. handleDbFileSyncStatus returns at once when the file
+              // needs nothing.
+              await handleDbFileSyncStatus({ fs, sqlite, contactDbSrv, emitStorageEvent });
             }
           });
           break;
@@ -358,6 +424,13 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
     withUploadParentFolder?: boolean;
   }): Promise<string> {
     const imageFileId = id || randomStr(20);
+    // Protected from the sweep from this moment on. The gui writes the image
+    // files first and sets avatarId on the contact only when the user saves it,
+    // so between the two there is a window - as long as the user cares to take
+    // - in which the file is on disk and no contact row refers to it. A sweep
+    // landing in that window deletes the avatar the user is in the middle of
+    // attaching. Seen for real on 2026-09-14.
+    imagesAddedThisSession.add(imageFileId);
     await filesSrv.saveFile({ base64, id: imageFileId });
     // The file is saved locally either way; only its publication waits for the
     // root to be verified. The initial sync pass uploads it afterwards.
@@ -465,7 +538,7 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
       event: 'remove:contact',
       payload: { id },
     });
-    void getContactBlacklist(false).then(changeContactBlacklist);
+    // The blacklist watchers are served by the hook in emitStorageEvent above.
   }
 
   async function getContactList(withImage?: boolean): Promise<Person[]> {
@@ -484,11 +557,7 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
   }
 
   async function getContactBlacklist(withImage?: boolean): Promise<Person[]> {
-    const list = await getContactList(withImage);
-    return list.filter(contact => {
-      const { settings = {} } = contact;
-      return settings?.blockUser;
-    });
+    return selectBlacklisted(await getContactList(withImage));
   }
 
   async function getContact(id: string): Promise<Person | undefined> {
@@ -554,11 +623,10 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
     }
 
     contact.settings.blockUser = value;
+    // update:contact from here reaches the blacklist watchers through the hook
+    // in emitStorageEvent - which also means that setting the flag to the value
+    // it already has announces nothing.
     await updateContact(contact);
-
-
-    const contactBlacklist = await getContactBlacklist(false);
-    changeContactBlacklist(contactBlacklist);
     return contact;
   }
 
@@ -581,6 +649,13 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
   }
 
   /* utils code block */
+
+  /**
+   * Image files written in this session, protected from the sweep of orphans
+   * until the app restarts. See addImage for why.
+   */
+  const imagesAddedThisSession = new Set<string>();
+
   async function removeUnnecessaryImageFiles() {
     // Every image file no contact row refers to is deleted - and on a device
     // whose db has not been reconciled with the server yet, that is every
@@ -601,7 +676,12 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
 
     return _removeUnnecessaryImageFiles({
       fs,
-      getIdsOfAllFilesInUse: contactDbSrv.getIdsOfAllFilesInUse,
+      // Images written in this session count as in use even before a contact
+      // refers to them: see addImage. The set is never pruned, so a picture the
+      // user attached and then dropped lingers until the next start - and an
+      // orphan is never urgent, while a deleted avatar is.
+      getIdsOfAllFilesInUse: () => contactDbSrv.getIdsOfAllFilesInUse()
+        .concat([...imagesAddedThisSession]),
       emitStorageEvent,
     });
   }
@@ -609,11 +689,13 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
   // Serialized, so that the pass started on a regained connection cannot
   // interleave with one the GUI asks for over IPC - nor with the remote-change
   // handling or a restore, which is why it shares dbStateProc with them.
-  async function initialSyncProcess(): Promise<void> {
-    return dbStateProc.startOrChain(runInitialSyncProcess);
+  async function initialSyncProcess(opts?: SyncPassOpts): Promise<void> {
+    return dbStateProc.startOrChain(() => runInitialSyncProcess(opts));
   }
 
-  async function runInitialSyncProcess(): Promise<void> {
+  async function runInitialSyncProcess(
+    { skipImageSweep }: SyncPassOpts = {},
+  ): Promise<void> {
     if (areUploadsHeld()) {
       await w3n.log('info', 'Initial synchronization is postponed: the root folder is not verified yet');
       return;
@@ -634,7 +716,15 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
       await handleDbFileSyncStatus({ fs, sqlite, contactDbSrv, emitStorageEvent });
       await handleImagesFolderSyncStatus({ fs, emitStorageEvent });
 
-      await removeUnnecessaryImageFiles();
+      // The sweep is a housekeeping chore, not part of converging, and it is
+      // the destructive step of this pass. It belongs to the cadence it was
+      // written for - app start - and NOT to the convergence watchdog, which
+      // runs this pass once a minute for as long as anything is unpublished.
+      // Adding an image is itself what leaves the images folder unsynced, so
+      // the watchdog woke up and swept away the avatar the user was attaching.
+      if (!skipImageSweep) {
+        await removeUnnecessaryImageFiles();
+      }
     } catch (err) {
       w3n.log('error', '🔥 Error while initial synchronization process. ', err);
       emitStorageEvent({
@@ -750,6 +840,23 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
     void initialSyncProcess();
   });
 
+  // TEMPORARY: covers an upload that the platform abandons without telling
+  // anyone - there is no failure event in UploadEvent, and startUpload's
+  // rejection lands on a promise nobody holds. Without this the device that
+  // loses a version race keeps its change forever and the two devices never
+  // converge; seen in the live test of 2026-09-13. Remove together with the
+  // watchdog itself once findings 1 and 2 of
+  // plans/platform-findings-2026-09-13.md are fixed.
+  startConvergenceWatchdog({
+    fs,
+    paths: [CONTACTS_DB_FILE, IMAGES_FOLDER],
+    areUploadsHeld,
+    runSyncPass: () => initialSyncProcess({ skipImageSweep: true }),
+    emitStorageEvent,
+    intervalMs: CONNECTION_WAIT_MS,
+    stuckAfterAttempts: STUCK_AFTER_ONLINE_ATTEMPTS,
+  });
+
   return {
     fs,
     emitStorageEvent,
@@ -806,7 +913,9 @@ contactsDenoSrv()
       'removeUnnecessaryImageFiles',
       'initialSyncProcess',
     ]);
-    srvWrapInternal.exposeObservableMethods<Pick<ContactsDenoSrv, 'watchEvent'>>(srv, ['watchEvent']);
+    srvWrapInternal.exposeObservableMethods<
+      Pick<ContactsDenoSrv, 'watchEvent' | 'watchContactBlacklistChanging'>
+    >(srv, ['watchEvent', 'watchContactBlacklistChanging']);
     srvWrapInternal.startIPC();
 
     srvWrap.exposeReqReplyMethods<ContactsDenoSrvExternal>(srv, [
