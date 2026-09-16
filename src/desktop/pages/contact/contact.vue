@@ -229,7 +229,6 @@
             icon="round-key"
             icon-size="16"
             icon-color="var(--color-icon-button-primary-default)"
-            :disabled="!canShowContactKeys"
             @click="showContactKeysInfo"
           />
         </ui3n-tooltip>

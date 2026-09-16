@@ -15,29 +15,38 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
 <script lang="ts" setup>
-import { computed, onBeforeMount, ref } from 'vue';
-import { useI18n } from 'vue-i18n';
-import { Ui3nDialog, type Ui3nDialogComponentProps } from '@v1nt1248/3nclient-lib';
-import IntroSendingKeyPair from '@main/common/components/intro-key-pair-for-sending.vue';
-import SendingKeyPair from '@main/common/components/key-pair-for-sending.vue';
-import ReceivingKeyPair from '@main/common/components/key-pair-for-receiving.vue';
+  import { computed, onBeforeMount, ref } from 'vue';
+  import { useI18n } from 'vue-i18n';
+  import { Ui3nDialog, type Ui3nDialogComponentProps } from '@v1nt1248/3nclient-lib';
+  import IntroSendingKeyPair from '@main/common/components/intro-key-pair-for-sending.vue';
+  import SendingKeyPair from '@main/common/components/key-pair-for-sending.vue';
+  import ReceivingKeyPair from '@main/common/components/key-pair-for-receiving.vue';
 
-type CorrespondentKeysInfo = web3n.keys.CorrespondentKeysInfo;
+  type CorrespondentKeysInfo = web3n.keys.CorrespondentKeysInfo;
 
-const props = defineProps<{
-  contactAddr: string;
-  dialogProps?: Ui3nDialogComponentProps<boolean>;
-}>();
+  const props = defineProps<{
+    contactAddr: string;
+    dialogProps?: Ui3nDialogComponentProps<boolean>;
+  }>();
 
-const { t } = useI18n();
+  const { t } = useI18n();
 
-const mailKeys = ref<CorrespondentKeysInfo | undefined>();
-const receptionPairs = computed(() => mailKeys.value?.receptionPairs);
-const sendingPair = computed(() => mailKeys.value?.sendingPair);
+  const mailKeys = ref<CorrespondentKeysInfo | undefined>();
+  const receptionPairs = computed(() => mailKeys.value?.receptionPairs);
+  const sendingPair = computed(() => mailKeys.value?.sendingPair);
 
-onBeforeMount(async () => {
-  mailKeys.value = await w3n.keyrings!.getCorrespondentKeys(props.contactAddr);
-});
+  onBeforeMount(async () => {
+    mailKeys.value = await w3n.keyrings!.getCorrespondentKeys(props.contactAddr);
+  });
+
+  const isMailKeysEmpty = computed(() => {
+    return (
+      !sendingPair.value &&
+      !receptionPairs.value?.inUse &&
+      !receptionPairs.value?.old &&
+      !receptionPairs.value?.suggested
+    );
+  });
 </script>
 
 <template>
@@ -75,9 +84,8 @@ onBeforeMount(async () => {
 
           <receiving-key-pair :receiving-pair="receptionPairs.old" />
         </fieldset>
-
         <div
-          v-if="!mailKeys"
+          v-if="isMailKeysEmpty"
           :class="$style.noData"
         >
           {{ t('keys-info.no-contact-keys') }}
@@ -88,32 +96,32 @@ onBeforeMount(async () => {
 </template>
 
 <style lang="scss" module>
-.content {
-  position: relative;
-  color: var(--color-text-block-primary-default);
-  padding: var(--spacing-m) var(--spacing-s);
-  min-height: 200px;
-  max-height: 480px;
-  overflow-y: auto;
-}
-
-fieldset {
-  border: 1px solid var(--color-border-control-accent-default);
-  border-radius: var(--spacing-xs);
-  padding: var(--spacing-m) var(--spacing-s) var(--spacing-s);
-  margin: 0 0 var(--spacing-s) 0;
-
-  legend {
-    font-size: var(--font-16);
-    font-weight: 600;
+  .content {
+    position: relative;
+    color: var(--color-text-block-primary-default);
+    padding: var(--spacing-m) var(--spacing-s);
+    min-height: 200px;
+    max-height: 480px;
+    overflow-y: auto;
   }
-}
 
-.noData {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
+  fieldset {
+    border: 1px solid var(--color-border-control-accent-default);
+    border-radius: var(--spacing-xs);
+    padding: var(--spacing-m) var(--spacing-s) var(--spacing-s);
+    margin: 0 0 var(--spacing-s) 0;
+
+    legend {
+      font-size: var(--font-16);
+      font-weight: 600;
+    }
+  }
+
+  .noData {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
 </style>
