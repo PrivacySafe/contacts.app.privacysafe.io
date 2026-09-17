@@ -154,6 +154,7 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
    * prepareSyncedRoot before that, so the hook below has to be able to answer
    * "not yet" rather than reach for a binding still in its dead zone.
    */
+    // eslint-disable-next-line prefer-const
   let blacklist: BlacklistBroadcaster | undefined;
 
   setupGlobalReportingOfUnhandledErrors(true);
@@ -179,7 +180,7 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
       try {
         blacklist.broadcastIfChanged();
       } catch (err) {
-        w3n.log('error', 'Could not recompute the contact blacklist', err);
+        w3n.log('error', 'Could not recompute the contact block list', err);
       }
     }
   }
@@ -198,7 +199,7 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
     try {
       obs.next?.(blacklist!.current());
     } catch (err) {
-      w3n.log('info', 'A blacklist subscriber failed on its first snapshot', err);
+      w3n.log('info', 'A block list subscriber failed on its first snapshot', err);
     }
     return () => updateContactBlacklist.delete(obs);
   }
@@ -335,7 +336,7 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
     listContacts: contactDbSrv.listAllContactsFrom,
     broadcast: updateContactBlacklist.next,
     onError: err => {
-      w3n.log('error', 'Could not read the contact blacklist', err);
+      w3n.log('error', 'Could not read the contact block list', err);
     },
   });
   blacklist.prime();

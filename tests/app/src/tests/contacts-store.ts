@@ -15,7 +15,7 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-import { ContactsStore } from '@main/common/store/contacts.store.js';
+import type { ContactsStore } from '@main/common/store/contacts.store.js';
 import { itCond, skipSpecIfUnresponsive } from '../libs-for-tests/jasmine-utils.js';
 import { appContactsSrvProxy } from '@main/common/services/services-provider.js';
 import { TestSetupContainer } from '@tests/setups.js';

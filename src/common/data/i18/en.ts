@@ -94,19 +94,19 @@ export const en = {
   contact: {
     action: {
       delete: 'Delete the contact',
-      block: 'Add to the blacklist',
-      unblock: 'Remove from the blacklist',
+      block: 'Add to the block list',
+      unblock: 'Remove from the block list',
     },
     block: {
-      dialogText: 'You try to Move {contact} to the Blacklist',
+      dialogText: 'You try to Move {contact} to the block list',
       error: 'Error while blocking the contact with ID "{id}"',
-      confirmBtn: 'Ban',
-      mark: 'Banned',
+      confirmBtn: 'Block',
+      mark: 'Blocked',
     },
     unblock: {
-      dialogText: 'You try to Remove {contact} from the Blacklist',
+      dialogText: 'You try to Remove {contact} from the block list',
       error: 'Error while unblocking the contact with ID "{id}"',
-      confirmBtn: 'Unban',
+      confirmBtn: 'Unblock',
     },
     delete: {
       title: 'Delete Contact | Delete Contacts',

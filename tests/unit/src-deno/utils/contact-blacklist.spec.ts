@@ -163,7 +163,7 @@ describe('makeBlacklistBroadcaster', () => {
     };
   }
 
-  it('reports the blacklist as it is right now', () => {
+  it('reports the block list as it is right now', () => {
     const { broadcaster } = setup([blocked('a'), row('b')]);
 
     expect(broadcaster.current().map(({ id }) => id)).toEqual(['a']);
@@ -222,7 +222,7 @@ describe('makeBlacklistBroadcaster', () => {
     expect(broadcast.mock.calls[0][0][0].name).toBe('Renamed');
   });
 
-  it('stays quiet when only contacts outside the blacklist change', () => {
+  it('stays quiet when only contacts outside the block list change', () => {
     const { broadcaster, broadcast, setRows } = setup([blocked('a'), row('b')]);
     broadcaster.prime();
 

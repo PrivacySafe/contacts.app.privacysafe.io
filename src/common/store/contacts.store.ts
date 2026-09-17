@@ -277,3 +277,6 @@ export const useContactsStore = defineStore('contacts', () => {
     changeContactBlockingSettings,
   };
 });
+
+export type ContactsStore = ReturnType<typeof useContactsStore>;
+

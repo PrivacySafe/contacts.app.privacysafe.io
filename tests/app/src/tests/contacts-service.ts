@@ -493,7 +493,7 @@ describe(`Contacts deno service`, () => {
       expect(listed!.name).withContext(`under the new name`).toBe('Spec Renamed Twice');
     }, SPEC_TIMEOUT);
 
-    itCond(`says nothing about an edit outside the blacklist`, async () => {
+    itCond(`says nothing about an edit outside the block list`, async () => {
       const contact = await addContact('Spec Unblocked');
       const sub = subscribe();
       await sub.waitForMoreThan(0);
