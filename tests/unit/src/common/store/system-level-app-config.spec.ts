@@ -45,7 +45,7 @@ describe('useSystemLevelAppConfig', () => {
     expect(config.appVersion.value).toBe('');
     expect(config.user.value).toBe('');
     expect(config.lang.value).toBe('en');
-    expect(config.colorTheme.value).toBe('dark2');
+    expect(config.colorTheme.value).toBe('dark');
     expect(config.customLogoSrc.value).toBeUndefined();
   });
 
@@ -68,16 +68,28 @@ describe('useSystemLevelAppConfig', () => {
     expect(config.colorTheme.value).toBe('light');
   });
 
-  // The theme is applied as a class on <html>. Leaving the previous class in
-  // place would apply both palettes at once, so the swap has to remove it.
-  it('swaps the theme class on the html element', async () => {
+  // The launcher still stores the theme ids of the old palette, so they have to
+  // be mapped onto the ones the library knows.
+  it('maps the legacy theme ids of the launcher settings', async () => {
+    platform = installFakeW3n({ settings: { colorTheme: 'dark2' } });
+    const config = useSystemLevelAppConfig();
+
+    await config.initialize();
+
+    expect(config.colorTheme.value).toBe('dark');
+  });
+
+  // Since the theme plugin of the library owns the classes on <html>, the store
+  // only holds the value and must not touch the DOM itself - otherwise the two
+  // fight over which palette is applied.
+  it('leaves the html classes to the theme plugin', async () => {
     platform = installFakeW3n({ settings: { colorTheme: 'light' } });
     const config = useSystemLevelAppConfig();
 
     await config.initialize();
 
-    expect(htmlClasses()).toContain('light-theme');
-    expect(htmlClasses()).not.toContain('dark2-theme');
+    expect(config.colorTheme.value).toBe('light');
+    expect(htmlClasses()).toEqual([]);
   });
 
   it('turns a custom logo data url into an object url', async () => {
@@ -122,7 +134,7 @@ describe('useSystemLevelAppConfig', () => {
     await expect(config.initialize()).resolves.toBeUndefined();
 
     expect(config.appVersion.value).toBe('0.8.30');
-    expect(config.colorTheme.value).toBe('dark2');
+    expect(config.colorTheme.value).toBe('dark');
   });
 
   // watchConfig wraps the observer: what reaches file.watch reacts to a
@@ -140,7 +152,7 @@ describe('useSystemLevelAppConfig', () => {
     });
     const config = useSystemLevelAppConfig();
     await config.initialize();
-    expect(config.colorTheme.value).toBe('dark2');
+    expect(config.colorTheme.value).toBe('dark');
 
     platform.settingsFile.readJSON.mockResolvedValue({
       lang: 'en', colorTheme: 'light', systemFoldersDisplaying: true,
@@ -149,8 +161,6 @@ describe('useSystemLevelAppConfig', () => {
     await onFsEvent!({ type: 'file-change' });
 
     expect(config.colorTheme.value).toBe('light');
-    expect(htmlClasses()).toContain('light-theme');
-    expect(htmlClasses()).not.toContain('dark2-theme');
   });
 
   it('ignores FS events other than a file change', async () => {
@@ -171,7 +181,7 @@ describe('useSystemLevelAppConfig', () => {
     });
     await onFsEvent!({ type: 'removed' });
 
-    expect(config.colorTheme.value).toBe('dark2');
+    expect(config.colorTheme.value).toBe('dark');
   });
 
   it('unsubscribes from the settings on stopWatching', async () => {

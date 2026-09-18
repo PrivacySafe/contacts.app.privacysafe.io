@@ -21,8 +21,9 @@ import { piniaRouter } from '@main/common/plugins/pinia-router';
 import { router } from './router';
 import { initializeServices } from '@main/common/services/services-provider';
 
-import '@v1nt1248/3nclient-lib/style.css';
+// The order matters: design tokens first, then component styles, then ours.
 import '@v1nt1248/3nclient-lib/variables.css';
+import '@v1nt1248/3nclient-lib/style.css';
 import '@main/common/assets/styles/main.css';
 
 import i18n from '@main/common/data/i18';

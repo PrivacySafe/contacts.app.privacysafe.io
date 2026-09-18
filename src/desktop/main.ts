@@ -14,8 +14,9 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
-import '@v1nt1248/3nclient-lib/style.css';
+// The order matters: design tokens first, then component styles, then ours.
 import '@v1nt1248/3nclient-lib/variables.css';
+import '@v1nt1248/3nclient-lib/style.css';
 import '@main/common/assets/styles/main.css';
 
 import { initializeServices } from '@main/common/services/services-provider';
