@@ -14,14 +14,13 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
+import type { ThemeId } from '@v1nt1248/3nclient-lib/plugins';
 
 export type AvailableLanguage = 'en';
 
-export type AvailableColorTheme = 'default' | 'dark' | 'dark2';
-
 export interface AppConfig {
   lang: AvailableLanguage;
-  colorTheme: AvailableColorTheme;
+  colorTheme: ThemeId;
   customLogo?: string;
 }
 

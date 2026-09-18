@@ -20,8 +20,14 @@ import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import {
-  VueBusPlugin, VUEBUS_KEY, NotificationsPlugin, NOTIFICATIONS_KEY,
-  DialogsPlugin, DIALOGS_KEY,
+  VueBusPlugin,
+  VUEBUS_KEY,
+  ThemePlugin,
+  THEME_KEY,
+  NotificationsPlugin,
+  NOTIFICATIONS_KEY,
+  DialogsPlugin,
+  DIALOGS_KEY,
 } from '@v1nt1248/3nclient-lib/plugins';
 import { makeServiceCaller } from '@shared/ipc/ipc-service-caller';
 import { appContactsSrvProxy } from '@main/common/services/services-provider';
@@ -43,6 +49,7 @@ export function useAppView() {
   const route = useRoute();
   const router = useRouter();
 
+  const { setTheme } = inject<ThemePlugin>(THEME_KEY)!;
   const { $emitter } = inject<VueBusPlugin<AppGlobalEvents>>(VUEBUS_KEY)!;
   const { $createNotice } = inject<NotificationsPlugin>(NOTIFICATIONS_KEY)!;
   const dialog = inject<DialogsPlugin>(DIALOGS_KEY);
@@ -50,7 +57,7 @@ export function useAppView() {
   const { connectivityStatus } = useConnectivityStatus();
 
   const appStore = useAppStore();
-  const { user, appElement, appVersion, customLogoSrc, globalLoading } = storeToRefs(appStore);
+  const { user, appElement, appVersion, colorTheme, customLogoSrc, globalLoading } = storeToRefs(appStore);
   const { setGlobalLoading, onBackupProgress, onRestoreProgress } = appStore;
 
   const { askBackupPassphrase, runRestoreWorkflow } = useBackupRestore();
@@ -90,9 +97,10 @@ export function useAppView() {
       return;
     }
 
-    persistentWarning.value = ((reason === 'local-version-not-published')
-      ? t('app.warning.changes-not-published')
-      : t('app.warning.sync-stuck'));
+    persistentWarning.value =
+      reason === 'local-version-not-published'
+        ? t('app.warning.changes-not-published')
+        : t('app.warning.sync-stuck');
   }
 
   /**
@@ -110,7 +118,7 @@ export function useAppView() {
     try {
       await w3n.storage!.getAppSyncedFS!();
     } catch (storageErr) {
-      isFirstRunWithoutNetwork = ((storageErr as web3n.ConnectException).type === 'connect');
+      isFirstRunWithoutNetwork = (storageErr as web3n.ConnectException).type === 'connect';
     }
 
     persistentWarning.value = isFirstRunWithoutNetwork
@@ -122,9 +130,7 @@ export function useAppView() {
     // an error would be the same crying wolf that was just cleaned out of these
     // logs. Anything else is a real failure and keeps the exception with it.
     if (isFirstRunWithoutNetwork) {
-      await w3n.log(
-        'info', 'App storage is not reachable: the first run of this app needs the network',
-      );
+      await w3n.log('info', 'App storage is not reachable: the first run of this app needs the network');
     } else {
       await w3n.log('error', 'Contacts service is unavailable', err);
     }
@@ -161,7 +167,7 @@ export function useAppView() {
       case 'make-backup':
         return makeBackup();
       case 'upload-backup':
-        return void await runRestoreWorkflow();
+        return void (await runRestoreWorkflow());
       case 'exit':
         return appExit();
       default:
@@ -192,6 +198,8 @@ export function useAppView() {
       immediate: true,
     },
   );
+
+  watch(colorTheme, id => setTheme(id), { immediate: true });
 
   const handleContactEvent = makeContactEventHandler({
     addToSyncList,

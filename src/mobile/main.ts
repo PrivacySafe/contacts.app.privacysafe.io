@@ -16,7 +16,7 @@
 */
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
-import { dialogs, notifications, vueBus } from '@v1nt1248/3nclient-lib/plugins';
+import { theme, dialogs, notifications, vueBus } from '@v1nt1248/3nclient-lib/plugins';
 import { piniaRouter } from '@main/common/plugins/pinia-router';
 import { router } from './router';
 import { initializeServices } from '@main/common/services/services-provider';
@@ -41,6 +41,7 @@ initializeServices()
     };
 
     app
+      .use(theme, { theme: 'dark' })
       .use(pinia)
       .use(i18n)
       .use(vueBus)

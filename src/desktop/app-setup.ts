@@ -17,7 +17,7 @@
 import { createApp, type Component } from 'vue';
 import { createPinia } from 'pinia';
 import { router } from './router';
-import { dialogs, notifications, vueBus } from '@v1nt1248/3nclient-lib/plugins';
+import { theme, dialogs, notifications, vueBus } from '@v1nt1248/3nclient-lib/plugins';
 
 import i18n from '@main/common/data/i18';
 
@@ -28,7 +28,6 @@ import App from '@main/desktop/pages/app.vue';
  * real plugin wiring, instead of the whole UI. Defaults to the app itself.
  */
 export function setupMainApp(rootComponent: Component = App) {
-
   const pinia = createPinia();
 
   const app = createApp(rootComponent);
@@ -38,13 +37,7 @@ export function setupMainApp(rootComponent: Component = App) {
     return tag.startsWith('ui3n-');
   };
 
-  app
-  .use(pinia)
-  .use(i18n)
-  .use(vueBus)
-  .use(dialogs)
-  .use(notifications)
-  .use(router);
+  app.use(theme, { theme: 'dark' }).use(pinia).use(i18n).use(vueBus).use(dialogs).use(notifications).use(router);
 
   return { app, router };
 }

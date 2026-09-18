@@ -14,22 +14,22 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
-
-import type { AppConfig, AvailableLanguage, AvailableColorTheme } from '@main/types';
+import type { ThemeId } from '@v1nt1248/3nclient-lib/plugins';
+import type { AppConfig, AvailableLanguage } from '@main/types';
 import { SingleProc } from '@v1nt1248/3nclient-lib/utils';
 
 export interface AppConfigsInternal {
   getAll: () => Promise<SettingsJSON>;
   saveSettingsFile: (data: AppConfig) => Promise<void>;
   getCurrentLanguage: () => Promise<AvailableLanguage>;
-  getCurrentColorTheme: () => Promise<AvailableColorTheme>;
+  getCurrentColorTheme: () => Promise<ThemeId>;
   getSystemFoldersDisplaying: () => Promise<boolean>;
   getAllowShowingDevtool: () => Promise<boolean>;
 }
 
 export interface AppConfigs {
   getCurrentLanguage: () => Promise<AvailableLanguage>;
-  getCurrentColorTheme: () => Promise<AvailableColorTheme>;
+  getCurrentColorTheme: () => Promise<ThemeId>;
   getSystemFoldersDisplaying: () => Promise<boolean>;
   getAllowShowingDevtool: () => Promise<boolean>;
   getAll: () => Promise<SettingsJSON>;
@@ -38,7 +38,7 @@ export interface AppConfigs {
 
 export interface SettingsJSON {
   lang: AvailableLanguage;
-  colorTheme: AvailableColorTheme;
+  colorTheme: ThemeId;
   systemFoldersDisplaying: boolean;
   allowShowingDevtool: boolean;
   customLogo: AppConfig['customLogo'];
@@ -51,6 +51,18 @@ export interface AppSettings {
 const resourceName = 'ui-settings';
 const resourceApp = 'launcher.app.privacysafe.io';
 const settingsPath = '/constants/settings.json';
+
+export function getActiveTheme(value: ThemeId | 'default' | 'dark1' | 'dark2'): ThemeId {
+  if (value === 'default') {
+    return 'light';
+  }
+
+  if (value === 'dark1' || value === 'dark2') {
+    return 'dark';
+  }
+
+  return value;
+}
 
 export class SystemSettings implements AppConfigs, AppConfigsInternal {
   private syncProc: SingleProc | undefined = undefined;
@@ -102,9 +114,9 @@ export class SystemSettings implements AppConfigs, AppConfigsInternal {
     return lang;
   }
 
-  async getCurrentColorTheme(): Promise<AvailableColorTheme> {
+  async getCurrentColorTheme(): Promise<ThemeId> {
     const { colorTheme } = await this.file.readJSON<SettingsJSON>();
-    return colorTheme;
+    return getActiveTheme(colorTheme);
   }
 
   async getSystemFoldersDisplaying(): Promise<boolean> {

@@ -14,35 +14,26 @@ See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along with
 this program. If not, see <http://www.gnu.org/licenses/>.
 */
-
-import { toRO } from '@main/common/utils/readonly.ts';
-import { SystemSettings } from '@main/common/services/ui-settings.ts';
-import { AppConfig, AvailableColorTheme, AvailableLanguage } from '@main/types';
 import { ref } from 'vue';
+import { type ThemeId } from '@v1nt1248/3nclient-lib/plugins';
+import { toRO } from '@main/common/utils/readonly';
+import { SystemSettings, getActiveTheme } from '@main/common/services/ui-settings';
 import { blobFromDataURL } from '@main/common/utils/image-files';
+import type { AppConfig, AvailableLanguage } from '@main/types';
 
 export function useSystemLevelAppConfig() {
   const appVersion = ref<string>('');
   const user = ref<string>('');
   const lang = ref<AvailableLanguage>('en');
-  const colorTheme = ref<AvailableColorTheme>('dark2');
+  const colorTheme = ref<ThemeId>('dark');
   const customLogoSrc = ref<string>();
 
   function setLang(value: AvailableLanguage) {
     lang.value = value;
   }
 
-  function setColorTheme(theme: AvailableColorTheme) {
-    const prevColorThemeCssClass = `${colorTheme.value}-theme`;
+  function setColorTheme(theme: ThemeId) {
     colorTheme.value = theme;
-    const curColorThemeCssClass = `${colorTheme.value}-theme`;
-
-    const htmlEl = document.querySelector('html');
-    if (!htmlEl) {
-      return;
-    }
-    htmlEl.classList.remove(prevColorThemeCssClass);
-    htmlEl.classList.add(curColorThemeCssClass);
   }
 
   async function setCustomLogo(dataURL: AppConfig['customLogo']): Promise<void> {
@@ -65,13 +56,13 @@ export function useSystemLevelAppConfig() {
       const config = await SystemSettings.makeResourceReader();
       const { lang, colorTheme, customLogo } = await config.getAll();
       setLang(lang);
-      setColorTheme(colorTheme);
+      setColorTheme(getActiveTheme(colorTheme));
       setCustomLogo(customLogo);
       unsubFromConfigWatch = config.watchConfig({
         next: appConfig => {
           const { lang, colorTheme, customLogo } = appConfig;
           setLang(lang);
-          setColorTheme(colorTheme);
+          setColorTheme(getActiveTheme(colorTheme));
           setCustomLogo(customLogo);
         },
       });
