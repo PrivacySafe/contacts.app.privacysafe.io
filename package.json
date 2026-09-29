@@ -1,11 +1,11 @@
 {
   "name": "contacts.app.privacysafe.io",
-  "version": "0.8.45",
+  "version": "0.8.46",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build:deno": "bash ci/bundle-deno-code.sh",
+    "build:deno": "bash bundle-deno-code.sh",
     "build:gui": "vue-tsc --noEmit && vite build",
     "build": "pnpm lint && pnpm build:gui && pnpm build:deno",
     "tests:build": "bash tests/app/compile-and-build.sh",

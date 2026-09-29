@@ -1,9 +1,16 @@
 {
   "name": "Contacts",
   "appDomain": "contacts.app.privacysafe.io",
-  "version": "0.8.45",
+  "version": "0.8.46",
   "description": "Private address book for your contact list.",
   "icon": "logo.png",
+  "publisher": "Ivy Cyber",
+  "website": "https://privacysafe.app",
+  "contact": "support@ivycyber.com",
+  "policy": "https://ivycyber.com/privacy",
+  "terms": "https://ivycyber.com/terms",
+  "license": "AGPL-3.0-or-later",
+  "source": "https://github.com/PrivacySafe/contacts.app.privacysafe.io",
 
   "components": {
     "/index.html": {
