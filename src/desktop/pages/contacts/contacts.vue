@@ -15,14 +15,17 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
 <script lang="ts" setup>
-  import { ref } from 'vue';
+  import { onMounted, ref } from 'vue';
   import { useRouter } from 'vue-router';
+  import { useTutorialStore } from '@main/common/store/tutorial.store';
   import ContactsToolbar from '@main/common/components/contacts-toolbar.vue';
   import ContactList from '@main/desktop/components/contacts/contact-list.vue';
   import ContactPlaceholder from '@main/desktop/components/contacts/contact-placeholder.vue';
   import { NEW_EMPTY_CONTACT_ID } from '@main/common/constants';
 
   const router = useRouter();
+
+  const { checkAndRunSteps } = useTutorialStore();
 
   const searchText = ref<string>('');
 
@@ -35,6 +38,9 @@
     setTimeout(() => router.push({ name: 'contact', params: { id: NEW_EMPTY_CONTACT_ID } }), 250);
   }
 
+  onMounted(() => {
+    void checkAndRunSteps();
+  });
 </script>
 
 <template>
@@ -44,7 +50,7 @@
         @add="addNewContact"
         @input="onInput"
       />
-      <!-- <button @click="addContactModal(testContact)">Open Modal</button> -->
+
       <div :class="$style.asideBody">
         <contact-list :search-text="searchText" />
       </div>

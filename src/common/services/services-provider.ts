@@ -36,6 +36,9 @@ export async function initializeServices() {
         'checkAddressReachability',
         'changeContactBlockingSettings',
 
+        'getTutorialState',
+        'saveTutorialState',
+
         'createBackupArchive',
         'cancelBackupArchive',
         'validateBackupArchive',

@@ -23,7 +23,7 @@ vi.mock('@main/common/services/services-provider', () => ({
   initializeServices: vi.fn(),
 }));
 
-const { useCommandHandler } = await import('@main/common/composables/useCommandHandler');
+const { useCommandHandler } = await import('@main/common/composables/use-command-handler.ts');
 const { useContactsStore } = await import('@main/common/store/contacts.store');
 const { NEW_POPULATED_CONTACT_ID } = await import('@main/common/constants');
 const { withSetup } = await import('../../../helpers/app-context.ts');

@@ -194,5 +194,6 @@ export default [
         ...globals.jasmine,
       },
     },
+    ...tsEslint.configs.disableTypeChecked,
   },
 ];

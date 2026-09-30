@@ -26,3 +26,5 @@ export const EMPTY_CONTACT: Person = {
   phone: '',
   timestamp: 0,
 };
+
+export const TUTORIAL_DATA_KEY = 'tutorial-info' as string;

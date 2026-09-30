@@ -14,6 +14,7 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
+import { Alignment, Side } from 'driver.js';
 import type { ThemeId } from '@v1nt1248/3nclient-lib/plugins';
 
 export type AvailableLanguage = 'en';
@@ -27,4 +28,22 @@ export interface AppConfig {
 export type ConnectivityStatus = 'offline' | 'online';
 
 /** What the app menu can ask for. Shared by the desktop and the mobile menu. */
-export type AppMenuAction = 'make-backup' | 'upload-backup' | 'exit';
+export type AppMenuAction = 'tutorial' | 'make-backup' | 'upload-backup' | 'exit';
+
+export interface TutorialStep {
+  elQuery: string;
+  text: string;
+  side?: Side;
+  alignment?: Alignment;
+  isRound?: boolean;
+  onNextAction?: () => void | Promise<void>;
+}
+
+/** Serializable form of a step: `onNextAction` cannot be persisted. */
+export type TutorialStepData = Omit<TutorialStep, 'onNextAction'>;
+
+/** Persisted tutorial state stored in the app local FS. */
+export interface TutorialState {
+  isActive: boolean;
+  remainingSteps: TutorialStepData[];
+}

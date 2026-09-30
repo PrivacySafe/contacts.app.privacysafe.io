@@ -15,8 +15,7 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
 <script lang="ts" setup>
-  import { onBeforeMount, onBeforeUnmount, ref } from 'vue';
-  import { useI18n } from 'vue-i18n';
+  import { onBeforeMount, onBeforeUnmount, ref, watch } from 'vue';
   import {
     Ui3nButton,
     Ui3nProgressCircular,
@@ -24,12 +23,13 @@
     Ui3nDialogProvider,
     Ui3nIcon,
   } from '@v1nt1248/3nclient-lib';
-  import { useAppView } from '@main/common/composables/useAppView';
+  import { useAppView } from '@main/common/composables/use-app-view';
   import AppMenu from '@main/mobile/components/app-menu.vue';
 
-  const { t } = useI18n();
-
   const {
+    t,
+    route,
+    router,
     user,
     appVersion,
     connectivityStatusText,
@@ -44,16 +44,32 @@
 
   const isMenuOpen = ref(false);
 
-  function toggleMenu() {
+  async function toggleMenu() {
     isMenuOpen.value = !isMenuOpen.value;
+    await router.push({ query: { isMenuOpen: isMenuOpen.value ? 'on' : 'off' } });
   }
 
   onBeforeMount(doBeforeMount);
   onBeforeUnmount(doBeforeUnmount);
+
+  watch(
+    () => route.query.isMenuOpen,
+    val => {
+      if ((val === 'on' && !isMenuOpen.value) || ((val === 'off' || !val) && isMenuOpen.value)) {
+        isMenuOpen.value = val === 'on';
+      }
+    },
+    {
+      immediate: true,
+    },
+  );
 </script>
 
 <template>
-  <div :class="$style.app">
+  <div
+    data-tutorial="main"
+    :class="$style.app"
+  >
     <transition name="slide-fade">
       <div
         v-if="isMenuOpen"
@@ -71,6 +87,7 @@
       <div :class="$style.toolbar">
         <transition>
           <ui3n-button
+            data-tutorial="appMenuBtn"
             type="icon"
             size="large"
             :color="isMenuOpen ? 'transparent' : 'var(--color-bg-block-primary-default)'"
@@ -79,7 +96,6 @@
               isMenuOpen ? 'var(--color-icon-block-secondary-default)' : 'var(--color-icon-block-primary-default)'
             "
             icon-size="32"
-            :class="$style.menuBtn"
             @click="toggleMenu"
           />
         </transition>
@@ -213,11 +229,6 @@
     align-items: center;
     border-bottom: 1px solid var(--color-border-block-primary-default);
     background-color: var(--color-bg-block-primary-default);
-
-    .menuBtn {
-      --ui3n-button-height: 40px !important;
-      --ui3n-button-icon-large: 40px !important;
-    }
   }
 
   .processing {

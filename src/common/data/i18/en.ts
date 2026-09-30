@@ -31,6 +31,7 @@ export const en = {
     },
     exit: 'Close',
     menu: {
+      tutorial: 'Repeat Tutorial',
       makeBackup: 'Create backup',
       uploadBackup: 'Restore from backup',
       exit: 'Close',
@@ -261,5 +262,16 @@ export const en = {
     'color-close-panel': 'Close',
     'copy-link-error': 'Error copying link',
     'download-qr-error': 'Error saving QR Code image',
+  },
+
+  tutorial: {
+    create: 'Tap to start creating a new contact.',
+    mobileMenuBtn: 'Tap to open the app menu.',
+    meListItem:
+      'This is how a contact list item is displayed. Tapping it allows you to open the contact editing form.',
+    'make-backup': 'By tapping you will start the process of creating a file for backup.',
+    'upload-backup':
+      'Tapping this will start the process of restoring application data from the backup file you selected.',
+    'repeat-tutorial': 'Tapping this restarts the tutorial.',
   },
 };

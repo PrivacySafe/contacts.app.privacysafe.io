@@ -18,7 +18,7 @@ import { createApp, type Component } from 'vue';
 import { createPinia } from 'pinia';
 import { router } from './router';
 import { theme, dialogs, notifications, vueBus } from '@v1nt1248/3nclient-lib/plugins';
-
+import { piniaRouter } from '@main/common/plugins/pinia-router';
 import i18n from '@main/common/data/i18';
 
 import App from '@main/desktop/pages/app.vue';
@@ -29,8 +29,10 @@ import App from '@main/desktop/pages/app.vue';
  */
 export function setupMainApp(rootComponent: Component = App) {
   const pinia = createPinia();
+  pinia.use(piniaRouter);
 
   const app = createApp(rootComponent);
+  app.provide('isMobileMode', false);
 
   app.config.globalProperties.$router = router;
   app.config.compilerOptions.isCustomElement = tag => {

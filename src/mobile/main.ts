@@ -21,7 +21,6 @@ import { piniaRouter } from '@main/common/plugins/pinia-router';
 import { router } from './router';
 import { initializeServices } from '@main/common/services/services-provider';
 
-// The order matters: design tokens first, then component styles, then ours.
 import '@v1nt1248/3nclient-lib/variables.css';
 import '@v1nt1248/3nclient-lib/style.css';
 import '@main/common/assets/styles/main.css';
@@ -30,24 +29,24 @@ import i18n from '@main/common/data/i18';
 
 import App from '@main/mobile/pages/app.vue';
 
-initializeServices()
-  .then(() => {
-    const pinia = createPinia();
-    pinia.use(piniaRouter);
+initializeServices().then(() => {
+  const pinia = createPinia();
+  pinia.use(piniaRouter);
 
-    const app = createApp(App);
+  const app = createApp(App);
+  app.provide('isMobileMode', true);
 
-    app.config.compilerOptions.isCustomElement = tag => {
-      return tag.startsWith('ui3n-');
-    };
+  app.config.compilerOptions.isCustomElement = tag => {
+    return tag.startsWith('ui3n-');
+  };
 
-    app
-      .use(theme, { theme: 'dark' })
-      .use(pinia)
-      .use(i18n)
-      .use(vueBus)
-      .use(dialogs)
-      .use(notifications)
-      .use(router)
-      .mount('#mobile');
-  });
+  app
+    .use(theme, { theme: 'dark' })
+    .use(pinia)
+    .use(i18n)
+    .use(vueBus)
+    .use(dialogs)
+    .use(notifications)
+    .use(router)
+    .mount('#mobile');
+});

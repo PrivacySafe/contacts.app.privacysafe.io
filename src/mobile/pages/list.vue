@@ -15,7 +15,7 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
 <script lang="ts" setup>
-  import { computed, inject, ref } from 'vue';
+  import { computed, inject, onMounted, ref } from 'vue';
   import { useI18n } from 'vue-i18n';
   import { storeToRefs } from 'pinia';
   import size from 'lodash/size';
@@ -29,11 +29,8 @@
   import { useRouting } from '../composables/useRouting';
   import { useAppStore } from '@main/common/store/app.store';
   import { useContactsStore } from '@main/common/store/contacts.store';
-  import {
-    filterContacts,
-    groupByFirstLetter,
-    initialLetters,
-  } from '@main/common/utils/contact-list-view';
+  import { useTutorialStore } from '@main/common/store/tutorial.store';
+  import { filterContacts, groupByFirstLetter, initialLetters } from '@main/common/utils/contact-list-view';
   import type { PersonView } from '@main/types';
   import ConfirmationDialog from '@main/common/components/dialogs/confirmation-dialog.vue';
   import ListItem from '@main/common/components/contact-list-item.vue';
@@ -50,6 +47,8 @@
   const { contacts } = storeToRefs(contactsStore);
   const { deleteContacts } = contactsStore;
 
+  const { checkAndRunSteps } = useTutorialStore();
+
   const searchText = ref<string>('');
   const selectedContacts = ref<string[]>([]);
 
@@ -64,6 +63,8 @@
       ? size(selectedContacts.value) === size(filteredContactList.value) - 1
       : size(selectedContacts.value) === size(filteredContactList.value);
   });
+
+  const isDataLoaded = computed(() => contactsInitialLetters.value.length > 0);
 
   function selectContact(contact: PersonView & { displayName: string }) {
     const contactIndex = selectedContacts.value.findIndex(cId => cId === contact.id);
@@ -128,7 +129,9 @@
     goToNew();
   }
 
-  const isDataLoaded = computed(() => contactsInitialLetters.value.length > 0);
+  onMounted(() => {
+    void checkAndRunSteps();
+  });
 </script>
 
 <template>
@@ -211,6 +214,7 @@
     </div>
 
     <ui3n-button
+      data-tutorial="createBtn"
       type="icon"
       color="var(--color-bg-button-primary-default)"
       size="large"
@@ -287,9 +291,6 @@
   }
 
   .createBtn {
-    --ui3n-button-height: 40px !important;
-    --ui3n-button-icon-large: 40px !important;
-
     position: absolute !important;
     bottom: var(--spacing-ml);
     right: var(--spacing-ml);

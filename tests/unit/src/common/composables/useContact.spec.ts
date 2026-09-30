@@ -34,7 +34,7 @@ vi.mock('@main/common/services/services-provider', () => ({
 }));
 
 const { appContactsSrvProxy } = await import('@main/common/services/services-provider');
-const { useContact } = await import('@main/common/composables/useContact');
+const { useContact } = await import('@main/common/composables/use-contact.ts');
 const { withSetup } = await import('../../../helpers/app-context.ts');
 const { installFakeW3n } = await import('../../../helpers/fake-w3n.ts');
 const { NEW_EMPTY_CONTACT_ID } = await import('@main/common/constants');

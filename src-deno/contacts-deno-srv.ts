@@ -43,7 +43,13 @@ import { randomStr } from '../src/common/services/base/random.ts';
 import { isNewContactId } from '../src/common/constants/index.ts';
 import { syncUpload } from './utils/sync-upload.ts';
 import { CONTACTS_DB_FILE, IMAGES_FOLDER } from './constants.ts';
-import type { AddressCheckResult, ContactEvent, Person, RawPerson } from '../src/types/index.ts';
+import type {
+  AddressCheckResult,
+  ContactEvent,
+  Person,
+  RawPerson,
+  TutorialState,
+} from '../src/types/index.ts';
 import type { ContactsDenoSrv, ContactsDenoSrvInternal, ContactsDenoSrvExternal } from './types.ts';
 
 /** How many times the db file is opened again while its bytes are missing. */
@@ -205,6 +211,31 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
   }
 
   const fs = await openSyncedRoot();
+
+  /**
+   * The app's LOCAL fs, a sibling of the synced one. Tutorial state lives here
+   * rather than in synced storage: it is device-local ui state, and it must
+   * survive a full platform restart, which the gui's localStorage does not.
+   */
+  const localFs = await w3n.storage!.getAppLocalFS!();
+  const tutorialWriteProc = new SingleProc();
+
+  function tutorialPath(key: string): string {
+    return `${key}.json`;
+  }
+
+  async function getTutorialState(key: string): Promise<TutorialState | undefined> {
+    const path = tutorialPath(key);
+    if (!(await localFs.checkFilePresence(path))) {
+      return undefined;
+    }
+    return await localFs.readJSONFile<TutorialState>(path);
+  }
+
+  async function saveTutorialState(key: string, state: TutorialState): Promise<void> {
+    const path = tutorialPath(key);
+    await tutorialWriteProc.startOrChain(() => localFs.writeJSONFile(path, state));
+  }
 
   /**
    * First phase of bringing the root in line with the server. It MUST precede
@@ -880,6 +911,9 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
 
     checkAddressReachability,
 
+    getTutorialState,
+    saveTutorialState,
+
     ...backupSrv,
 
     removeUnnecessaryImageFiles,
@@ -905,6 +939,9 @@ contactsDenoSrv()
       'changeContactBlockingSettings',
 
       'checkAddressReachability',
+
+      'getTutorialState',
+      'saveTutorialState',
 
       'createBackupArchive',
       'cancelBackupArchive',

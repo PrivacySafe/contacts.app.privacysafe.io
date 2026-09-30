@@ -19,7 +19,7 @@
   import { useI18n } from 'vue-i18n';
   import { VUEBUS_KEY, type VueBusPlugin } from '@v1nt1248/3nclient-lib/plugins';
   import { Ui3nProgressCircular, Ui3nButton, Ui3nIcon, Ui3nTooltip } from '@v1nt1248/3nclient-lib';
-  import { useContact } from '@main/common/composables/useContact';
+  import { useContact } from '@main/common/composables/use-contact';
   import type { AppGlobalEvents } from '@main/types';
   import ContactBody from '@main/common/components/contact-content.vue';
   import CustomScrollBar from '@main/common/components/custom-scroll-bar.vue';

@@ -39,7 +39,7 @@ import type { Nullable } from '@v1nt1248/3nclient-lib';
 import { appContactsSrvProxy } from '@main/common/services/services-provider';
 import { useAppStore } from '@main/common/store/app.store';
 import { useContactsStore } from '@main/common/store/contacts.store';
-import { useConnectivityStatus } from '@main/common/composables/useConnectivityStatus';
+import { useConnectivityStatus } from '@main/common/composables/use-connectivity-status';
 import { verdictForAddressCheck } from '@main/common/utils/contact-reachability';
 import { makeMailRules } from '@main/common/utils/contact-validation';
 import {

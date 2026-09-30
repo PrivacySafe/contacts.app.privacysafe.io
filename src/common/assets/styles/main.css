@@ -87,6 +87,53 @@ div {
   font-family: Inter, system-ui, sans-serif;
 }
 
+.driver-popover {
+  font-family: Inter, system-ui, sans-serif;
+  font-size: var(--font-12);
+  font-weight: 500;
+  line-height: var(--font-16);
+  color: var(--grey-95);
+  background-color: var(--white-100);
+  border-radius: var(--spacing-s);
+  padding: 16px;
+}
+
+.driver-popover-next-btn {
+  position: relative;
+  width: max-content;
+  height: 32px !important;;
+  padding: 0 16px !important;;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: none;
+  border-radius: 16px !important;
+  outline: 2px solid transparent;
+  font-size: 12px !important;;
+  font-weight: 600 !important;;
+  color: var(--white-100) !important;
+  background-color: var(--blue-50) !important;
+  user-select: none !important;
+  overflow: hidden !important;
+  transition:
+      background-color 0.2s,
+      transform 0.1s;
+}
+
+.driver-popover-next-btn:hover {
+  background-color: var(--blue-60) !important;
+  color: var(--blue-0) !important;
+}
+
+.driver-popover-next-btn:active {
+  background-color: var(--blue-70) !important;
+  color: var(--blue-5) !important;
+}
+
+.driver-active-element {
+  box-shadow: 0 0 8px 2px rgb(255, 255, 255, 0.9) !important;
+}
+
 .app-init {
   position: relative;
   width: 100%;

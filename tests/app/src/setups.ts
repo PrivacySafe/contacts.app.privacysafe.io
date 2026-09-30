@@ -14,12 +14,12 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
-
-import { defineComponent } from "vue";
-import { setupMainApp } from "@main/desktop/app-setup.ts";
-import { initializeServices } from "@main/common/services/services-provider";
-import { type ContactsStore, useContactsStore } from "@main/common/store/contacts.store";
-import { AppViewInstance, useAppView } from "@main/common/composables/useAppView.ts";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { defineComponent } from 'vue';
+import { setupMainApp } from '@main/desktop/app-setup';
+import { initializeServices } from '@main/common/services/services-provider';
+import { type ContactsStore, useContactsStore } from '@main/common/store/contacts.store';
+import { AppViewInstance, useAppView } from '@main/common/composables/use-app-view';
 
 declare const w3n: web3n.testing.CommonW3N;
 

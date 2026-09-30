@@ -34,10 +34,11 @@ import { appContactsSrvProxy } from '@main/common/services/services-provider';
 import { useAppStore } from '@main/common/store/app.store';
 import { useSyncStore } from '@main/common/store/sync.store';
 import { useContactsStore } from '@main/common/store/contacts.store';
-import { useConnectivityStatus } from '@main/common/composables/useConnectivityStatus';
+import { useTutorialStore } from '@main/common/store/tutorial.store';
+import { useConnectivityStatus } from '@main/common/composables/use-connectivity-status';
 import type { AppGlobalEvents, AppMenuAction } from '@main/types';
 import type { ContactsDenoSrv } from '@deno/types';
-import { useCommandHandler } from '@main/common/composables/useCommandHandler';
+import { useCommandHandler } from '@main/common/composables/use-command-handler';
 import { makeContactEventHandler } from '@main/common/composables/contact-event-handler';
 import { useBackupRestore } from '@main/common/composables/use-backup-restore';
 import BackupCreatingDialog from '@main/common/components/dialogs/backup-creating-dialog.vue';
@@ -69,6 +70,8 @@ export function useAppView() {
   const contactsStore = useContactsStore();
   const { contacts } = storeToRefs(contactsStore);
   const { fetchContacts } = contactsStore;
+
+  const tutorialStore = useTutorialStore();
 
   const connectivityStatusText = computed(() =>
     connectivityStatus.value === 'online' ? t('app.status.connected.online') : t('app.status.connected.offline'),
@@ -164,6 +167,14 @@ export function useAppView() {
 
   async function runMenuAction(action: AppMenuAction) {
     switch (action) {
+      case 'tutorial': {
+        await tutorialStore.resetTutorial();
+        await router.push({ query: { isMenuOpen: 'off' } });
+        setTimeout(() => {
+          void tutorialStore.checkAndRunSteps();
+        }, 200);
+        break;
+      }
       case 'make-backup':
         return makeBackup();
       case 'upload-backup':
@@ -266,6 +277,8 @@ export function useAppView() {
 
   return {
     t,
+    route,
+    router,
     user,
     customLogoSrc,
     appElement,

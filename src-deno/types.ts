@@ -4,6 +4,7 @@ import type {
   ContactEvent,
   Person,
   RawPerson,
+  TutorialState,
 } from '../src/types/index.ts';
 import type { BackupMetadataContent } from './utils/backup-archive.ts';
 
@@ -88,6 +89,14 @@ export interface ContactsDenoSrv {
     outerMetadata?: BackupMetadataContent,
   ) => Promise<BackupValidationResult>;
   restoreBackupArchive: (archiveBytes: Uint8Array) => Promise<boolean>;
+
+  /**
+   * Tutorial state persisted in the app's LOCAL fs, under `${key}.json`.
+   * Returns undefined when nothing has been stored yet, so the caller applies
+   * its own defaults.
+   */
+  getTutorialState: (key: string) => Promise<TutorialState | undefined>;
+  saveTutorialState: (key: string, state: TutorialState) => Promise<void>;
 
   removeUnnecessaryImageFiles: () => Promise<void>;
   initialSyncProcess: () => Promise<void>;

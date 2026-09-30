@@ -149,6 +149,7 @@
       isMobileFormFactor && $style.contactListItemMobile,
       !isMobileFormFactor && selectedContactIds?.includes(item.id) && $style.selected,
     ]"
+    :data-tutorial="item.mail === user ? 'meListItem' : undefined"
     @click="openContact"
   >
     <div

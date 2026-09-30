@@ -19,7 +19,7 @@
   import { useI18n } from 'vue-i18n';
   import cloneDeep from 'lodash/cloneDeep';
   import { Ui3nButton, Ui3nIcon, Ui3nProgressCircular } from '@v1nt1248/3nclient-lib';
-  import { useContact } from '@main/common/composables/useContact';
+  import { useContact } from '@main/common/composables/use-contact';
   import { useRouting } from '@main/mobile/composables/useRouting';
   import ContactBody from '@main/common/components/contact-content.vue';
   import OwnKeysInfoDialog from '@main/common/components/dialogs/own-keys-info-dialog.vue';
@@ -103,7 +103,7 @@
 <template>
   <div :class="$style.contact">
     <div :class="$style.toolbar">
-      <div :class="[$style.toolbarBlock, $style.offset]">
+      <div :class="$style.toolbarBlock">
         <ui3n-button
           type="icon"
           color="var(--color-bg-block-primary-default)"
@@ -399,21 +399,15 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-
-    button {
-      --ui3n-button-height: 40px !important;
-      --ui3n-button-icon-regular: 40px !important;
-    }
   }
 
   .toolbarBlock {
+    --ui3n-button-icon-size-regular: 40px;
+    --ui3n-button-height-regular: 40px;
+
     display: flex;
     justify-content: flex-start;
     align-items: center;
-  }
-
-  .offset {
-    column-gap: var(--spacing-xs);
   }
 
   .avatar {

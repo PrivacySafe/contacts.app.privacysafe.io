@@ -1,6 +1,6 @@
 {
   "name": "contacts.app.privacysafe.io",
-  "version": "0.8.46",
+  "version": "0.8.47",
   "private": true,
   "type": "module",
   "scripts": {
@@ -26,9 +26,10 @@
     "lint": "pnpm linter && pnpm stylelint"
   },
   "dependencies": {
-    "@v1nt1248/3nclient-lib": "0.4.0",
-    "fflate": "0.8.3",
+    "@v1nt1248/3nclient-lib": "0.4.3",
     "beautiful-qr-code": "1.0.11",
+    "driver.js": "1.8.0",
+    "fflate": "0.8.3",
     "lodash": "4.18.1",
     "pinia": "3.0.4",
     "vue": "3.5.42",
@@ -51,7 +52,6 @@
     "@vitest/ui": "4.1.11",
     "@vue/devtools": "8.2.1",
     "@vue/eslint-config-typescript": "14.9.0",
-    "@vuedx/typescript-plugin-vue": "0.7.6",
     "esbuild": "0.28.2",
     "eslint": "10.10.0",
     "eslint-config-prettier": "10.1.8",
@@ -78,5 +78,5 @@
     "vue-eslint-parser": "10.4.1",
     "vue-tsc": "3.3.11"
   },
-  "packageManager": "pnpm@11.18.0"
+  "packageManager": "pnpm@12.6.0"
 }

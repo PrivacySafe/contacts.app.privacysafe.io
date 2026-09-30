@@ -15,31 +15,32 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
 <script lang="ts" setup>
-import { ref } from 'vue';
-import { useI18n } from 'vue-i18n';
-import { Ui3nButton, Ui3nInput } from '@v1nt1248/3nclient-lib';
+  import { ref } from 'vue';
+  import { useI18n } from 'vue-i18n';
+  import { Ui3nButton, Ui3nInput } from '@v1nt1248/3nclient-lib';
 
-defineProps<{
-  disabled?: boolean;
-}>();
-const emit = defineEmits(['add', 'input']);
+  defineProps<{
+    disabled?: boolean;
+  }>();
+  const emit = defineEmits(['add', 'input']);
 
-const { t } = useI18n();
+  const { t } = useI18n();
 
-const searchText = ref<string>('');
+  const searchText = ref<string>('');
 
-function addNewContact() {
-  emit('add');
-}
+  function addNewContact() {
+    emit('add');
+  }
 
-function onInput(ev: string) {
-  emit('input', ev);
-}
+  function onInput(ev: string) {
+    emit('input', ev);
+  }
 </script>
 
 <template>
   <div :class="$style.contactsToolbar">
     <ui3n-button
+      data-tutorial="createBtn"
       :class="$style.addBtn"
       :disabled="disabled"
       @click="addNewContact"
@@ -63,24 +64,24 @@ function onInput(ev: string) {
 </template>
 
 <style lang="scss" module>
-.contactsToolbar {
-  position: relative;
-  width: 100%;
-  height: 104px;
-  padding: var(--spacing-m) var(--spacing-m) var(--spacing-s);
+  .contactsToolbar {
+    position: relative;
+    width: 100%;
+    height: 104px;
+    padding: var(--spacing-m) var(--spacing-m) var(--spacing-s);
 
-  input {
-    user-select: none;
+    input {
+      user-select: none;
+    }
   }
-}
 
-.addBtn {
-  margin-bottom: var(--spacing-m);
-}
+  .addBtn {
+    margin-bottom: var(--spacing-m);
+  }
 
-.search {
-  position: relative;
-  width: 100%;
-  height: var(--spacing-l);
-}
+  .search {
+    position: relative;
+    width: 100%;
+    height: var(--spacing-l);
+  }
 </style>
