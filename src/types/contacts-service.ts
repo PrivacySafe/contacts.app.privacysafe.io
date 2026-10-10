@@ -92,6 +92,25 @@ export interface ContactBackupEvent {
   payload: BackupProgress;
 }
 
+export type ShareChannel = 'chat' | 'mail';
+
+export interface ShareProgress {
+  /**
+   * 'preparing' - the export file with contacts and avatars is being made,
+   * 'sending' - the file is being handed over to the chat or inbox app.
+   */
+  stage: 'preparing' | 'sending' | 'completed' | 'error' | 'cancelled';
+  channel: ShareChannel;
+  totalContacts: number;
+  processedContacts: number;
+  percent: number;
+}
+
+export interface ContactShareEvent {
+  event: 'share';
+  payload: ShareProgress;
+}
+
 export interface RestoreProgress {
   stage: 'unpacking' | 'decrypting' | 'restoring-images' | 'restoring-contacts'
   | 'syncing' | 'completed' | 'error';
@@ -152,7 +171,8 @@ export type ContactEvent =
   | ContactRemoveEvent
   | ContactUpdateEvent
   | ContactBackupEvent
-  | ContactRestoreEvent;
+  | ContactRestoreEvent
+  | ContactShareEvent;
 
 export interface PersonView {
   id: string;
@@ -173,6 +193,32 @@ export interface Person extends PersonView {
   notice?: string;
   phone?: string;
   activities?: string[] | null;
+}
+
+/**
+ * A contact as it is put into an export file (.w3nec). Its avatar, if any, is
+ * the file `images/<avatarId>.<ext>` of the same archive.
+ */
+export type SharedPerson = Omit<Person, 'id' | 'avatarImage'> & {
+  key: unknown | null;
+};
+
+/**
+ * A contact read from an export file (.w3nec), with its avatar, if any, as a
+ * data-url of the full size image.
+ */
+export type ImportedContact = SharedPerson & { avatarImage?: string };
+
+/** Why an export file with shared contacts cannot be read. */
+export type SharedImportError = 'corrupted_archive' | 'no_data_file' | 'unsupported_version';
+
+/**
+ * Content of the data file of an export file (.w3nec).
+ */
+export interface SharedContactsData {
+  version: number;
+  createdAt: number;
+  contacts: SharedPerson[];
 }
 
 export interface RawPerson extends Omit<Person, 'activities' | 'settings' | 'avatarImage'> {

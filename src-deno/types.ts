@@ -2,8 +2,10 @@ import type {
   AddressCheckResult,
   BackupValidationResult,
   ContactEvent,
+  ImportedContact,
   Person,
   RawPerson,
+  ShareChannel,
   TutorialState,
 } from '../src/types/index.ts';
 import type { BackupMetadataContent } from './utils/backup-archive.ts';
@@ -98,6 +100,30 @@ export interface ContactsDenoSrv {
   getTutorialState: (key: string) => Promise<TutorialState | undefined>;
   saveTutorialState: (key: string, state: TutorialState) => Promise<void>;
 
+  /**
+   * Sharing of contacts with another user. The export file is made here and
+   * handed over to the chat or inbox app as an attachment of a message draft,
+   * whose id the gui passes to that app in its start command.
+   */
+  checkChatWithPeer: (addr: string) => Promise<boolean>;
+  shareContacts: (params: {
+    contactIds: string[];
+    recipient: string;
+    channel: ShareChannel;
+  }) => Promise<{ draftId: string }>;
+  cancelShareContacts: () => Promise<boolean>;
+
+  /**
+   * Import of contacts shared by another user. Another app hands over the
+   * file, and opens this app with the returned id in the 'import-contacts'
+   * command; the window takes read contacts, which can be taken only once.
+   */
+  prepareSharedContactsImport: (
+    file: web3n.files.ReadonlyFile,
+  ) => Promise<{ importId: string; contactsCount: number }>;
+  getSharedContactsImport: (importId: string) => Promise<ImportedContact[] | undefined>;
+  finishSharedContactsImport: (importId: string) => Promise<void>;
+
   removeUnnecessaryImageFiles: () => Promise<void>;
   initialSyncProcess: () => Promise<void>;
 }
@@ -117,4 +143,5 @@ export type ContactsDenoSrvExternal = Pick<
   | 'getContactBlacklist'
   | 'changeContactBlockingSettings'
   | 'watchContactBlacklistChanging'
+  | 'prepareSharedContactsImport'
 >;

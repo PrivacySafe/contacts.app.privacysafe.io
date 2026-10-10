@@ -59,7 +59,7 @@ export function useAppView() {
 
   const appStore = useAppStore();
   const { user, appElement, appVersion, colorTheme, customLogoSrc, globalLoading } = storeToRefs(appStore);
-  const { setGlobalLoading, onBackupProgress, onRestoreProgress } = appStore;
+  const { setGlobalLoading, onBackupProgress, onRestoreProgress, onShareProgress } = appStore;
 
   const { askBackupPassphrase, runRestoreWorkflow } = useBackupRestore();
 
@@ -225,6 +225,7 @@ export function useAppView() {
     goToContactList: () => router.push({ name: 'contacts' }),
     onBackupProgress,
     onRestoreProgress,
+    onShareProgress,
   });
 
   let tu: ReturnType<typeof setInterval> | null = null;

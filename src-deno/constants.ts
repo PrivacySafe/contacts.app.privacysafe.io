@@ -16,3 +16,13 @@
 */
 export const CONTACTS_DB_FILE = 'contacts-db' as string;
 export const IMAGES_FOLDER = 'images' as string;
+
+/** Extension of export files with contacts, shared with other users. */
+export const SHARE_FILE_EXT = 'w3nec' as string;
+/** Data file of an export file, with an array of SharedPerson. */
+export const SHARE_DATA_FILE = 'contacts.json' as string;
+export const SHARE_DATA_VERSION = 1;
+/** Folder with avatars in an export file. */
+export const SHARE_IMAGES_FOLDER = 'images' as string;
+/** Folder in the app's local fs, where export files wait to be handed over. */
+export const SHARE_TMP_FOLDER = 'share-exports' as string;

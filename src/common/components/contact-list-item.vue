@@ -30,6 +30,7 @@
     defineProps<{
       item: ContactListItem;
       selectedContactIds?: string[];
+      shareMode?: boolean;
       isMobileFormFactor?: boolean;
     }>(),
     {
@@ -59,6 +60,14 @@
   });
 
   const isContactBlocked = computed(() => !!props.item.settings?.blockUser);
+
+  const readonly = computed(() => {
+    if (props.shareMode) {
+      return false;
+    }
+
+    return props.isMobileFormFactor ? props.item.mail === user.value : true;
+  });
 
   async function getAvatar() {
     if (imgGettingAttemptsNumber.value >= 3) {
@@ -147,7 +156,7 @@
     :class="[
       $style.contactListItem,
       isMobileFormFactor && $style.contactListItemMobile,
-      !isMobileFormFactor && selectedContactIds?.includes(item.id) && $style.selected,
+      !isMobileFormFactor && !shareMode && selectedContactIds?.includes(item.id) && $style.selected,
     ]"
     :data-tutorial="item.mail === user ? 'meListItem' : undefined"
     @click="openContact"
@@ -155,18 +164,26 @@
     <div
       :class="[$style.icon, isMobileFormFactor && selectedContactIds?.includes(item.id) && $style.iconSelected]"
       :style="iconStyle"
-      v-on="isMobileFormFactor && item.mail !== user ? { click: selectContact } : {}"
+      v-on="readonly ? {} : { click: selectContact }"
     >
       <contact-icon
         v-if="!img"
         :name="item.displayName"
         :size="32"
-        :selected="isMobileFormFactor && selectedContactIds?.includes(item.id)"
-        :readonly="isMobileFormFactor ? item.mail === user : true"
+        :selected="
+          shareMode
+            ? selectedContactIds?.includes(item.id)
+            : isMobileFormFactor && selectedContactIds?.includes(item.id)
+        "
+        :readonly="readonly"
       />
 
       <div
-        v-if="isMobileFormFactor && img && selectedContactIds?.includes(item.id)"
+        v-if="
+          shareMode
+            ? img && selectedContactIds?.includes(item.id)
+            : isMobileFormFactor && img && selectedContactIds?.includes(item.id)
+        "
         :class="$style.iconSelectedIcon"
       >
         <div :class="$style.contactIconIcon">

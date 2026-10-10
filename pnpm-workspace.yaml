@@ -8,4 +8,4 @@ allowBuilds:
   "vue-demi": true
 
 minimumReleaseAgeExclude:
-  - '@v1nt1248/3nclient-lib@0.4.3'
+  - '@v1nt1248/3nclient-lib@0.4.3 || 0.4.4'

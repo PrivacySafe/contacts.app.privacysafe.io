@@ -44,6 +44,12 @@ export async function initializeServices() {
         'validateBackupArchive',
         'restoreBackupArchive',
 
+        'checkChatWithPeer',
+        'shareContacts',
+        'cancelShareContacts',
+        'getSharedContactsImport',
+        'finishSharedContactsImport',
+
         'removeUnnecessaryImageFiles',
         'initialSyncProcess',
       ],

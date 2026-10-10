@@ -20,16 +20,18 @@
   import { storeToRefs } from 'pinia';
   import { Ui3nList } from '@v1nt1248/3nclient-lib';
   import { useContactsStore } from '@main/common/store/contacts.store';
-  import {
-    filterContacts,
-    groupByFirstLetter,
-    initialLetters,
-  } from '@main/common/utils/contact-list-view';
+  import { filterContacts, groupByFirstLetter, initialLetters } from '@main/common/utils/contact-list-view';
   import ListItem from '@main/common/components/contact-list-item.vue';
   import CustomScrollBar from '@main/common/components/custom-scroll-bar.vue';
 
   const props = defineProps<{
     searchText?: string;
+    markedContacts?: string[];
+    shareMode?: boolean;
+  }>();
+
+  const emits = defineEmits<{
+    (ev: 'select', value: string):void
   }>();
 
   const route = useRoute();
@@ -44,6 +46,14 @@
   const contactsInitialLetters = computed(() => initialLetters(contactListByLetters.value));
 
   const isDataLoaded = computed(() => contactsInitialLetters.value.length > 0);
+
+  const selectedContactIds = computed(() => {
+    if (props.shareMode) {
+      return props.markedContacts ?? [];
+    }
+
+    return selectedContactId.value ? [selectedContactId.value] : [];
+  });
 </script>
 
 <template>
@@ -66,7 +76,9 @@
           <template #item="{ item: contact }">
             <list-item
               :item="contact"
-              :selected-contact-ids="selectedContactId ? [selectedContactId] : []"
+              :share-mode="shareMode"
+              :selected-contact-ids="selectedContactIds"
+              @select="() => emits('select', contact.id)"
             />
           </template>
         </ui3n-list>

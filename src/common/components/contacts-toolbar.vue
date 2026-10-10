@@ -17,36 +17,50 @@
 <script lang="ts" setup>
   import { ref } from 'vue';
   import { useI18n } from 'vue-i18n';
-  import { Ui3nButton, Ui3nInput } from '@v1nt1248/3nclient-lib';
+  import { Ui3nButton, Ui3nIcon, Ui3nInput } from '@v1nt1248/3nclient-lib';
 
   defineProps<{
     disabled?: boolean;
   }>();
-  const emit = defineEmits(['add', 'input']);
+  const emits = defineEmits(['add', 'input', 'share']);
 
   const { t } = useI18n();
 
   const searchText = ref<string>('');
 
   function addNewContact() {
-    emit('add');
+    emits('add');
   }
 
   function onInput(ev: string) {
-    emit('input', ev);
+    emits('input', ev);
   }
 </script>
 
 <template>
   <div :class="$style.contactsToolbar">
-    <ui3n-button
-      data-tutorial="createBtn"
-      :class="$style.addBtn"
-      :disabled="disabled"
-      @click="addNewContact"
-    >
-      + {{ t('app.btn.add') }}
-    </ui3n-button>
+    <div :class="$style.actions">
+      <ui3n-button
+        data-tutorial="createBtn"
+        :disabled="disabled"
+        @click="addNewContact"
+      >
+        + {{ t('app.btn.add') }}
+      </ui3n-button>
+
+      <ui3n-button
+        type="secondary"
+        square
+        :class="$style.share"
+        @click="() => emits('share')"
+      >
+        <ui3n-icon
+          icon="share-variant-outline"
+          size="20"
+          color="var(--color-icon-button-secondary-default)"
+        />
+      </ui3n-button>
+    </div>
 
     <div :class="$style.search">
       <ui3n-input
@@ -75,8 +89,15 @@
     }
   }
 
-  .addBtn {
+  .actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: var(--spacing-m);
+
+    .share {
+      --ui3n-button-padding-regular: 0 6px 0 4px;
+    }
   }
 
   .search {

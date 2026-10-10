@@ -30,9 +30,7 @@ import {
 import {
   generateColor,
   getFileExtension,
-  resizeImage,
   schedulerYield,
-  sleep,
   transformWeb3nFileToFile,
 } from '@v1nt1248/3nclient-lib/utils';
 import type { Nullable } from '@v1nt1248/3nclient-lib';
@@ -42,6 +40,7 @@ import { useContactsStore } from '@main/common/store/contacts.store';
 import { useConnectivityStatus } from '@main/common/composables/use-connectivity-status';
 import { verdictForAddressCheck } from '@main/common/utils/contact-reachability';
 import { makeMailRules } from '@main/common/utils/contact-validation';
+import { saveContactAvatar } from '@main/common/utils/contact-avatar';
 import {
   chatApp,
   EMPTY_CONTACT,
@@ -523,17 +522,7 @@ export function useContact() {
       imageProcessing.value = true;
       const file = await transformWeb3nFileToFile(files[0]);
       await schedulerYield();
-      const imageMain = await resizeImage(file!, 104);
-      await schedulerYield();
-      const imageMini = await resizeImage(file!, 40);
-      await schedulerYield();
-      const imageMainFileId = await appContactsSrvProxy.addImage({ base64: imageMain });
-      await sleep(10);
-      await appContactsSrvProxy.addImage({
-        base64: imageMini,
-        id: `${imageMainFileId}-mini`,
-        withUploadParentFolder: true,
-      });
+      const { avatarId: imageMainFileId, mini: imageMini } = await saveContactAvatar(file!);
       contact.value!.avatarImage = imageMini;
       contact.value!.avatarId = imageMainFileId;
 

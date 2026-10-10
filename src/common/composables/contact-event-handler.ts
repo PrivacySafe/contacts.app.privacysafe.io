@@ -19,7 +19,7 @@
 // Collaborators arrive as plain functions, keeping this module free of pinia
 // and vue-router.
 import { CONTACTS_DB_FILE } from '@deno/constants';
-import type { BackupProgress, ContactEvent, RestoreProgress } from '@main/types';
+import type { BackupProgress, ContactEvent, RestoreProgress, ShareProgress } from '@main/types';
 
 export interface ContactEventHandlerDeps {
   addToSyncList: (path: string) => void;
@@ -42,6 +42,8 @@ export interface ContactEventHandlerDeps {
   onBackupProgress: (progress: BackupProgress) => void;
   /** Progress of a restore, likewise. */
   onRestoreProgress: (progress: RestoreProgress) => void;
+  /** Progress of making and handing over a file with shared contacts. */
+  onShareProgress: (progress: ShareProgress) => void;
 }
 
 /** Path reported for the synced FS root, which arrives as an empty string. */
@@ -92,6 +94,11 @@ export function makeContactEventHandler(
 
       case 'restore': {
         deps.onRestoreProgress(evt.payload);
+        break;
+      }
+
+      case 'share': {
+        deps.onShareProgress(evt.payload);
         break;
       }
 

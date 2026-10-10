@@ -103,7 +103,7 @@ async function appVersion(): Promise<string> {
   }
 }
 
-interface ZipEntryInput {
+export interface ZipEntryInput {
   path: string;
   bytes: Uint8Array;
   /** Stored rather than deflated. Ciphertext does not compress. */
@@ -116,7 +116,7 @@ interface ZipEntryInput {
  * Fed from a single loop with an abort check per entry, so that a cancellation
  * lands between entries rather than only before and after the whole archive.
  */
-async function zipEntries(
+export async function zipEntries(
   entries: ZipEntryInput[],
   signal: AbortSignal | undefined,
 ): Promise<Uint8Array> {

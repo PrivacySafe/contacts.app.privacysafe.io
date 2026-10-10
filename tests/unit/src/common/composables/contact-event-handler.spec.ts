@@ -33,6 +33,7 @@ function setup(over: Partial<Record<string, unknown>> = {}) {
     goToContactList: vi.fn(async () => undefined),
     onBackupProgress: vi.fn(),
     onRestoreProgress: vi.fn(),
+    onShareProgress: vi.fn(),
     ...over,
   };
   return { deps, handle: makeContactEventHandler(deps as never) };
@@ -305,6 +306,18 @@ describe('contact event handler', () => {
       await handle({ event: 'restore', payload } as ContactEvent);
 
       expect(deps.onRestoreProgress).toHaveBeenCalledWith(payload);
+      expect(deps.fetchContacts).not.toHaveBeenCalled();
+    });
+
+    it('passes share progress on without refetching the list', async () => {
+      const { deps, handle } = setup();
+      const payload = {
+        stage: 'preparing', channel: 'chat', totalContacts: 10, processedContacts: 3, percent: 25,
+      };
+
+      await handle({ event: 'share', payload } as ContactEvent);
+
+      expect(deps.onShareProgress).toHaveBeenCalledWith(payload);
       expect(deps.fetchContacts).not.toHaveBeenCalled();
     });
 

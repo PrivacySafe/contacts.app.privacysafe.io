@@ -22,6 +22,8 @@ import { sleep } from '../shared-libs/processes/sleep.ts';
 import { SingleProc } from '../shared-libs/processes/single.ts';
 import { filesStoreService } from './file-store-service/files-store-service.ts';
 import { contactsBackupSrv } from './contacts-backup-srv.ts';
+import { contactsShareSrv } from './contacts-share-srv.ts';
+import { contactsImportSrv } from './contacts-import-srv.ts';
 import { contactDb } from './dataset/contacts-db.ts';
 import { checkServerConnection } from './utils/check-server-connection.ts';
 import { checkAddressExistenceForASMail } from './utils/contact-checks.ts';
@@ -510,7 +512,11 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
         errorMessage: string;
       }
   > {
-    const isThereSuchContact = !!(await getContactByMail(contact.mail));
+    // Checked synchronously, with no await between the check and the INSERT
+    // (which insertContactInto runs before its first await): two adds of one
+    // address that overlap, as an import of shared contacts can make, must
+    // not both pass the check and leave the address in the db twice.
+    const isThereSuchContact = !!contact.mail && !!contactDbSrv.getContactByMail(contact.mail);
     if (isThereSuchContact) {
       return {
         errorType: 'exists',
@@ -856,6 +862,12 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
     dbStateProc,
   });
 
+  const shareSrv = await contactsShareSrv({
+    contactDbSrv,
+    imagesFolder,
+    emitStorageEvent,
+  });
+
   await initialSyncProcess();
 
   if (!rootState.verified) {
@@ -915,6 +927,8 @@ async function contactsDenoSrv(): Promise<ContactsDenoSrv> {
     saveTutorialState,
 
     ...backupSrv,
+    ...shareSrv,
+    ...contactsImportSrv(),
 
     removeUnnecessaryImageFiles,
     initialSyncProcess,
@@ -948,6 +962,12 @@ contactsDenoSrv()
       'validateBackupArchive',
       'restoreBackupArchive',
 
+      'checkChatWithPeer',
+      'shareContacts',
+      'cancelShareContacts',
+      'getSharedContactsImport',
+      'finishSharedContactsImport',
+
       'removeUnnecessaryImageFiles',
       'initialSyncProcess',
     ]);
@@ -964,6 +984,7 @@ contactsDenoSrv()
       'getContactList',
       'getContactBlacklist',
       'changeContactBlockingSettings',
+      'prepareSharedContactsImport',
     ]);
     srvWrap.exposeObservableMethods<Pick<ContactsDenoSrv, 'watchContactBlacklistChanging'>>(srv, [
       'watchContactBlacklistChanging',

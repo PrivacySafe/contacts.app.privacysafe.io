@@ -40,6 +40,7 @@ export const en = {
       cancel: 'Cancel',
       save: 'Save',
       add: 'Add New',
+      share: 'Share',
     },
     info: {
       status: {
@@ -91,6 +92,7 @@ export const en = {
     search: {
       placeholder: 'Search in contact names and mail',
     },
+    selected: 'Selected: {number}',
   },
   contact: {
     action: {
@@ -262,6 +264,50 @@ export const en = {
     'color-close-panel': 'Close',
     'copy-link-error': 'Error copying link',
     'download-qr-error': 'Error saving QR Code image',
+  },
+  share: {
+    title: 'Share',
+    label: 'Recipient',
+    placeholder: 'Select a recipient',
+    btnLabel: {
+      chat: 'Chat',
+      mail: 'Mail',
+    },
+    noChatHint: 'Sharing via the chat is available only when there is an active chat with the recipient.',
+    progress: {
+      title: 'Sharing contacts',
+      preparing: 'Preparing the file: {number} of {total} contacts',
+      sending: {
+        chat: 'Passing the file to the Chat…',
+        mail: 'Passing the file to the Mail…',
+      },
+      error: 'Contacts could not be shared',
+      cancelled: 'Sharing of contacts is cancelled',
+    },
+  },
+
+  import: {
+    title: 'Import of contacts',
+    progress: 'Imported {number} of {total} contacts',
+    notFound: 'This import of contacts is already finished, or has expired. Open the file again.',
+    result: 'Import of contacts is finished: added {added}, updated {updated}, skipped {skipped}',
+    field: {
+      avatar: 'Avatar',
+    },
+    conflict: {
+      title: 'You already have the contact {mail}',
+      current: 'Current',
+      incoming: 'Received',
+      empty: 'empty',
+      applyToAll: 'Apply to all remaining matches',
+    },
+    btn: {
+      abort: 'Stop',
+      keep: 'Keep current',
+      incoming: 'Take received',
+      byFields: 'Choose by fields',
+      apply: 'Apply',
+    },
   },
 
   tutorial: {

@@ -22,7 +22,7 @@ import cloneDeep from 'lodash/cloneDeep';
 import set from 'lodash/set';
 import difference from 'lodash/difference';
 import { appContactsSrvProxy } from '@main/common/services/services-provider';
-import { includesMailAddress } from '@main/common/utils/mail-address';
+import { includesMailAddress, isSameMailAddress } from '@main/common/utils/mail-address';
 import { useAppStore } from '@main/common/store/app.store';
 import type { Person, PersonView, ContactListItem } from '@main/types';
 
@@ -77,6 +77,22 @@ export const useContactsStore = defineStore('contacts', () => {
       );
   });
 
+  const unblockedContacts = computed(() =>
+    Object.keys(contactList.value)
+      .filter(id => !contactList.value[id].settings?.blockUser)
+      .reduce(
+        (res, itemId) => {
+          res[itemId] = contactList.value[itemId];
+          return res;
+        },
+        {} as Record<string, ContactListItem>,
+      ),
+  );
+
+  const messageableContacts = computed(() =>
+    Object.values(unblockedContacts.value).filter(c => c.mail !== appStore.user),
+  );
+
   const mailAddressesUsed = computed(() => Object.values(contactList.value).map(p => p.mail));
 
   /**
@@ -89,6 +105,11 @@ export const useContactsStore = defineStore('contacts', () => {
     return includesMailAddress(stillTaken, mail);
   }
 
+  /** The contact with the given address, compared canonically. */
+  function findContactByMail(mail: string): ContactListItem | undefined {
+    return contacts.value.find(c => isSameMailAddress(c.mail, mail));
+  }
+
   function buildContactListItem(item: PersonView | Person, existing?: ContactListItem): ContactListItem {
     const isMyself = item.mail === appStore.user;
     return {
@@ -97,7 +118,7 @@ export const useContactsStore = defineStore('contacts', () => {
       displayName: isMyself ? t('contact.myself.name') : item.name || item.mail,
       mail: item.mail,
       avatarId: item.avatarId || '',
-      avatarImage: existing && existing.avatarId === item.avatarId ? existing.avatarImage : (item.avatarImage || ''),
+      avatarImage: existing && existing.avatarId === item.avatarId ? existing.avatarImage : item.avatarImage || '',
       timestamp: item.timestamp || 0,
       settings: item.settings || {},
     };
@@ -266,7 +287,10 @@ export const useContactsStore = defineStore('contacts', () => {
     contacts,
     contactDataFromCmd,
     contactList,
+    unblockedContacts,
+    messageableContacts,
     isMailAddressInUse,
+    findContactByMail,
     upsertContactListItem,
     updateContactField,
     fetchContacts,
@@ -279,4 +303,3 @@ export const useContactsStore = defineStore('contacts', () => {
 });
 
 export type ContactsStore = ReturnType<typeof useContactsStore>;
-

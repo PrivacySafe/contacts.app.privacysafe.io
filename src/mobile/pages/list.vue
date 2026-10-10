@@ -19,22 +19,33 @@
   import { useI18n } from 'vue-i18n';
   import { storeToRefs } from 'pinia';
   import size from 'lodash/size';
+  import cloneDeep from 'lodash/cloneDeep';
   import {
     DIALOGS_KEY,
     DialogsPlugin,
     NOTIFICATIONS_KEY,
     NotificationsPlugin,
   } from '@v1nt1248/3nclient-lib/plugins';
-  import { Ui3nButton, Ui3nCheckbox, type Ui3nCheckboxValue, Ui3nInput, Ui3nList } from '@v1nt1248/3nclient-lib';
+  import {
+    Ui3nButton,
+    Ui3nCheckbox,
+    Ui3nIcon,
+    type Ui3nCheckboxValue,
+    Ui3nInput,
+    Ui3nList,
+  } from '@v1nt1248/3nclient-lib';
   import { useRouting } from '../composables/useRouting';
   import { useAppStore } from '@main/common/store/app.store';
   import { useContactsStore } from '@main/common/store/contacts.store';
   import { useTutorialStore } from '@main/common/store/tutorial.store';
   import { filterContacts, groupByFirstLetter, initialLetters } from '@main/common/utils/contact-list-view';
-  import type { PersonView } from '@main/types';
+  import type { PersonView, ShareChannel } from '@main/types';
   import ConfirmationDialog from '@main/common/components/dialogs/confirmation-dialog.vue';
   import ListItem from '@main/common/components/contact-list-item.vue';
   import CustomScrollBar from '@main/common/components/custom-scroll-bar.vue';
+  import ShareDialog from '@main/common/components/dialogs/share-dialog.vue';
+  import ShareToolbar from '@main/common/components/share-toolbar.vue';
+  import SharePreparingDialog from '@main/common/components/dialogs/share-preparing-dialog.vue';
 
   const dialogs = inject<DialogsPlugin>(DIALOGS_KEY)!;
   const notification = inject<NotificationsPlugin>(NOTIFICATIONS_KEY)!;
@@ -44,13 +55,23 @@
 
   const { user } = storeToRefs(useAppStore());
   const contactsStore = useContactsStore();
-  const { contacts } = storeToRefs(contactsStore);
+  const { contacts, unblockedContacts, messageableContacts } = storeToRefs(contactsStore);
   const { deleteContacts } = contactsStore;
 
   const { checkAndRunSteps } = useTutorialStore();
 
   const searchText = ref<string>('');
   const selectedContacts = ref<string[]>([]);
+  const markedContacts = ref<string[]>([]);
+  const isShareToolbarOpen = ref(false);
+
+  const selectedContactIds = computed(() => {
+    if (isShareToolbarOpen.value) {
+      return markedContacts.value ?? [];
+    }
+
+    return selectedContacts.value ?? [];
+  });
 
   const filteredContactList = computed(() => filterContacts(contacts.value, searchText.value));
   const contactListByLetters = computed(() => groupByFirstLetter(filteredContactList.value));
@@ -67,6 +88,11 @@
   const isDataLoaded = computed(() => contactsInitialLetters.value.length > 0);
 
   function selectContact(contact: PersonView & { displayName: string }) {
+    if (isShareToolbarOpen.value) {
+      markContact(contact.id);
+      return;
+    }
+
     const contactIndex = selectedContacts.value.findIndex(cId => cId === contact.id);
     if (contactIndex === -1) {
       selectedContacts.value.push(contact.id);
@@ -129,6 +155,65 @@
     goToNew();
   }
 
+  function showShareToolbar(value: boolean) {
+    if (value) {
+      markedContacts.value = cloneDeep(Object.keys(unblockedContacts.value));
+    }
+    isShareToolbarOpen.value = value;
+  }
+
+  function onMarkedContactsUpdate(v: string[]) {
+    markedContacts.value = v;
+  }
+
+  function markContact(id: string) {
+    const index = markedContacts.value.findIndex(contactId => contactId === id);
+    if (index >= 0) {
+      markedContacts.value.splice(index, 1);
+    } else {
+      markedContacts.value.push(id);
+    }
+  }
+
+  async function runShareContacts() {
+    const res = await dialogs.$openDialog<{ recipient: string; channel: ShareChannel }>(ShareDialog, {
+      messageableContacts: messageableContacts.value,
+      isMobileFormFactor: true,
+      dialogProps: {
+        title: t('share.title'),
+        confirmButton: false,
+        cancelButton: false,
+        cssStyle: { width: '380px', maxWidth: '95%' },
+      },
+    });
+
+    const { event, data } = res;
+    if (event === 'close') {
+      onMarkedContactsUpdate([]);
+      showShareToolbar(false);
+    } else if (event === 'confirm' && data) {
+      const { recipient, channel } = data;
+      const shareRes = await dialogs.$openDialog<boolean>(SharePreparingDialog, {
+        contactIds: [...markedContacts.value],
+        recipient,
+        channel,
+        dialogProps: {
+          title: t('share.progress.title'),
+          confirmButton: false,
+          cancelButton: false,
+          closeOnClickOverlay: false,
+          closeOnEsc: false,
+          cssStyle: { width: '380px', maxWidth: '95%' },
+        },
+      });
+
+      if (shareRes.event === 'confirm') {
+        onMarkedContactsUpdate([]);
+        showShareToolbar(false);
+      }
+    }
+  }
+
   onMounted(() => {
     void checkAndRunSteps();
   });
@@ -171,18 +256,44 @@
       />
     </div>
 
-    <ui3n-input
-      v-model="searchText"
-      :placeholder="t('contacts.search.placeholder')"
-      clearable
-      icon="round-search"
-      icon-color="var(--color-icon-control-secondary-default)"
-      hide-bottom-space
-      :disabled="size(selectedContacts) > 0"
-      :class="$style.search"
+    <div :class="$style.search">
+      <ui3n-input
+        v-model="searchText"
+        size="large"
+        :placeholder="t('contacts.search.placeholder')"
+        clearable
+        icon="round-search"
+        icon-color="var(--color-icon-control-secondary-default)"
+        hide-bottom-space
+        :disabled="size(selectedContacts) > 0"
+      />
+
+      <ui3n-button
+        type="secondary"
+        size="large"
+        square
+        :class="$style.share"
+        @click="() => showShareToolbar(true)"
+      >
+        <ui3n-icon
+          icon="share-variant-outline"
+          size="32"
+          color="var(--color-icon-button-secondary-default)"
+        />
+      </ui3n-button>
+    </div>
+
+    <share-toolbar
+      v-if="isShareToolbarOpen"
+      :marked-contacts="markedContacts"
+      :unblocked-contacts="Object.keys(unblockedContacts)"
+      is-mobile-form-factor
+      @cancel="() => showShareToolbar(false)"
+      @update:marked-contacts="onMarkedContactsUpdate"
+      @share="runShareContacts"
     />
 
-    <div :class="$style.content">
+    <div :class="[$style.content, isShareToolbarOpen && $style.shorter]">
       <custom-scroll-bar v-if="isDataLoaded">
         <ui3n-list
           :sticky="false"
@@ -202,7 +313,8 @@
               <template #item="{ item: contact }">
                 <list-item
                   :item="contact"
-                  :selected-contact-ids="selectedContacts"
+                  :share-mode="isShareToolbarOpen"
+                  :selected-contact-ids="selectedContactIds"
                   is-mobile-form-factor
                   @select="() => selectContact(contact)"
                 />
@@ -235,8 +347,7 @@
     width: 100%;
     height: 100%;
     padding: var(--spacing-m);
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow: hidden;
     background-color: var(--color-bg-block-primary-default);
   }
 
@@ -269,15 +380,27 @@
   }
 
   .search {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    column-gap: var(--spacing-s);
     margin-bottom: var(--spacing-m);
     user-select: none;
+
+    .share {
+      --ui3n-button-padding-large: 0 8px 0 4px !important;
+    }
   }
 
   .content {
     position: relative;
     width: calc(100% + 12px);
-    height: calc(100% - 48px);
+    height: calc(100% - 64px);
     margin-right: -12px;
+
+    &.shorter {
+      height: calc(100% - 64px - 56px);
+    }
   }
 
   .title {

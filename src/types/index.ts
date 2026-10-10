@@ -19,10 +19,15 @@ export type ContactTextField = 'mail' | 'name' | 'phone' | 'notice';
 
 export interface OpenChatCmdArg {
   peerAddress: string;
+  /** Id of a draft prepared in the chat app via its AppChats service. */
+  draftId?: string;
 }
 
 export interface OpenInboxCmdArg {
   peerAddress: string;
+  /** Id of a draft prepared in the inbox app via its AppInbox service. */
+  draftId?: string;
 }
 
 
+export * from './external-apps.ts';
