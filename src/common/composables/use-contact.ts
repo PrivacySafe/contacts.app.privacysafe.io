@@ -37,7 +37,6 @@ import type { Nullable } from '@v1nt1248/3nclient-lib';
 import { appContactsSrvProxy } from '@main/common/services/services-provider';
 import { useAppStore } from '@main/common/store/app.store';
 import { useContactsStore } from '@main/common/store/contacts.store';
-import { useConnectivityStatus } from '@main/common/composables/use-connectivity-status';
 import { verdictForAddressCheck } from '@main/common/utils/contact-reachability';
 import { makeMailRules } from '@main/common/utils/contact-validation';
 import { saveContactAvatar } from '@main/common/utils/contact-avatar';
@@ -89,8 +88,6 @@ export function useContact() {
   const contactIdFromURL = computed(() => route.params.id as string);
   const isUserAddress = computed(() => contact.value?.id === user.value || contact.value?.mail === user.value);
 
-  const { connectivityStatus } = useConnectivityStatus();
-
   const contactSettings = computed(() => contact.value?.settings || ({} as PersonSettings));
 
   /**
@@ -102,13 +99,7 @@ export function useContact() {
    * the user types, which used to be enough to enable the buttons for something
    * the other apps have no record of.
    */
-  const canReachOtherApps = computed(
-    () =>
-      connectivityStatus.value === 'online' &&
-      !!contact.value?.mail &&
-      !isUserAddress.value &&
-      !isContactNew.value,
-  );
+  const canReachOtherApps = computed(() => !!contact.value?.mail && !isUserAddress.value && !isContactNew.value);
 
   /**
    * Keys are looked up for an existing correspondent, so there is nothing to

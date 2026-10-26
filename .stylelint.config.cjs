@@ -13,6 +13,7 @@ module.exports = {
     'selector-class-pattern': null,
     'alpha-value-notation': 'number',
     'import-notation': 'string',
+    'scss/load-no-partial-leading-underscore': null,
     'media-feature-name-no-unknown': [
       true,
       {
