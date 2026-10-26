@@ -265,9 +265,11 @@ export const fr = {
     },
   },
   qrcode: {
+    'share-qr-title': 'Partager',
     'save-dialog-title': 'Enregistrer le code QR',
     'save-dialog-button': 'Sauve-moi',
     'save-qr-tooltip': 'Enregistrer / Télécharger le code QR',
+    'share-qr-tooltip': 'Partager le code QR',
     'copy-link-tooltip': 'Copier le lien',
     'copy-link-text': 'Lien copié',
     'save-success': 'Code QR enregistré avec succès',

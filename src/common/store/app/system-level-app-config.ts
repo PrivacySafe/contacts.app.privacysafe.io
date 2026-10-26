@@ -20,6 +20,7 @@ import { toRO } from '@main/common/utils/readonly';
 import { SystemSettings, getActiveTheme } from '@main/common/services/ui-settings';
 import { blobFromDataURL } from '@main/common/utils/image-files';
 import type { AppConfig, AvailableLanguage } from '@main/types';
+import { useI18n } from 'vue-i18n';
 
 export function useSystemLevelAppConfig() {
   const appVersion = ref<string>('');
@@ -27,9 +28,11 @@ export function useSystemLevelAppConfig() {
   const lang = ref<AvailableLanguage>('en');
   const colorTheme = ref<ThemeId>('dark');
   const customLogoSrc = ref<string>();
+  const { locale } = useI18n();
 
   function setLang(value: AvailableLanguage) {
     lang.value = value;
+    locale.value = value;
   }
 
   function setColorTheme(theme: ThemeId) {

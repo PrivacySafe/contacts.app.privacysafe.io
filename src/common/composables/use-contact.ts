@@ -474,7 +474,7 @@ export function useContact() {
     await dialog.$openDialog(ShareQrDialog, {
       contactData: contactData,
       dialogProps: {
-        title: 'Sharing',
+        title: t('qrcode.share-qr-title'),
         confirmButton: false,
         cancelButton: false,
         closeOnClickOverlay: true,

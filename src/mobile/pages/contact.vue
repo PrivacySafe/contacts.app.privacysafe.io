@@ -353,7 +353,7 @@
           :contact-data="contact"
           :dialog-props="{
             cssStyle: { maxWidth: '100%', width: '100%' },
-            title: 'Sharing',
+            title: t('qrcode.share-qr-title'),
             confirmButton: false,
             cancelButton: false,
           }"

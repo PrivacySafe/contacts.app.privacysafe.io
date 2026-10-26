@@ -235,7 +235,7 @@
         </ui3n-tooltip>
 
         <ui3n-tooltip
-          content="Share QR"
+          :content="t('qrcode.share-qr-tooltip')"
           position-strategy="fixed"
           placement="top"
         >
